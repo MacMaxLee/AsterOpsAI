@@ -28,6 +28,12 @@ const BACKED_OFF_INTERVAL: Duration = Duration::from_secs(5);
 #[cfg(target_os = "linux")]
 const PROCESS_DEVICE_REFRESH_EVERY_N_TICKS: u64 = 5;
 
+/// Persisting every 1s tick would mean 604,800 raw rows per family over the
+/// 7-day retention window — real volume, decoupled here from the API-facing
+/// 1s live-snapshot cadence, which is unaffected (unit U2 requirement 2).
+#[cfg(target_os = "linux")]
+const PERSIST_EVERY_N_TICKS: u64 = 10;
+
 #[cfg(target_os = "linux")]
 mod linux_impl {
     use std::collections::HashSet;
@@ -275,15 +281,37 @@ mod linux_impl {
 }
 
 #[cfg(target_os = "linux")]
-pub fn spawn(_platform: Arc<dyn platform::PlatformAdapter>) -> Arc<RwLock<HostTelemetrySnapshot>> {
+pub fn spawn(
+    _platform: Arc<dyn platform::PlatformAdapter>,
+    repository: Option<ai_ops_core::repository::RepositoryHandle>,
+) -> Arc<RwLock<HostTelemetrySnapshot>> {
     let mut sampler = linux_impl::HostTelemetrySampler::new();
-    let snapshot = Arc::new(RwLock::new(sampler.tick()));
+    let first = sampler.tick();
+    if let Some(repo) = &repository {
+        ai_ops_core::repository::try_persist_telemetry_snapshot(
+            repo,
+            super::persist::snapshot_to_row(&first),
+        );
+    }
+    let snapshot = Arc::new(RwLock::new(first));
 
     let shared = snapshot.clone();
     tokio::spawn(async move {
+        let mut tick_count: u64 = 0;
         loop {
             tokio::time::sleep(sampler.interval).await;
             let value = sampler.tick();
+
+            tick_count += 1;
+            if let Some(repo) = &repository {
+                if tick_count.is_multiple_of(PERSIST_EVERY_N_TICKS) {
+                    ai_ops_core::repository::try_persist_telemetry_snapshot(
+                        repo,
+                        super::persist::snapshot_to_row(&value),
+                    );
+                }
+            }
+
             *shared.write().await = value;
         }
     });
@@ -292,7 +320,10 @@ pub fn spawn(_platform: Arc<dyn platform::PlatformAdapter>) -> Arc<RwLock<HostTe
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn spawn(_platform: Arc<dyn platform::PlatformAdapter>) -> Arc<RwLock<HostTelemetrySnapshot>> {
+pub fn spawn(
+    _platform: Arc<dyn platform::PlatformAdapter>,
+    _repository: Option<ai_ops_core::repository::RepositoryHandle>,
+) -> Arc<RwLock<HostTelemetrySnapshot>> {
     Arc::new(RwLock::new(HostTelemetrySnapshot::unavailable(
         "host telemetry not implemented on this platform yet, see unit U12",
     )))

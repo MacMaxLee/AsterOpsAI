@@ -3,6 +3,7 @@
 
 pub mod cpu;
 pub mod device;
+pub mod history;
 pub mod memory;
 pub mod metric_value;
 pub mod network;
@@ -13,6 +14,10 @@ pub mod system_status;
 
 pub use cpu::CpuSnapshot;
 pub use device::{DeviceInfo, DeviceKind, DeviceSnapshot};
+pub use history::{
+    CpuHistoryPoint, HistoryResponse, HistoryStat, HistoryTier, MemoryHistoryPoint,
+    NetworkHistoryPoint, StorageHistoryPoint,
+};
 pub use memory::{MemorySnapshot, NumaNodeMemory};
 pub use metric_value::MetricValue;
 pub use network::{NetworkInterfaceInfo, NetworkSnapshot};

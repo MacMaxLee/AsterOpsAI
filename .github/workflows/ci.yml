@@ -70,22 +70,27 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-no-sql-outside-adapters.sh
 
+  # Native runners, not cross-compiled from ubuntu-latest: unit U2 added
+  # rusqlite's "bundled" feature, which compiles SQLite's C sources via
+  # `cc` in a build script. Cross-compiling that C code from Linux to
+  # MSVC/macOS ABIs needs a real cross toolchain (xwin/osxcross) that
+  # ubuntu-latest doesn't have, so `cargo check --target ...` on ubuntu
+  # fails at the C-compile step, not at anything in our own code. Running
+  # each check on its native OS sidesteps that entirely and is standard
+  # practice once a C dependency enters the graph. macos-latest is an
+  # arm64 (Apple Silicon) runner, matching aarch64-apple-darwin natively.
   check-windows:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --target x86_64-pc-windows-msvc
+      - run: cargo check --workspace
 
   check-macos:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --workspace --target aarch64-apple-darwin
+      - run: cargo check --workspace

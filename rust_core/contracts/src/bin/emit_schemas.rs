@@ -6,8 +6,9 @@
 //! workspace.
 
 use contracts::telemetry::{
-    CpuSnapshot, DeviceSnapshot, MemorySnapshot, MetricValue, NetworkSnapshot, ProcessSnapshot,
-    StorageSnapshot, SystemStatusResponse,
+    CpuHistoryPoint, CpuSnapshot, DeviceSnapshot, HistoryResponse, MemoryHistoryPoint,
+    MemorySnapshot, MetricValue, NetworkHistoryPoint, NetworkSnapshot, ProcessSnapshot,
+    StorageHistoryPoint, StorageSnapshot, SystemStatusResponse,
 };
 use contracts::{ApiError, Capability, Envelope, HealthResponse};
 use schemars::schema_for;
@@ -50,6 +51,21 @@ fn main() -> anyhow::Result<()> {
     write_schema::<MetricValue<f64>>("metric_value_f64")?;
     write_schema::<MetricValue<u64>>("metric_value_u64")?;
     write_schema::<MetricValue<String>>("metric_value_string")?;
+
+    write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
+    write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;
+    write_schema::<HistoryResponse<MemoryHistoryPoint>>("history_response_memory")?;
+    write_schema::<Envelope<HistoryResponse<MemoryHistoryPoint>>>(
+        "envelope_history_response_memory",
+    )?;
+    write_schema::<HistoryResponse<StorageHistoryPoint>>("history_response_storage")?;
+    write_schema::<Envelope<HistoryResponse<StorageHistoryPoint>>>(
+        "envelope_history_response_storage",
+    )?;
+    write_schema::<HistoryResponse<NetworkHistoryPoint>>("history_response_network")?;
+    write_schema::<Envelope<HistoryResponse<NetworkHistoryPoint>>>(
+        "envelope_history_response_network",
+    )?;
 
     Ok(())
 }

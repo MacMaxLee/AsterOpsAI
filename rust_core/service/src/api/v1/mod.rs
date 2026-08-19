@@ -1,6 +1,7 @@
 pub mod cpu;
 pub mod devices;
 pub mod health;
+pub mod history;
 pub mod memory;
 pub mod network;
 pub mod processes;
@@ -22,4 +23,8 @@ pub fn router() -> Router<AppState> {
         .route("/processes", get(processes::processes))
         .route("/devices", get(devices::devices))
         .route("/system/status", get(system_status::system_status))
+        .route("/history/cpu", get(history::cpu_history))
+        .route("/history/memory", get(history::memory_history))
+        .route("/history/storage", get(history::storage_history))
+        .route("/history/network", get(history::network_history))
 }

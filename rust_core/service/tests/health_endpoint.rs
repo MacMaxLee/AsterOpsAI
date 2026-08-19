@@ -15,8 +15,8 @@ async fn health_returns_a_valid_envelope() {
     let platform: Arc<dyn platform::PlatformAdapter> =
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
-    let host_telemetry = telemetry::sampler::spawn(platform.clone());
-    let state = AppState::new(platform, self_metrics, host_telemetry);
+    let host_telemetry = telemetry::sampler::spawn(platform.clone(), None);
+    let state = AppState::new(platform, self_metrics, host_telemetry, None);
     let app = api::router(state);
 
     let request = Request::builder()

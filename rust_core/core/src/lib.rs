@@ -3,8 +3,14 @@
 //! (docs/TRS.md §3).
 //!
 //! **Naming note:** this package is named `core` per TRS §3, which collides
-//! with Rust's own sysroot `core` crate. Any future dependent must import it
-//! under an alias to avoid an ambiguous bare `core::…` path:
+//! with Rust's own sysroot `core` crate. The fix lives in `Cargo.toml`'s
+//! `[lib] name = "ai_ops_core"` — the on-disk package/directory stays
+//! `core`, but the compiled library's own crate name is `ai_ops_core`
+//! everywhere: dependents import it as such, and (just as importantly) this
+//! crate's own `tests/*.rs` integration tests and doctests — which Cargo
+//! compiles as separate binaries that self-`--extern` the crate under its
+//! own name — no longer shadow the sysroot `core` inside those binaries
+//! either. Any future dependent imports it explicitly:
 //!
 //! ```toml
 //! # in a dependent crate's Cargo.toml
@@ -22,3 +28,7 @@
 // cross-target `cargo check` for Windows/macOS stays trivial (unit U1).
 #[cfg(target_os = "linux")]
 pub mod telemetry;
+
+// SQLite persistence works identically on every platform — NOT gated,
+// unlike `telemetry` above (unit U2).
+pub mod repository;

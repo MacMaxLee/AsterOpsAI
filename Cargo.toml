@@ -25,10 +25,22 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "fs"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "fs", "sync"] }
 tower = "0.5"
 tower-http = { version = "0.5", features = ["trace"] }
 libc = "0.2"
+# Pinned together deliberately: refinery 0.9's rusqlite integration and
+# r2d2_sqlite both bind to a specific rusqlite version via Cargo's `links`
+# uniqueness constraint (only one libsqlite3-sys may be linked per binary).
+# rusqlite 0.39 / r2d2_sqlite 0.34 / refinery 0.9 is the newest mutually
+# compatible triple as of this unit; bumping any one of the three requires
+# re-checking the others resolve together.
+rusqlite = { version = "=0.39.0", features = ["bundled"] }
+refinery = { version = "0.9", features = ["rusqlite"] }
+r2d2 = "0.8"
+r2d2_sqlite = "=0.34.0"
+sha2 = "0.10"
+clap = { version = "4", features = ["derive"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

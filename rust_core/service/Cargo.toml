@@ -29,9 +29,12 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["server", "tokio", "service"] }
+clap = { workspace = true }
+rusqlite = { workspace = true }
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
+tempfile = "3"
 
 [lints]
 workspace = true

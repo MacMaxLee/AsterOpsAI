@@ -7,22 +7,39 @@ license.workspace = true
 
 [lib]
 path = "src/lib.rs"
-# Doctests specifically break for a crate literally named "core": rustdoc's
-# doctest harness self-`--extern`s the crate under its own package name to
-# make its API available to doc examples, which shadows the sysroot `core`
-# inside this crate's own compilation and breaks any `::core::...`-emitting
-# derive macro (e.g. thiserror::Error on TelemetryError). See the naming
-# note in src/lib.rs and docs/adr/0003-workspace-layout-four-crates.md.
-doctest = false
+# The package/directory stays "core" (TRS §3), but the compiled library's
+# own crate name is set to "ai_ops_core" here — this is the root fix for
+# the "core" vs. sysroot `core` collision (see src/lib.rs's naming note and
+# docs/adr/0003-workspace-layout-four-crates.md), not just a workaround for
+# one symptom. Without it, both this crate's own doctests AND its own
+# `tests/*.rs` integration tests are compiled as a separate binary that
+# Cargo self-`--extern`s under the package name "core" — shadowing the
+# sysroot `core` inside that binary and breaking any macro-generated code
+# that emits `::core::...` paths (thiserror's derive, tokio::test's
+# expansion, etc.). Dependents are unaffected either way — the extern name
+# a dependent uses is governed by its own Cargo.toml dependency key (see
+# `service`'s `ai_ops_core = { package = "core", path = "../core" }`), not
+# by this field.
+name = "ai_ops_core"
 
 [dependencies]
 contracts = { path = "../contracts" }
 platform = { path = "../platform" }
 chrono = { workspace = true }
 thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+rusqlite = { workspace = true }
+refinery = { workspace = true }
+sha2 = { workspace = true }
+r2d2 = { workspace = true }
+r2d2_sqlite = { workspace = true }
 
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
+tempfile = "3"
 
 [lints]
 workspace = true

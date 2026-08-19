@@ -3,6 +3,7 @@
 //! not itself platform-gated; only [`sampler::spawn`] has a real (Linux) and
 //! a stub (everywhere else) implementation.
 
+pub mod persist;
 pub mod sampler;
 
 use std::collections::BTreeMap;
