@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use service::{api, self_metrics, state::AppState};
+use service::{api, self_metrics, state::AppState, telemetry};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -9,7 +9,8 @@ async fn main() -> anyhow::Result<()> {
     let platform: Arc<dyn platform::PlatformAdapter> =
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
-    let state = AppState::new(platform, self_metrics);
+    let host_telemetry = telemetry::sampler::spawn(platform.clone());
+    let state = AppState::new(platform, self_metrics, host_telemetry);
     let app = api::router(state);
 
     #[cfg(unix)]

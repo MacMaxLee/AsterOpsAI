@@ -1,0 +1,293 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Envelope_for_NetworkSnapshot",
+  "description": "Every API response is wrapped in this envelope: `{success, timestamp, request_id, data, error}`. Exactly one of `data`/`error` is populated, matching `success`.",
+  "type": "object",
+  "required": [
+    "request_id",
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/NetworkSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "ApiError": {
+      "description": "Closed, wire-facing error type. Every API error response carries exactly one of these variants — never a bare string — so clients can branch on `code` exhaustively instead of pattern-matching on message text.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "BAD_REQUEST"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NOT_FOUND"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INTERNAL"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "MetricValue_for_double": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "NetworkInterfaceInfo": {
+      "type": "object",
+      "required": [
+        "name",
+        "rx_bytes_per_sec",
+        "rx_drops_per_sec",
+        "rx_errors_per_sec",
+        "rx_packets_per_sec",
+        "tx_bytes_per_sec",
+        "tx_drops_per_sec",
+        "tx_errors_per_sec",
+        "tx_packets_per_sec"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rx_bytes_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "rx_drops_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "rx_errors_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "rx_packets_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "tx_bytes_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "tx_drops_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "tx_errors_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "tx_packets_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        }
+      }
+    },
+    "NetworkSnapshot": {
+      "type": "object",
+      "required": [
+        "interfaces",
+        "timestamp"
+      ],
+      "properties": {
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/NetworkInterfaceInfo"
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

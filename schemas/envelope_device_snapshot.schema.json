@@ -1,0 +1,205 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Envelope_for_DeviceSnapshot",
+  "description": "Every API response is wrapped in this envelope: `{success, timestamp, request_id, data, error}`. Exactly one of `data`/`error` is populated, matching `success`.",
+  "type": "object",
+  "required": [
+    "request_id",
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/DeviceSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "ApiError": {
+      "description": "Closed, wire-facing error type. Every API error response carries exactly one of these variants — never a bare string — so clients can branch on `code` exhaustively instead of pattern-matching on message text.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "BAD_REQUEST"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NOT_FOUND"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INTERNAL"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "DeviceInfo": {
+      "type": "object",
+      "required": [
+        "identifier",
+        "kind",
+        "name",
+        "removable",
+        "trusted"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/DeviceKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "removable": {
+          "type": "boolean"
+        },
+        "trusted": {
+          "description": "Whether this device was already known to the service before this observation. Ephemeral — an in-process set that resets on service restart until unit U2 adds real persistence; not a design flaw.",
+          "type": "boolean"
+        }
+      }
+    },
+    "DeviceKind": {
+      "type": "string",
+      "enum": [
+        "BLOCK_STORAGE",
+        "REMOVABLE_STORAGE"
+      ]
+    },
+    "DeviceSnapshot": {
+      "type": "object",
+      "required": [
+        "devices",
+        "timestamp"
+      ],
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DeviceInfo"
+          }
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    }
+  }
+}

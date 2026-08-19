@@ -1,0 +1,51 @@
+---
+source: rust_core/core/src/telemetry/memory.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "total_bytes": {
+    "state": "SUPPORTED",
+    "value": 4081504256
+  },
+  "used_bytes": {
+    "state": "SUPPORTED",
+    "value": 1706418176
+  },
+  "available_bytes": {
+    "state": "SUPPORTED",
+    "value": 2375086080
+  },
+  "cached_bytes": {
+    "state": "SUPPORTED",
+    "value": 1892798464
+  },
+  "buffers_bytes": {
+    "state": "SUPPORTED",
+    "value": 99483648
+  },
+  "swap_total_bytes": {
+    "state": "SUPPORTED",
+    "value": 4088393728
+  },
+  "swap_used_bytes": {
+    "state": "SUPPORTED",
+    "value": 1061412864
+  },
+  "swap_free_bytes": {
+    "state": "SUPPORTED",
+    "value": 3026980864
+  },
+  "pressure": "ELEVATED",
+  "containerized": false,
+  "numa_nodes": {
+    "state": "SUPPORTED",
+    "value": [
+      {
+        "node_id": 0,
+        "total_bytes": 4081504256,
+        "free_bytes": 550998016
+      }
+    ]
+  }
+}

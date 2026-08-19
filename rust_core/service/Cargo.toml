@@ -15,6 +15,7 @@ path = "src/main.rs"
 [dependencies]
 contracts = { path = "../contracts" }
 platform = { path = "../platform" }
+ai_ops_core = { package = "core", path = "../core" }
 axum = { workspace = true }
 tokio = { workspace = true }
 tower = { workspace = true }

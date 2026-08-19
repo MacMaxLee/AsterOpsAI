@@ -1,0 +1,79 @@
+---
+source: rust_core/core/src/telemetry/network.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "interfaces": [
+    {
+      "name": "lo",
+      "rx_bytes_per_sec": {
+        "state": "SUPPORTED",
+        "value": 128.0
+      },
+      "tx_bytes_per_sec": {
+        "state": "SUPPORTED",
+        "value": 128.0
+      },
+      "rx_packets_per_sec": {
+        "state": "SUPPORTED",
+        "value": 2.0
+      },
+      "tx_packets_per_sec": {
+        "state": "SUPPORTED",
+        "value": 2.0
+      },
+      "rx_errors_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "tx_errors_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "rx_drops_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "tx_drops_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      }
+    },
+    {
+      "name": "enp0s5",
+      "rx_bytes_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 422443729 to 5120"
+      },
+      "tx_bytes_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 350572144 to 4096"
+      },
+      "rx_packets_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 612326 to 40"
+      },
+      "tx_packets_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 227245 to 30"
+      },
+      "rx_errors_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "tx_errors_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "rx_drops_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      },
+      "tx_drops_per_sec": {
+        "state": "SUPPORTED",
+        "value": 0.0
+      }
+    }
+  ]
+}

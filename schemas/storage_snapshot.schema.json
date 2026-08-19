@@ -1,0 +1,235 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "StorageSnapshot",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "volumes"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/VolumeInfo"
+      }
+    }
+  },
+  "definitions": {
+    "MetricValue_for_double": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "MetricValue_for_uint64": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "VolumeInfo": {
+      "type": "object",
+      "required": [
+        "available_bytes",
+        "capacity_bytes",
+        "device",
+        "filesystem",
+        "free_bytes",
+        "io_latency_ms",
+        "mount_point",
+        "read_bytes_per_sec",
+        "read_ops_per_sec",
+        "write_bytes_per_sec",
+        "write_ops_per_sec"
+      ],
+      "properties": {
+        "available_bytes": {
+          "$ref": "#/definitions/MetricValue_for_uint64"
+        },
+        "capacity_bytes": {
+          "$ref": "#/definitions/MetricValue_for_uint64"
+        },
+        "device": {
+          "type": "string"
+        },
+        "filesystem": {
+          "type": "string"
+        },
+        "free_bytes": {
+          "$ref": "#/definitions/MetricValue_for_uint64"
+        },
+        "io_latency_ms": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "mount_point": {
+          "type": "string"
+        },
+        "read_bytes_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "read_ops_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "write_bytes_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        },
+        "write_ops_per_sec": {
+          "$ref": "#/definitions/MetricValue_for_double"
+        }
+      }
+    }
+  }
+}

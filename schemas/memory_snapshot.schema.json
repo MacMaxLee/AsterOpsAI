@@ -1,0 +1,268 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MemorySnapshot",
+  "type": "object",
+  "required": [
+    "available_bytes",
+    "buffers_bytes",
+    "cached_bytes",
+    "containerized",
+    "numa_nodes",
+    "pressure",
+    "swap_free_bytes",
+    "swap_total_bytes",
+    "swap_used_bytes",
+    "timestamp",
+    "total_bytes",
+    "used_bytes"
+  ],
+  "properties": {
+    "available_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "buffers_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "cached_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "containerized": {
+      "type": "boolean"
+    },
+    "numa_nodes": {
+      "$ref": "#/definitions/MetricValue_for_Array_of_NumaNodeMemory"
+    },
+    "pressure": {
+      "$ref": "#/definitions/MemoryPressure"
+    },
+    "swap_free_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "swap_total_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "swap_used_bytes": {
+      "$ref": "#/definitions/MetricValue_for_uint64"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "total_bytes": {
+      "description": "Host total, or the cgroup v2 memory ceiling when `containerized`.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/MetricValue_for_uint64"
+        }
+      ]
+    },
+    "used_bytes": {
+      "description": "`total_bytes - available_bytes`.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/MetricValue_for_uint64"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "MemoryPressure": {
+      "description": "Deterministic memory pressure tier. Thresholds are documented in docs/adr/0006-pressure-classification-thresholds.md — SRS FR-MEM-001 requires this classification but pins no exact numbers.",
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "MetricValue_for_Array_of_NumaNodeMemory": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/NumaNodeMemory"
+              }
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "MetricValue_for_uint64": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "NumaNodeMemory": {
+      "type": "object",
+      "required": [
+        "free_bytes",
+        "node_id",
+        "total_bytes"
+      ],
+      "properties": {
+        "free_bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "node_id": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "total_bytes": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        }
+      }
+    }
+  }
+}

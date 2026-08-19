@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemStatusResponse",
+  "type": "object",
+  "required": [
+    "capabilities",
+    "containerized",
+    "cpu_pressure",
+    "memory_pressure",
+    "sample_interval_ms",
+    "timestamp",
+    "uptime_seconds"
+  ],
+  "properties": {
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Capability"
+      }
+    },
+    "containerized": {
+      "type": "boolean"
+    },
+    "cpu_pressure": {
+      "$ref": "#/definitions/CpuPressure"
+    },
+    "memory_pressure": {
+      "$ref": "#/definitions/MemoryPressure"
+    },
+    "sample_interval_ms": {
+      "description": "The host telemetry sampler's current tick interval — 1000ms normally, backed off to 5000ms under HIGH/CRITICAL CPU pressure.",
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "uptime_seconds": {
+      "type": "integer",
+      "format": "uint64",
+      "minimum": 0.0
+    }
+  },
+  "definitions": {
+    "Capability": {
+      "description": "A metric family's ability level. Every non-`Supported` variant carries a human-readable reason — the server never reports a fabricated zero in place of data it genuinely doesn't have (SRS FR-CAP-001).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "LIMITED"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "CpuPressure": {
+      "description": "Deterministic CPU pressure tier, parallel to `MemoryPressure`. Drives the host telemetry sampler's back-off (unit U1 requirement 8). Thresholds documented alongside memory's in ADR 0006.",
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "MemoryPressure": {
+      "description": "Deterministic memory pressure tier. Thresholds are documented in docs/adr/0006-pressure-classification-thresholds.md — SRS FR-MEM-001 requires this classification but pins no exact numbers.",
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}

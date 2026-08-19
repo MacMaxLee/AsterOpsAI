@@ -1,0 +1,823 @@
+---
+source: rust_core/core/src/telemetry/storage.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "volumes": [
+    {
+      "device": "8:2",
+      "mount_point": "/",
+      "filesystem": "ext4",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:0",
+      "mount_point": "/snap/bare/5",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:1",
+      "mount_point": "/snap/chromium/3506",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:2",
+      "mount_point": "/snap/core22/2049",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:3",
+      "mount_point": "/snap/core22/2086",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:5",
+      "mount_point": "/snap/core24/1644",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:4",
+      "mount_point": "/snap/firefox/6563",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:6",
+      "mount_point": "/snap/cups/1237",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:7",
+      "mount_point": "/snap/firefox/6696",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:8",
+      "mount_point": "/snap/gnome-46-2404/154",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:9",
+      "mount_point": "/snap/gnome-42-2204/201",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:10",
+      "mount_point": "/snap/gtk-common-themes/1535",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:11",
+      "mount_point": "/snap/snapd/25205",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:12",
+      "mount_point": "/snap/snap-store/1271",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:13",
+      "mount_point": "/snap/mesa-2404/1836",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:15",
+      "mount_point": "/snap/snapd/27709",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "7:14",
+      "mount_point": "/snap/snapd-desktop-integration/316",
+      "filesystem": "squashfs",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "8:1",
+      "mount_point": "/boot/efi",
+      "filesystem": "vfat",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "0:46",
+      "mount_point": "/media/psf/Crucial1TB",
+      "filesystem": "fuse.prl_fsd",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "0:60",
+      "mount_point": "/media/psf/iCloud",
+      "filesystem": "fuse.prl_fsd",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "0:57",
+      "mount_point": "/run/user/1000/doc",
+      "filesystem": "fuse.portal",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "device": "0:58",
+      "mount_point": "/run/user/1000/gvfs",
+      "filesystem": "fuse.gvfsd-fuse",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "read_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "write_ops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "io_latency_ms": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    }
+  ]
+}

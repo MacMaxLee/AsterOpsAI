@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CpuSnapshot",
+  "type": "object",
+  "required": [
+    "aggregate_utilization_percent",
+    "containerized",
+    "context_switches_per_sec",
+    "frequency_mhz",
+    "interrupts_per_sec",
+    "load_average_15m",
+    "load_average_1m",
+    "load_average_5m",
+    "logical_core_count",
+    "per_core_utilization_percent",
+    "pressure",
+    "timestamp"
+  ],
+  "properties": {
+    "aggregate_utilization_percent": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "containerized": {
+      "type": "boolean"
+    },
+    "context_switches_per_sec": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "frequency_mhz": {
+      "description": "Index `i` is core `i`. `Unavailable` on hosts without cpufreq exposure (e.g. many VMs) — never a fabricated value.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/MetricValue_for_double"
+      }
+    },
+    "interrupts_per_sec": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "load_average_15m": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "load_average_1m": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "load_average_5m": {
+      "$ref": "#/definitions/MetricValue_for_double"
+    },
+    "logical_core_count": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0.0
+    },
+    "per_core_utilization_percent": {
+      "description": "Index `i` is core `i`.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/MetricValue_for_double"
+      }
+    },
+    "pressure": {
+      "$ref": "#/definitions/CpuPressure"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "CpuPressure": {
+      "description": "Deterministic CPU pressure tier, parallel to `MemoryPressure`. Drives the host telemetry sampler's back-off (unit U1 requirement 8). Thresholds documented alongside memory's in ADR 0006.",
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "MetricValue_for_double": {
+      "description": "A single telemetry number, tagged with why it might not be a plain value. Used for both genuine rates (CPU%, network throughput) and point-in-time gauges (memory used, disk free) — gauges simply never produce the `SampleGap`/`CounterReset` variants. Deliberately separate from `SelfMetricValue<T>` (U0's service self-monitoring type); unifying the two is a candidate for a later cleanup unit, not this one.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        {
+          "description": "Elapsed time between samples exceeded 2x the configured sample interval — a rate computed across that gap would be misleading.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "SAMPLE_GAP"
+              ]
+            }
+          }
+        },
+        {
+          "description": "The underlying counter decreased between samples (NIC reinit, process restart, etc.) — never reported as a negative rate.",
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "COUNTER_RESET"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

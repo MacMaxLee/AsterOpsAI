@@ -1,0 +1,54 @@
+---
+source: rust_core/core/src/telemetry/cpu.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "logical_core_count": 2,
+  "aggregate_utilization_percent": {
+    "state": "UNAVAILABLE",
+    "reason": "insufficient samples yet"
+  },
+  "per_core_utilization_percent": [
+    {
+      "state": "UNAVAILABLE",
+      "reason": "insufficient samples yet"
+    },
+    {
+      "state": "UNAVAILABLE",
+      "reason": "insufficient samples yet"
+    }
+  ],
+  "frequency_mhz": [
+    {
+      "state": "UNAVAILABLE",
+      "reason": "cpufreq not exposed on this host"
+    },
+    {
+      "state": "UNAVAILABLE",
+      "reason": "cpufreq not exposed on this host"
+    }
+  ],
+  "load_average_1m": {
+    "state": "SUPPORTED",
+    "value": 0.53
+  },
+  "load_average_5m": {
+    "state": "SUPPORTED",
+    "value": 0.49
+  },
+  "load_average_15m": {
+    "state": "SUPPORTED",
+    "value": 0.36
+  },
+  "context_switches_per_sec": {
+    "state": "UNAVAILABLE",
+    "reason": "insufficient samples yet"
+  },
+  "interrupts_per_sec": {
+    "state": "UNAVAILABLE",
+    "reason": "insufficient samples yet"
+  },
+  "pressure": "NORMAL",
+  "containerized": true
+}

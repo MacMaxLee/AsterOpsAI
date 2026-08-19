@@ -7,7 +7,7 @@ use std::sync::Arc;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use contracts::Envelope;
-use service::{api, self_metrics, state::AppState};
+use service::{api, self_metrics, state::AppState, telemetry};
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -15,7 +15,8 @@ async fn health_returns_a_valid_envelope() {
     let platform: Arc<dyn platform::PlatformAdapter> =
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
-    let state = AppState::new(platform, self_metrics);
+    let host_telemetry = telemetry::sampler::spawn(platform.clone());
+    let state = AppState::new(platform, self_metrics, host_telemetry);
     let app = api::router(state);
 
     let request = Request::builder()

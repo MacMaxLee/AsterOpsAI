@@ -8,6 +8,7 @@ pub mod middleware;
 pub mod response;
 pub mod self_metrics;
 pub mod state;
+pub mod telemetry;
 pub mod transport;
 
 pub use state::AppState;

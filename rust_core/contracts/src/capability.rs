@@ -35,11 +35,18 @@ pub enum CapabilityFamily {
 
 /// Single source of truth for what this build can currently report,
 /// consumed identically by the server and by generated documentation (TRS
-/// §5, SRS FR-CAP-002). Every family starts `Unavailable` in unit U0 since no
-/// telemetry, DBMS, or action logic exists yet; later units populate real
-/// values as each capability is implemented.
+/// §5, SRS FR-CAP-002). Families implemented on the current OS start
+/// `Supported`; everything else (DBMS, security, actions — later units — and
+/// every family on a platform without a real implementation yet) starts
+/// `Unavailable`.
 pub fn default_capability_registry() -> BTreeMap<CapabilityFamily, Capability> {
     use CapabilityFamily::*;
+    let implemented_on_this_platform: &[CapabilityFamily] = if cfg!(target_os = "linux") {
+        &[Cpu, Memory, Storage, Network, Process, Device]
+    } else {
+        &[]
+    };
+
     [
         Cpu,
         Memory,
@@ -54,12 +61,14 @@ pub fn default_capability_registry() -> BTreeMap<CapabilityFamily, Capability> {
     ]
     .into_iter()
     .map(|family| {
-        (
-            family,
+        let capability = if implemented_on_this_platform.contains(&family) {
+            Capability::Supported
+        } else {
             Capability::Unavailable {
                 reason: "not implemented until a later unit".to_string(),
-            },
-        )
+            }
+        };
+        (family, capability)
     })
     .collect()
 }

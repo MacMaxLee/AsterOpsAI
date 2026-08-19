@@ -1,0 +1,79 @@
+---
+source: rust_core/core/src/telemetry/network.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "interfaces": [
+    {
+      "name": "lo",
+      "rx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_packets_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_packets_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_errors_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_errors_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_drops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_drops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    },
+    {
+      "name": "enp0s5",
+      "rx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_packets_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_packets_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_errors_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_errors_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rx_drops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "tx_drops_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      }
+    }
+  ]
+}

@@ -11,6 +11,7 @@ pub mod capability;
 pub mod envelope;
 pub mod error;
 pub mod health;
+pub mod telemetry;
 
 pub use capability::{default_capability_registry, Capability, CapabilityFamily};
 pub use envelope::Envelope;

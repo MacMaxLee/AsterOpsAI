@@ -1,0 +1,138 @@
+---
+source: rust_core/core/src/telemetry/process.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "total_count": 3,
+  "processes": [
+    {
+      "pid": 1,
+      "start_time_ticks": 1,
+      "comm": "systemd",
+      "cmdline": {
+        "state": "SUPPORTED",
+        "value": "/sbin/init splash"
+      },
+      "owner_uid": 0,
+      "cpu_percent": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rss_bytes": {
+        "state": "SUPPORTED",
+        "value": 10686464
+      },
+      "category": "SYSTEM",
+      "disk_io_capability": {
+        "state": "PERMISSION_REQUIRED",
+        "reason": "process not owned by this service; /proc/[pid]/io requires the same uid or root"
+      },
+      "disk_read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "permission required"
+      },
+      "disk_write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "permission required"
+      },
+      "network_io_capability": {
+        "state": "UNAVAILABLE",
+        "reason": "per-process network attribution requires eBPF/cgroup net-cls, not available via /proc on Linux"
+      },
+      "network_rx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      },
+      "network_tx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      }
+    },
+    {
+      "pid": 2,
+      "start_time_ticks": 1,
+      "comm": "kthreadd",
+      "cmdline": {
+        "state": "UNAVAILABLE",
+        "reason": "empty cmdline (likely a kernel thread)"
+      },
+      "owner_uid": 0,
+      "cpu_percent": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rss_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "VmRSS not present in /proc/[pid]/status"
+      },
+      "category": "SYSTEM",
+      "disk_io_capability": {
+        "state": "PERMISSION_REQUIRED",
+        "reason": "process not owned by this service; /proc/[pid]/io requires the same uid or root"
+      },
+      "disk_read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "permission required"
+      },
+      "disk_write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "permission required"
+      },
+      "network_io_capability": {
+        "state": "UNAVAILABLE",
+        "reason": "per-process network attribution requires eBPF/cgroup net-cls, not available via /proc on Linux"
+      },
+      "network_rx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      },
+      "network_tx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      }
+    },
+    {
+      "pid": 105582,
+      "start_time_ticks": 2780137,
+      "comm": "bash",
+      "cmdline": {
+        "state": "SUPPORTED",
+        "value": "bash"
+      },
+      "owner_uid": 1000,
+      "cpu_percent": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "rss_bytes": {
+        "state": "SUPPORTED",
+        "value": 3493888
+      },
+      "category": "USER_APPLICATION",
+      "disk_io_capability": {
+        "state": "SUPPORTED"
+      },
+      "disk_read_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "disk_write_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "insufficient samples yet"
+      },
+      "network_io_capability": {
+        "state": "UNAVAILABLE",
+        "reason": "per-process network attribution requires eBPF/cgroup net-cls, not available via /proc on Linux"
+      },
+      "network_rx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      },
+      "network_tx_bytes_per_sec": {
+        "state": "UNAVAILABLE",
+        "reason": "not available on Linux via /proc"
+      }
+    }
+  ]
+}

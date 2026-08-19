@@ -7,10 +7,22 @@ license.workspace = true
 
 [lib]
 path = "src/lib.rs"
+# Doctests specifically break for a crate literally named "core": rustdoc's
+# doctest harness self-`--extern`s the crate under its own package name to
+# make its API available to doc examples, which shadows the sysroot `core`
+# inside this crate's own compilation and breaks any `::core::...`-emitting
+# derive macro (e.g. thiserror::Error on TelemetryError). See the naming
+# note in src/lib.rs and docs/adr/0003-workspace-layout-four-crates.md.
+doctest = false
 
 [dependencies]
-# Intentionally empty in U0 — contracts/platform become real dependency
-# edges when U1 first needs them.
+contracts = { path = "../contracts" }
+platform = { path = "../platform" }
+chrono = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+insta = { version = "1", features = ["json"] }
 
 [lints]
 workspace = true

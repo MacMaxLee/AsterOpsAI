@@ -1,8 +1,13 @@
 pub mod exec;
+pub mod proc_source;
+pub mod storage;
 
 use std::time::Duration;
 
 use crate::{adapter::ProcessSelfMetrics, error::CapabilityError, PlatformAdapter};
+
+pub use proc_source::{ProcSource, RealProcSource};
+pub use storage::{volume_capacity, VolumeCapacity};
 
 pub struct LinuxPlatformAdapter;
 

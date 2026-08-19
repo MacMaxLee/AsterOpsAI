@@ -1,7 +1,6 @@
 //! `core` — telemetry parsing, persistence, performance analysis,
 //! correlation, policy, actions, AI integration, and security detection
-//! (docs/TRS.md §3). Intentionally empty in unit U0; the first real modules
-//! land in U1.
+//! (docs/TRS.md §3).
 //!
 //! **Naming note:** this package is named `core` per TRS §3, which collides
 //! with Rust's own sysroot `core` crate. Any future dependent must import it
@@ -17,3 +16,9 @@
 //! ```
 //!
 //! See docs/adr/0003-workspace-layout-four-crates.md.
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
+
+// `/proc`/`/sys` parsing has no meaning off Linux; gated so the CI
+// cross-target `cargo check` for Windows/macOS stays trivial (unit U1).
+#[cfg(target_os = "linux")]
+pub mod telemetry;

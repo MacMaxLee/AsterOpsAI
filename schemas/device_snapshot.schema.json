@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeviceSnapshot",
+  "type": "object",
+  "required": [
+    "devices",
+    "timestamp"
+  ],
+  "properties": {
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/DeviceInfo"
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "DeviceInfo": {
+      "type": "object",
+      "required": [
+        "identifier",
+        "kind",
+        "name",
+        "removable",
+        "trusted"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/DeviceKind"
+        },
+        "name": {
+          "type": "string"
+        },
+        "removable": {
+          "type": "boolean"
+        },
+        "trusted": {
+          "description": "Whether this device was already known to the service before this observation. Ephemeral — an in-process set that resets on service restart until unit U2 adds real persistence; not a design flaw.",
+          "type": "boolean"
+        }
+      }
+    },
+    "DeviceKind": {
+      "type": "string",
+      "enum": [
+        "BLOCK_STORAGE",
+        "REMOVABLE_STORAGE"
+      ]
+    }
+  }
+}

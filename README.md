@@ -1,6 +1,6 @@
 # AsterOpsAI
 
-Status: bootstrapping — unit U0 of 16.
+Status: bootstrapping — unit U1 of 16.
 
 A host + PostgreSQL observability tool: a Rust core service, a thin console
 client, and (v2) a fleet coordinator. Answers "is something wrong?" and "is
@@ -27,6 +27,9 @@ With the service running:
 curl --unix-socket "$XDG_RUNTIME_DIR/ai-ops-coordinator/core.sock" \
   http://localhost/api/v1/health
 ```
+
+On Linux, real host telemetry is also available: `/api/v1/cpu`, `/memory`,
+`/storage`, `/network`, `/processes`, `/devices`, `/system/status`.
 
 ## Test & lint
 
