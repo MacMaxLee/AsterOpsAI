@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Capability",
+  "description": "A metric family's ability level. Every non-`Supported` variant carries a human-readable reason — the server never reports a fabricated zero in place of data it genuinely doesn't have (SRS FR-CAP-001).",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "SUPPORTED"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "LIMITED"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "UNAVAILABLE"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "PERMISSION_REQUIRED"
+          ]
+        }
+      }
+    }
+  ]
+}

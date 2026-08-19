@@ -1,0 +1,38 @@
+[workspace]
+resolver = "2"
+members = [
+    "rust_core/contracts",
+    "rust_core/platform",
+    "rust_core/core",
+    "rust_core/service",
+    # U13 adds: "rust_core/agent", "rust_core/coordinator"
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = { version = "0.8", features = ["chrono", "uuid1"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "fs"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["trace"] }
+libc = "0.2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

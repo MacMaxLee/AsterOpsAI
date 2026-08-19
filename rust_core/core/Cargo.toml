@@ -1,0 +1,16 @@
+[package]
+name = "core"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+# Intentionally empty in U0 — contracts/platform become real dependency
+# edges when U1 first needs them.
+
+[lints]
+workspace = true

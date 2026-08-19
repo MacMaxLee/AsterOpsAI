@@ -1,0 +1,358 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Envelope_for_HealthResponse",
+  "description": "Every API response is wrapped in this envelope: `{success, timestamp, request_id, data, error}`. Exactly one of `data`/`error` is populated, matching `success`.",
+  "type": "object",
+  "required": [
+    "request_id",
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HealthResponse"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "ApiError": {
+      "description": "Closed, wire-facing error type. Every API error response carries exactly one of these variants — never a bare string — so clients can branch on `code` exhaustively instead of pattern-matching on message text.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "BAD_REQUEST"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NOT_FOUND"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INTERNAL"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Capability": {
+      "description": "A metric family's ability level. Every non-`Supported` variant carries a human-readable reason — the server never reports a fabricated zero in place of data it genuinely doesn't have (SRS FR-CAP-001).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "LIMITED"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "HealthResponse": {
+      "description": "Response body for `GET /api/v1/health`.",
+      "type": "object",
+      "required": [
+        "api_version",
+        "arch",
+        "capabilities",
+        "name",
+        "platform",
+        "self_cpu_percent",
+        "self_rss_bytes",
+        "uptime_seconds",
+        "version"
+      ],
+      "properties": {
+        "api_version": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/Capability"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "self_cpu_percent": {
+          "$ref": "#/definitions/SelfMetricValue_for_double"
+        },
+        "self_rss_bytes": {
+          "$ref": "#/definitions/SelfMetricValue_for_uint64"
+        },
+        "uptime_seconds": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "SelfMetricValue_for_double": {
+      "description": "A self-monitoring value that is capability-tagged rather than a bare number, so `/health` stays a valid response on a platform where the underlying metric isn't implemented yet — never a fabricated `0`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "number",
+              "format": "double"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "SelfMetricValue_for_uint64": {
+      "description": "A self-monitoring value that is capability-tagged rather than a bare number, so `/health` stays a valid response on a platform where the underlying metric isn't implemented yet — never a fabricated `0`.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "format": "uint64",
+              "minimum": 0.0
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}
