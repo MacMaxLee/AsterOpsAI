@@ -1,0 +1,112 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "AsterOpsAI Console",
+
+  "navDashboard": "Dashboard",
+  "navCpu": "CPU",
+  "navMemory": "Memory",
+  "navStorage": "Storage",
+  "navNetwork": "Network",
+  "navProcesses": "Processes",
+  "navDevices": "Devices",
+  "navSettings": "Settings",
+
+  "connectionConnecting": "Connecting to core...",
+  "connectionReconnecting": "Reconnecting to core...",
+  "connectionUnavailable": "Core is unavailable",
+  "connectionUnavailableBody": "The AsterOpsAI core service isn't reachable. It may have stopped, or the socket may be missing. The console will keep retrying automatically.",
+  "connectionTimeout": "Core is taking too long to respond",
+  "connectionMalformedPayload": "Received an unexpected response from the core",
+  "connectionRetryNow": "Retry now",
+
+  "upgradeRequiredTitle": "Console update required",
+  "upgradeRequiredBody": "This console speaks API version {consoleVersion}, but the core reports {coreVersion}. They're incompatible — update the console before continuing.",
+  "@upgradeRequiredBody": {
+    "placeholders": {
+      "consoleVersion": { "type": "String" },
+      "coreVersion": { "type": "String" }
+    }
+  },
+
+  "metricStateSampleGapTitle": "Gap in samples",
+  "metricStateSampleGapBody": "Too much time passed since the last sample to compute a reliable rate.",
+  "metricStateCounterResetTitle": "Counter reset",
+  "metricStateCounterResetBody": "The underlying counter decreased since the last sample (e.g. a restart) — no rate is reported for this tick.",
+  "metricStateUnavailableTitle": "Not available",
+  "metricStateLimitedTitle": "Limited",
+  "metricStatePermissionRequiredTitle": "Permission required",
+
+  "settingsSectionRefresh": "Refresh interval",
+  "settingsRefreshOption": "{seconds, plural, one {Every {seconds} second} other {Every {seconds} seconds}}",
+  "@settingsRefreshOption": {
+    "placeholders": {
+      "seconds": { "type": "int" }
+    }
+  },
+  "settingsSectionLanguage": "Language",
+  "settingsLanguageSystemDefault": "System default",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageChineseTraditional": "繁體中文",
+  "settingsSectionAbout": "About",
+  "settingsCoreVersion": "Core version: {version}",
+  "@settingsCoreVersion": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "dashboardSectionCpu": "CPU",
+  "dashboardSectionMemory": "Memory",
+  "dashboardSectionStorage": "Storage",
+  "dashboardSectionNetwork": "Network",
+  "dashboardPressureLabel": "Pressure",
+  "dashboardUptimeLabel": "Uptime: {duration}",
+  "@dashboardUptimeLabel": {
+    "placeholders": {
+      "duration": { "type": "String" }
+    }
+  },
+
+  "cpuAggregateUtilization": "Aggregate utilization",
+  "cpuLoadAverage1m": "Load average (1m)",
+  "cpuLoadAverage5m": "Load average (5m)",
+  "cpuLoadAverage15m": "Load average (15m)",
+  "cpuLogicalCores": "Logical cores",
+  "cpuPerCoreUtilization": "Per-core utilization",
+
+  "memoryUsed": "Used",
+  "memoryAvailable": "Available",
+  "memoryTotal": "Total",
+  "memorySwapUsed": "Swap used",
+
+  "storageVolumeMountPoint": "Mount point",
+  "storageVolumeDevice": "Device",
+  "storageVolumeUsed": "Used",
+  "storageVolumeFree": "Free",
+  "storageVolumeReadRate": "Read/s",
+  "storageVolumeWriteRate": "Write/s",
+
+  "networkInterfaceName": "Interface",
+  "networkRxRate": "Rx/s",
+  "networkTxRate": "Tx/s",
+
+  "processesTotalCount": "{count} processes",
+  "@processesTotalCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "processColumnCommand": "Command",
+  "processColumnPid": "PID",
+  "processColumnCategory": "Category",
+  "processColumnCpu": "CPU %",
+  "processColumnRss": "RSS",
+
+  "deviceColumnName": "Name",
+  "deviceColumnKind": "Kind",
+  "deviceColumnTrusted": "Trusted",
+
+  "genericLoading": "Loading...",
+  "genericEmpty": "Nothing to show"
+}

@@ -1,0 +1,110 @@
+{
+  "@@locale": "zh",
+  "appTitle": "AsterOpsAI 主控台",
+  "navDashboard": "儀表板",
+  "navCpu": "CPU",
+  "navMemory": "記憶體",
+  "navStorage": "儲存空間",
+  "navNetwork": "網路",
+  "navProcesses": "處理程序",
+  "navDevices": "裝置",
+  "navSettings": "設定",
+  "connectionConnecting": "正在連線至核心服務...",
+  "connectionReconnecting": "正在重新連線至核心服務...",
+  "connectionUnavailable": "核心服務無法使用",
+  "connectionUnavailableBody": "無法連線至 AsterOpsAI 核心服務。服務可能已停止，或通訊端點遺失。主控台將持續自動重試。",
+  "connectionTimeout": "核心服務回應逾時",
+  "connectionMalformedPayload": "收到核心服務傳回的非預期回應",
+  "connectionRetryNow": "立即重試",
+  "upgradeRequiredTitle": "需要更新主控台",
+  "upgradeRequiredBody": "此主控台使用 API 版本 {consoleVersion}，但核心服務回報版本為 {coreVersion}，兩者不相容。請先更新主控台再繼續使用。",
+  "@upgradeRequiredBody": {
+    "placeholders": {
+      "consoleVersion": {
+        "type": "String"
+      },
+      "coreVersion": {
+        "type": "String"
+      }
+    }
+  },
+  "metricStateSampleGapTitle": "取樣中斷",
+  "metricStateSampleGapBody": "與上次取樣間隔過長，無法計算可靠的速率。",
+  "metricStateCounterResetTitle": "計數器重設",
+  "metricStateCounterResetBody": "自上次取樣後，底層計數器數值下降（例如服務重新啟動）——此次不回報速率。",
+  "metricStateUnavailableTitle": "無法取得",
+  "metricStateLimitedTitle": "功能受限",
+  "metricStatePermissionRequiredTitle": "需要權限",
+  "settingsSectionRefresh": "更新頻率",
+  "settingsRefreshOption": "每 {seconds} 秒更新一次",
+  "@settingsRefreshOption": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSectionLanguage": "語言",
+  "settingsLanguageSystemDefault": "系統預設",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageChineseTraditional": "繁體中文",
+  "settingsSectionAbout": "關於",
+  "settingsCoreVersion": "核心服務版本：{version}",
+  "@settingsCoreVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardSectionCpu": "CPU",
+  "dashboardSectionMemory": "記憶體",
+  "dashboardSectionStorage": "儲存空間",
+  "dashboardSectionNetwork": "網路",
+  "dashboardPressureLabel": "負載壓力",
+  "dashboardUptimeLabel": "執行時間：{duration}",
+  "@dashboardUptimeLabel": {
+    "placeholders": {
+      "duration": {
+        "type": "String"
+      }
+    }
+  },
+  "cpuAggregateUtilization": "整體使用率",
+  "cpuLoadAverage1m": "負載平均值（1 分鐘）",
+  "cpuLoadAverage5m": "負載平均值（5 分鐘）",
+  "cpuLoadAverage15m": "負載平均值（15 分鐘）",
+  "cpuLogicalCores": "邏輯核心數",
+  "cpuPerCoreUtilization": "各核心使用率",
+  "memoryUsed": "已使用",
+  "memoryAvailable": "可用",
+  "memoryTotal": "總計",
+  "memorySwapUsed": "已使用的置換空間",
+  "storageVolumeMountPoint": "掛載點",
+  "storageVolumeDevice": "裝置",
+  "storageVolumeUsed": "已使用",
+  "storageVolumeFree": "可用空間",
+  "storageVolumeReadRate": "讀取/秒",
+  "storageVolumeWriteRate": "寫入/秒",
+  "networkInterfaceName": "網路介面",
+  "networkRxRate": "接收/秒",
+  "networkTxRate": "傳送/秒",
+  "processesTotalCount": "共 {count} 個處理程序",
+  "@processesTotalCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "processColumnCommand": "指令",
+  "processColumnPid": "PID",
+  "processColumnCategory": "類別",
+  "processColumnCpu": "CPU %",
+  "processColumnRss": "RSS",
+  "deviceColumnName": "名稱",
+  "deviceColumnKind": "類型",
+  "deviceColumnTrusted": "已信任",
+  "genericLoading": "載入中...",
+  "genericEmpty": "沒有可顯示的內容"
+}

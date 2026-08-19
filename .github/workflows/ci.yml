@@ -94,3 +94,55 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
+
+  # Console (unit U3). Only flutter/dart-SDK-level commands run in CI —
+  # `flutter test`/`analyze`/`format` and the model codegen all use a
+  # bundled headless Dart-VM test harness with no native windowing
+  # dependency, so (like check-windows/check-macos above) there's no need
+  # for a real GTK/desktop-embedder toolchain here at all.
+  console-analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: console
+        run: flutter pub get
+      - working-directory: console
+        run: flutter analyze
+
+  console-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: console
+        run: flutter pub get
+      - working-directory: console
+        run: dart format --output=none --set-exit-if-changed .
+
+  console-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: console
+        run: flutter pub get
+      - working-directory: console
+        run: flutter test
+
+  console-codegen-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: console
+        run: flutter pub get
+      - run: bash scripts/check-console-codegen-drift.sh
