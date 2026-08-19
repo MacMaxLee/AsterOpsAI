@@ -25,7 +25,7 @@ anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 axum = "0.7"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "fs", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "fs", "sync", "process"] }
 tower = "0.5"
 tower-http = { version = "0.5", features = ["trace"] }
 libc = "0.2"
@@ -41,6 +41,22 @@ r2d2 = "0.8"
 r2d2_sqlite = "=0.34.0"
 sha2 = "0.10"
 clap = { version = "4", features = ["derive"] }
+async-trait = "0.1"
+regex = "1"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+deadpool-postgres = { version = "0.14", features = ["rt_tokio_1"] }
+# Default features already cover Linux (zbus-secret-service-keyring-store,
+# pure-Rust D-Bus client, no system libdbus needed) and Windows
+# (windows-native-keyring-store); apple-native-keyring-store is added
+# explicitly for macOS Keychain (U12), not part of keyring's own defaults.
+keyring = { version = "4", features = ["apple-native-keyring-store"] }
+# `ring` (not the default `aws_lc_rs`) crypto provider: aws_lc_rs needs
+# cmake to build its C library from source, which this dev sandbox doesn't
+# have (same class of gap as U3's missing GTK toolchain) — `ring` needs
+# only a plain C compiler, already proven working here (U2's rusqlite
+# `bundled` feature).
+tokio-postgres-rustls = { version = "0.14", default-features = false }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -34,6 +34,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      # Unit U4's dbms_*.rs integration tests need real PostgreSQL 13/15/17
+      # server instances — not a GitHub Actions `services:` container
+      # (those are single, already-running, and passive: they can't be
+      # `pg_basebackup`'d into a replica, killed and restarted, or started
+      # with a pre-placed TLS cert the way this suite's tests need — see
+      # docs/adr/0009-postgresql-adapter-design.md). Same extracted-binary
+      # mechanism as local dev, run here explicitly since a fresh runner
+      # has nothing cached from a prior run.
+      - run: bash scripts/setup-test-postgres.sh
       - run: cargo test --workspace --all-features
 
   deny:

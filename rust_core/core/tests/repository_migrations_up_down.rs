@@ -18,7 +18,8 @@ const EXPECTED_TABLES: &[&str] = &[
     "performance_analysis",
     "security_incidents",
     "security_events",
-    "dbms_metrics",
+    "dbms_connections",
+    "dbms_snapshots",
 ];
 
 fn table_names(conn: &Connection) -> Vec<String> {
@@ -42,6 +43,11 @@ fn migrations_create_every_expected_table() {
             "expected table {expected} to exist, found {names:?}"
         );
     }
+    assert!(
+        !names.iter().any(|n| n == "dbms_metrics"),
+        "V8 drops dbms_metrics (superseded by dbms_connections/dbms_snapshots) \
+         but it's still present: {names:?}"
+    );
 }
 
 #[test]

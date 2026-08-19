@@ -32,3 +32,8 @@ pub mod telemetry;
 // SQLite persistence works identically on every platform — NOT gated,
 // unlike `telemetry` above (unit U2).
 pub mod repository;
+
+// Connects to a remote PostgreSQL server over the network; nothing here
+// reads local OS files, so — like `repository` above — this isn't gated to
+// Linux the way `telemetry` is (unit U4).
+pub mod dbms;
