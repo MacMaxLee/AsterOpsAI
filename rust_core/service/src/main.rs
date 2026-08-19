@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
-use service::{api, config, self_metrics, state::AppState, telemetry};
+use service::{api, config, retention, self_metrics, state::AppState, telemetry};
 
 #[derive(Parser)]
 #[command(name = "ai-ops-core", about = "AsterOpsAI core service")]
@@ -65,6 +65,10 @@ async fn serve() -> anyhow::Result<()> {
             None
         }
     };
+
+    if let Some(handle) = repository.clone() {
+        retention::spawn(handle);
+    }
 
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), repository.clone());
     let state = AppState::new(platform, self_metrics, host_telemetry, repository);

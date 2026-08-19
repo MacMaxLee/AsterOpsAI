@@ -51,6 +51,19 @@ fn purge_older_than(
 /// fabricating an average over gap/unavailable samples. `INSERT OR IGNORE`
 /// (the tables' `UNIQUE (bucket_start)`) makes this naturally idempotent
 /// across repeated sweeps.
+///
+/// The `WHERE` clause gates on each row's *bucket* having fully elapsed
+/// (`ts`'s hour-end, `+1 hour` from its truncated start, at or before the
+/// grace cutoff) — not on the row's own age. Filtering by row age alone
+/// (`WHERE ts < cutoff`) would let the still-forming current hour's early
+/// rows (everything from the top of the hour up to the grace period ago)
+/// get grouped and inserted as if the bucket were complete; because the
+/// insert is `OR IGNORE` for idempotency, that first partial rollup then
+/// permanently wins over every later sweep's fuller data for the same
+/// `bucket_start`, silently undercounting that hour forever. This was a
+/// real bug caught by a full-codebase scan, not exercised by the existing
+/// 30-day retention test (which only sweeps once per simulated day, long
+/// after every hour in it has fully elapsed either way).
 fn compute_hourly_rollups(conn: &Connection, now: DateTime<Utc>) -> Result<u64, RepositoryError> {
     let cutoff = now - Duration::minutes(HOURLY_ROLLUP_GRACE_MINUTES);
     let sql = "
@@ -76,7 +89,7 @@ fn compute_hourly_rollups(conn: &Connection, now: DateTime<Utc>) -> Result<u64, 
             AVG(storage_read_bytes_ps), AVG(storage_write_bytes_ps),
             AVG(net_rx_bytes_ps), AVG(net_tx_bytes_ps)
         FROM telemetry_snapshots
-        WHERE ts < ?1
+        WHERE strftime('%Y-%m-%dT%H:00:00.000Z', ts, '+1 hour') <= ?1
         GROUP BY bucket_start
     ";
     let inserted = conn.execute(sql, params![format_ts(cutoff)])?;

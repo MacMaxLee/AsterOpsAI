@@ -25,7 +25,12 @@ final class UnixSocketTransport implements LocalTransport {
           InternetAddress(socketPath, type: InternetAddressType.unix),
           0,
         );
-      };
+      }
+      // Bounds the connect phase specifically (a hung/black-holed socket
+      // connect, as opposed to a slow response after connecting), so a
+      // fully wedged core can't hold this open indefinitely even before
+      // the per-call `getRaw` timeout below has a request to time out.
+      ..connectionTimeout = const Duration(seconds: 5);
   }
 
   @override
@@ -34,14 +39,18 @@ final class UnixSocketTransport implements LocalTransport {
     Duration timeout = const Duration(seconds: 5),
   }) async {
     try {
-      final request = await _client
-          .getUrl(Uri.http('localhost', path))
-          .timeout(timeout);
-      final response = await request.close().timeout(timeout);
-      final body = await response
-          .transform(utf8.decoder)
-          .join()
-          .timeout(timeout);
+      // One timeout around the whole request/response sequence, not one
+      // per stage — three independently-timed `.timeout()` calls (connect,
+      // response headers, body read) could each wait up to `timeout` before
+      // firing, so a single slow-but-not-dead core could take up to 3x
+      // `timeout` to actually report `ApiFailureTimeout`, not `timeout`
+      // itself. Dart's `Future.timeout()` still can't cancel the
+      // in-progress work if it eventually completes after this fires — no
+      // true cancellation exists for an arbitrary async chain in Dart — so
+      // `connectionTimeout` above and `HttpClient`'s own default
+      // `idleTimeout` (15s) are what actually bound a wedged connection's
+      // lifetime, not this alone.
+      final body = await _fetchBody(path).timeout(timeout);
       return ApiOk(body);
     } on TimeoutException {
       return const ApiErr(ApiFailureTimeout());
@@ -49,7 +58,19 @@ final class UnixSocketTransport implements LocalTransport {
       return ApiErr(ApiFailureUnavailable(e.message));
     } on HttpException catch (e) {
       return ApiErr(ApiFailureUnavailable(e.message));
+    } catch (e) {
+      // Anything else (e.g. the client having been closed mid-request
+      // during app/provider teardown) is still a real, reportable failure,
+      // not something that should propagate as an unhandled exception out
+      // of a background poll loop.
+      return ApiErr(ApiFailureUnavailable(e.toString()));
     }
+  }
+
+  Future<String> _fetchBody(String path) async {
+    final request = await _client.getUrl(Uri.http('localhost', path));
+    final response = await request.close();
+    return response.transform(utf8.decoder).join();
   }
 
   @override

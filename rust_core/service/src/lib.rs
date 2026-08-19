@@ -6,6 +6,7 @@ pub mod api;
 pub mod config;
 pub mod middleware;
 pub mod response;
+pub mod retention;
 pub mod self_metrics;
 pub mod state;
 pub mod telemetry;

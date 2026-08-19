@@ -7,12 +7,28 @@ import 'package:console/api/local_transport.dart';
 /// `.queue()` call per expected poll, consumed in order and never repeated
 /// — so a test can script "connected, then a mid-session drop, then
 /// recovery" deterministically, without a real process to kill.
+class _QueuedResponse {
+  final ApiResult<String> response;
+  // Lets a test control exactly when this response resolves relative to
+  // other in-flight calls, instead of relying on wall-clock delays (which
+  // would make a race-condition regression test flaky) — getRaw awaits
+  // this before returning, if set.
+  final Future<void>? waitFor;
+  _QueuedResponse(this.response, this.waitFor);
+}
+
 class FakeTransport implements LocalTransport {
-  final Map<String, List<ApiResult<String>>> _queues = {};
+  final Map<String, List<_QueuedResponse>> _queues = {};
   final List<String> requestedPaths = [];
 
-  void queue(String pathPrefix, ApiResult<String> response) {
-    _queues.putIfAbsent(pathPrefix, () => []).add(response);
+  void queue(
+    String pathPrefix,
+    ApiResult<String> response, {
+    Future<void>? waitFor,
+  }) {
+    _queues
+        .putIfAbsent(pathPrefix, () => [])
+        .add(_QueuedResponse(response, waitFor));
   }
 
   @override
@@ -31,7 +47,11 @@ class FakeTransport implements LocalTransport {
         ApiFailureUnavailable('FakeTransport: no response scripted'),
       );
     }
-    return queue.removeAt(0);
+    final queued = queue.removeAt(0);
+    if (queued.waitFor != null) {
+      await queued.waitFor;
+    }
+    return queued.response;
   }
 
   @override

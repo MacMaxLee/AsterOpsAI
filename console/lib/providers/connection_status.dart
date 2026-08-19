@@ -56,6 +56,16 @@ final class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
   final ApiClient _client;
   Timer? _timer;
   bool _everConnected = false;
+  // Bumped at the *start* of every _tick(), including a manual retryNow()
+  // call. A tick only applies its result if it's still the most recently
+  // started one by the time its request resolves — otherwise a manual
+  // retry racing the periodic timer (or vice versa) could have its result
+  // arrive after a fresher tick already updated state, silently
+  // overwriting it with stale data (a real bug: last-completed-wins
+  // instead of last-started-wins). Found by a full-codebase scan, not
+  // exercised by the existing connection-state tests (none race
+  // retryNow() against the timer).
+  int _generation = 0;
 
   ConnectionStatusNotifier(this._client) : super(const ConnectionConnecting()) {
     _tick();
@@ -67,8 +77,10 @@ final class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
   Future<void> retryNow() => _tick();
 
   Future<void> _tick() async {
+    final generation = ++_generation;
     final result = await _client.getHealth();
     if (!mounted) return;
+    if (generation != _generation) return; // superseded by a newer tick
     switch (result) {
       case ApiOk(:final value):
         if (value.apiVersion != kSupportedApiVersion) {
