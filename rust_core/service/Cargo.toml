@@ -35,6 +35,7 @@ rusqlite = { workspace = true }
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }
 tempfile = "3"
+tokio-postgres = { workspace = true }
 
 [lints]
 workspace = true

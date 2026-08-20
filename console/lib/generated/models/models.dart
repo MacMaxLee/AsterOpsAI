@@ -3,6 +3,7 @@
 
 export 'api_error.dart';
 export 'capability.dart';
+export 'correlation_result.dart';
 export 'cpu_history_point.dart';
 export 'cpu_pressure.dart';
 export 'cpu_snapshot.dart';
@@ -21,6 +22,7 @@ export 'history_tier.dart';
 export 'host_bottleneck.dart';
 export 'host_domain.dart';
 export 'host_verdict.dart';
+export 'hypothesis.dart';
 export 'memory_history_point.dart';
 export 'memory_pressure.dart';
 export 'memory_snapshot.dart';
@@ -36,6 +38,8 @@ export 'pending_action_summary.dart';
 export 'process_category.dart';
 export 'process_info.dart';
 export 'process_snapshot.dart';
+export 'root_cause.dart';
+export 'ruled_out.dart';
 export 'security_incident_summary.dart';
 export 'self_metric_value_for_double.dart';
 export 'self_metric_value_for_uint64.dart';

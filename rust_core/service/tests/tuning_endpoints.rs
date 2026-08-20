@@ -24,7 +24,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), repository.clone());
-    let state = AppState::new(platform, self_metrics, host_telemetry, repository);
+    let state = AppState::new(platform, self_metrics, host_telemetry, repository, None);
     api::router(state)
 }
 

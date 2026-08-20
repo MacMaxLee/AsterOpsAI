@@ -12,6 +12,7 @@
   "navTuning": "調校",
   "navSecurity": "安全性",
   "navAnalysis": "分析",
+  "navCorrelation": "關聯分析",
   "navSettings": "設定",
   "connectionConnecting": "正在連線至核心服務...",
   "connectionReconnecting": "正在重新連線至核心服務...",
@@ -171,6 +172,31 @@
   "analysisTierElevated": "偏高",
   "analysisTierHigh": "高",
   "analysisTierCritical": "危急",
+  "correlationRankedHeading": "已排序的假設",
+  "correlationRuledOutHeading": "已排除",
+  "correlationConfidence": "信心度 {confidence}%",
+  "@correlationConfidence": {
+    "placeholders": {
+      "confidence": { "type": "String" }
+    }
+  },
+  "correlationEvidenceDetail": "{metric}：{observed}（門檻 {threshold}）",
+  "@correlationEvidenceDetail": {
+    "placeholders": {
+      "metric": { "type": "String" },
+      "observed": { "type": "String" },
+      "threshold": { "type": "String" }
+    }
+  },
+  "correlationCauseDbLocks": "資料庫鎖定",
+  "correlationCauseDbConfiguration": "資料庫設定",
+  "correlationCauseConnectionExhaustion": "連線池耗盡",
+  "correlationCauseSlowSql": "SQL 查詢緩慢",
+  "correlationCauseHostCpu": "主機 CPU",
+  "correlationCauseHostMemory": "主機記憶體",
+  "correlationCauseStorageLatency": "儲存延遲",
+  "correlationCauseNetwork": "網路",
+  "correlationCauseClientSideApplication": "用戶端應用程式",
   "genericLoading": "載入中...",
   "genericEmpty": "沒有可顯示的內容"
 }

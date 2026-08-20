@@ -14,6 +14,7 @@
   "navTuning": "Tuning",
   "navSecurity": "Security",
   "navAnalysis": "Analysis",
+  "navCorrelation": "Correlation",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -176,6 +177,32 @@
   "analysisTierElevated": "Elevated",
   "analysisTierHigh": "High",
   "analysisTierCritical": "Critical",
+
+  "correlationRankedHeading": "Ranked hypotheses",
+  "correlationRuledOutHeading": "Ruled out",
+  "correlationConfidence": "Confidence {confidence}%",
+  "@correlationConfidence": {
+    "placeholders": {
+      "confidence": { "type": "String" }
+    }
+  },
+  "correlationEvidenceDetail": "{metric}: {observed} (threshold {threshold})",
+  "@correlationEvidenceDetail": {
+    "placeholders": {
+      "metric": { "type": "String" },
+      "observed": { "type": "String" },
+      "threshold": { "type": "String" }
+    }
+  },
+  "correlationCauseDbLocks": "Database locks",
+  "correlationCauseDbConfiguration": "Database configuration",
+  "correlationCauseConnectionExhaustion": "Connection pool exhaustion",
+  "correlationCauseSlowSql": "Slow SQL",
+  "correlationCauseHostCpu": "Host CPU",
+  "correlationCauseHostMemory": "Host memory",
+  "correlationCauseStorageLatency": "Storage latency",
+  "correlationCauseNetwork": "Network",
+  "correlationCauseClientSideApplication": "Client-side application",
 
   "genericLoading": "Loading...",
   "genericEmpty": "Nothing to show"

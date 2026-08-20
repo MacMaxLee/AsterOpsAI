@@ -4,6 +4,7 @@
 
 pub mod api;
 pub mod config;
+pub mod dbms_config;
 pub mod middleware;
 pub mod response;
 pub mod retention;

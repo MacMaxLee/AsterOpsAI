@@ -38,4 +38,5 @@ pub fn router() -> Router<AppState> {
         .route("/security/incidents", get(security::incidents))
         .route("/security/suppress", post(security::suppress))
         .route("/analysis/host", get(analysis::host))
+        .route("/analysis/correlation", get(analysis::correlation))
 }

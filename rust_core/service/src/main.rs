@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
+use ai_ops_core::dbms::{pool, DbmsAdapter};
 use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
-use service::{api, config, retention, self_metrics, state::AppState, telemetry};
+use service::{api, config, dbms_config, retention, self_metrics, state::AppState, telemetry};
 
 #[derive(Parser)]
 #[command(name = "ai-ops-core", about = "AsterOpsAI core service")]
@@ -71,7 +73,28 @@ async fn serve() -> anyhow::Result<()> {
     }
 
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), repository.clone());
-    let state = AppState::new(platform, self_metrics, host_telemetry, repository);
+
+    let dbms_adapter: Option<Arc<dyn DbmsAdapter>> = match dbms_config::resolve_db_connection() {
+        Some(cfg) => match pool::build_pool(&cfg.metadata, &cfg.password) {
+            Ok(pg_pool) => Some(Arc::new(PostgresAdapter::from_pool(
+                pg_pool,
+                cfg.metadata.capture_raw_sql,
+            ))),
+            Err(err) => {
+                tracing::error!(error = %err, "could not build the configured DB connection pool; continuing without it");
+                None
+            }
+        },
+        None => None,
+    };
+
+    let state = AppState::new(
+        platform,
+        self_metrics,
+        host_telemetry,
+        repository,
+        dbms_adapter,
+    );
     let app = api::router(state);
 
     #[cfg(unix)]
