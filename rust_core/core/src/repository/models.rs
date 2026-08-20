@@ -150,6 +150,44 @@ pub struct TransitionPatch {
     pub result_json: Option<String>,
 }
 
+/// One row of the `benchmark_runs` table (migrations/V10, unit U9).
+#[derive(Debug, Clone)]
+pub struct BenchmarkRunRow {
+    pub id: i64,
+    pub created_at: DateTime<Utc>,
+    pub action_id: Option<i64>,
+    pub metric_name: String,
+    pub direction: String,
+    pub baseline_window_start: DateTime<Utc>,
+    pub baseline_window_end: DateTime<Utc>,
+    pub baseline_cv: Option<f64>,
+    pub post_change_window_start: Option<DateTime<Utc>>,
+    pub post_change_window_end: Option<DateTime<Utc>>,
+    pub post_change_cv: Option<f64>,
+    pub p_value: Option<f64>,
+    pub verdict: String,
+    pub confounders_json: String,
+    pub rolled_back: bool,
+    pub rollback_action_id: Option<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewBenchmarkRun {
+    pub created_at: DateTime<Utc>,
+    pub action_id: Option<i64>,
+    pub metric_name: String,
+    pub direction: String,
+    pub baseline_window_start: DateTime<Utc>,
+    pub baseline_window_end: DateTime<Utc>,
+    pub baseline_cv: Option<f64>,
+    pub post_change_window_start: Option<DateTime<Utc>>,
+    pub post_change_window_end: Option<DateTime<Utc>>,
+    pub post_change_cv: Option<f64>,
+    pub p_value: Option<f64>,
+    pub verdict: String,
+    pub confounders_json: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct RetentionAuditDetail {
     pub rows_deleted_raw: u64,

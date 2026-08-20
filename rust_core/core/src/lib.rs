@@ -56,3 +56,8 @@ pub mod policy;
 // `core/src` (zero production implementations ship this unit) — not gated
 // to Linux for the same reason `policy` above isn't (unit U7).
 pub mod actions;
+
+// Statistics/orchestration are pure logic; only its one real
+// `MetricSampler` implementation (`sampler::HostCpuUtilizationSampler`) is
+// internally Linux-gated, same pattern as `actions::host` (unit U9).
+pub mod benchmark;

@@ -9,10 +9,12 @@ use rusqlite::Connection;
 use tokio::sync::{mpsc, oneshot};
 
 use super::audit::{insert_audit_event, seed_chain_state};
+use super::benchmark::{insert_benchmark_run, mark_rolled_back};
 use super::error::RepositoryError;
 use super::models::{
-    AuditEventRecorded, NewAuditEvent, NewProposedAction, PerformanceAnalysisRow, PolicyActionRow,
-    RetentionReport, TelemetrySnapshotRow, TransitionPatch,
+    AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
+    PerformanceAnalysisRow, PolicyActionRow, RetentionReport, TelemetrySnapshotRow,
+    TransitionPatch,
 };
 use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
@@ -65,6 +67,20 @@ pub enum WriteCommand {
         check_not_expired: bool,
         patch: TransitionPatch,
         reply: oneshot::Sender<Result<PolicyActionRow, RepositoryError>>,
+    },
+    /// Inserts a new `benchmark_runs` row (unit U9) — a completed run
+    /// (verdict known) or a `BASELINE_UNSTABLE` abort record. Has a reply
+    /// since the caller needs the assigned row id back.
+    BenchmarkRunInsert {
+        new: NewBenchmarkRun,
+        reply: oneshot::Sender<Result<BenchmarkRunRow, RepositoryError>>,
+    },
+    /// Marks a benchmark run as rolled back, recording which rollback
+    /// action row did it (TRS §35).
+    BenchmarkRunMarkRolledBack {
+        id: i64,
+        rollback_action_id: i64,
+        reply: oneshot::Sender<Result<BenchmarkRunRow, RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -136,6 +152,16 @@ pub fn spawn(
                             &patch,
                         );
                         drop(reply.send(result));
+                    }
+                    WriteCommand::BenchmarkRunInsert { new, reply } => {
+                        drop(reply.send(insert_benchmark_run(&conn, &new)));
+                    }
+                    WriteCommand::BenchmarkRunMarkRolledBack {
+                        id,
+                        rollback_action_id,
+                        reply,
+                    } => {
+                        drop(reply.send(mark_rolled_back(&conn, id, rollback_action_id)));
                     }
                     WriteCommand::Shutdown { reply } => {
                         let _ = reply.send(());

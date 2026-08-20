@@ -3,6 +3,7 @@
 //! docs/adr/0007-sqlite-single-writer-task-no-writer-pool.md.
 
 pub mod audit;
+pub mod benchmark;
 pub mod connection;
 pub mod error;
 pub mod history;
@@ -25,9 +26,9 @@ pub use history::{
     query_storage_history, HistoryRange, ResolvedRange,
 };
 pub use models::{
-    AuditEventRecorded, ChainVerification, NewAuditEvent, NewProposedAction,
-    PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail, RetentionReport,
-    TelemetrySnapshotRow, TransitionPatch,
+    AuditEventRecorded, BenchmarkRunRow, ChainVerification, NewAuditEvent, NewBenchmarkRun,
+    NewProposedAction, PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail,
+    RetentionReport, TelemetrySnapshotRow, TransitionPatch,
 };
 pub use writer::WriteCommand;
 
@@ -179,6 +180,52 @@ pub async fn get_action(
 ) -> Result<Option<PolicyActionRow>, RepositoryError> {
     let conn = reader::checkout(&handle.read_pool)?;
     policy::get_by_id(&conn, id)
+}
+
+pub async fn insert_benchmark_run(
+    handle: &RepositoryHandle,
+    new: NewBenchmarkRun,
+) -> Result<BenchmarkRunRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::BenchmarkRunInsert {
+            new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn mark_benchmark_run_rolled_back(
+    handle: &RepositoryHandle,
+    id: i64,
+    rollback_action_id: i64,
+) -> Result<BenchmarkRunRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::BenchmarkRunMarkRolledBack {
+            id,
+            rollback_action_id,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn get_benchmark_run(
+    handle: &RepositoryHandle,
+    id: i64,
+) -> Result<Option<BenchmarkRunRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    benchmark::get_by_id(&conn, id)
 }
 
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {
