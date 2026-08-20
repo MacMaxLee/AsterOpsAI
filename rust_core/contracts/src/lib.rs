@@ -11,12 +11,14 @@ pub mod capability;
 pub mod envelope;
 pub mod error;
 pub mod health;
+pub mod policy;
 pub mod telemetry;
 
 pub use capability::{default_capability_registry, Capability, CapabilityFamily};
 pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};
+pub use policy::PendingActionSummary;
 
 /// The API's own version, distinct from the crate/package version. Bumped
 /// only on a breaking wire-format change.

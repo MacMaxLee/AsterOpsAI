@@ -23,6 +23,20 @@ pub fn genesis_hash() -> String {
     hex_encode(&Sha256::digest(GENESIS_SEED))
 }
 
+/// Unit U13: the most-recently-inserted audit event's `event_type`, if
+/// any — lets a caller confirm which specific event a just-completed
+/// action wrote (e.g. distinguishing `"policy.rejected"` from
+/// `"policy.denied"`) without needing its own SQL.
+pub fn latest_event_type(conn: &Connection) -> Result<Option<String>, RepositoryError> {
+    conn.query_row(
+        "SELECT event_type FROM audit_events ORDER BY id DESC LIMIT 1",
+        [],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
 fn hex_encode(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(bytes.len() * 2);
     for byte in bytes {

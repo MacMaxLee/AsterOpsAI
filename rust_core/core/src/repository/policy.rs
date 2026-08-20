@@ -42,6 +42,21 @@ fn must_get_by_id(conn: &Connection, id: i64) -> Result<PolicyActionRow, Reposit
     get_by_id(conn, id)?.ok_or(RepositoryError::PolicyActionNotFound(id))
 }
 
+/// Unit U13's policy approval inbox: every row still awaiting a human
+/// decision, oldest first — a real inbox drains from the front, not an
+/// arbitrary default.
+pub fn list_pending_approval(conn: &Connection) -> Result<Vec<PolicyActionRow>, RepositoryError> {
+    let sql = format!(
+        "SELECT {SELECT_COLUMNS} FROM actions WHERE status = 'PENDING_APPROVAL' \
+         ORDER BY created_at ASC"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map([], row_from_sqlite)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 /// Inserts a new action-lifecycle row — either a fresh proposal
 /// (`new.rollback_of` is `None`) or a rollback attempt of a previously
 /// executed action (`Some(original_id)`), both going through the same row

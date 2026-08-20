@@ -10,7 +10,7 @@ use contracts::telemetry::{
     MemorySnapshot, MetricValue, NetworkHistoryPoint, NetworkSnapshot, ProcessSnapshot,
     StorageHistoryPoint, StorageSnapshot, SystemStatusResponse,
 };
-use contracts::{ApiError, Capability, Envelope, HealthResponse};
+use contracts::{ApiError, Capability, Envelope, HealthResponse, PendingActionSummary};
 use schemars::schema_for;
 use std::path::PathBuf;
 
@@ -51,6 +51,9 @@ fn main() -> anyhow::Result<()> {
     write_schema::<MetricValue<f64>>("metric_value_f64")?;
     write_schema::<MetricValue<u64>>("metric_value_u64")?;
     write_schema::<MetricValue<String>>("metric_value_string")?;
+
+    write_schema::<PendingActionSummary>("pending_action_summary")?;
+    write_schema::<Envelope<Vec<PendingActionSummary>>>("envelope_pending_action_summary_list")?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;

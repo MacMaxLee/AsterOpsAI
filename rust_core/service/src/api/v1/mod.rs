@@ -4,11 +4,12 @@ pub mod health;
 pub mod history;
 pub mod memory;
 pub mod network;
+pub mod policy;
 pub mod processes;
 pub mod storage;
 pub mod system_status;
 
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::Router;
 
 use crate::state::AppState;
@@ -27,4 +28,7 @@ pub fn router() -> Router<AppState> {
         .route("/history/memory", get(history::memory_history))
         .route("/history/storage", get(history::storage_history))
         .route("/history/network", get(history::network_history))
+        .route("/policy/pending", get(policy::pending))
+        .route("/policy/:id/grant", post(policy::grant))
+        .route("/policy/:id/reject", post(policy::reject))
 }

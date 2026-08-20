@@ -69,6 +69,50 @@ pub async fn grant(
     Ok(())
 }
 
+/// PENDING_APPROVAL -> DENIED (unit U13, SRS FR-POL-005's own "denials,
+/// expiries, and *rejections*" — the third of those three had no function
+/// until now: a human explicitly rejecting a pending proposal, distinct
+/// from `evaluate()`'s own automatic denial at proposal time). Shares
+/// `DENIED` as the terminal status (the same CAS `grant` uses, just
+/// targeting `Denied` instead of `Approved`) but is audited under its own
+/// `"policy.rejected"` event type — so the audit trail can always tell a
+/// human's rejection apart from the policy engine's own automatic
+/// decision, even though both rows end up `DENIED`. Leaves `approved_by`
+/// unset (same as an automatic denial) — the audit event, not a row
+/// column, is this action's durable record of who did it.
+pub async fn reject(
+    handle: &RepositoryHandle,
+    row_id: i64,
+    rejected_by: impl Into<String>,
+    now: DateTime<Utc>,
+) -> Result<(), PolicyError> {
+    let rejected_by = rejected_by.into();
+    transition_action(
+        handle,
+        row_id,
+        ActionStatus::PendingApproval.as_str(),
+        ActionStatus::Denied.as_str(),
+        now,
+        true,
+        TransitionPatch::default(),
+    )
+    .await
+    .map_err(map_transition_err)?;
+
+    record_audit_event(
+        handle,
+        NewAuditEvent {
+            ts: now,
+            event_type: "policy.rejected".to_string(),
+            actor: rejected_by,
+            summary: format!("action {row_id} rejected"),
+            detail_json: serde_json::json!({ "row_id": row_id }).to_string(),
+        },
+    )
+    .await?;
+    Ok(())
+}
+
 /// Consumes an APPROVED (or AUTO_ALLOWED, which needs no separate `grant`)
 /// row, producing the one way to construct a [`PolicyApproved`] — the
 /// approval-check pipeline stage. `target`/`parameters`/`resource` are

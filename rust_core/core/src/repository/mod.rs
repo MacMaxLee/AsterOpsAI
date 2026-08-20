@@ -232,6 +232,13 @@ pub async fn get_benchmark_run(
     benchmark::get_by_id(&conn, id)
 }
 
+pub async fn list_pending_policy_actions(
+    handle: &RepositoryHandle,
+) -> Result<Vec<PolicyActionRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    policy::list_pending_approval(&conn)
+}
+
 pub async fn insert_tuning_plan(
     handle: &RepositoryHandle,
     new: NewTuningPlan,
@@ -356,6 +363,13 @@ pub async fn resource_is_security_flagged(
 ) -> Result<bool, RepositoryError> {
     let conn = reader::checkout(&handle.read_pool)?;
     security::resource_is_flagged(&conn, resource_descriptor_json)
+}
+
+pub async fn latest_audit_event_type(
+    handle: &RepositoryHandle,
+) -> Result<Option<String>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    audit::latest_event_type(&conn)
 }
 
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {
