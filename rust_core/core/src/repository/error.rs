@@ -47,4 +47,14 @@ pub enum RepositoryError {
 
     #[error("action {0}'s approval has expired")]
     PolicyActionExpired(i64),
+
+    /// Unit U10 (SRS FR-TUNE-002): a second `tuning_plans` insert for a
+    /// target that already has an `IN_FLIGHT` row hit the real partial
+    /// `UNIQUE` index (migrations/V11) — a durable, race-free rejection,
+    /// not an in-memory check.
+    #[error("a tuning plan is already in flight for this target")]
+    TuningPlanAlreadyInFlight,
+
+    #[error("no tuning plan row with id {0}")]
+    TuningPlanNotFound(i64),
 }

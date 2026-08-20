@@ -27,6 +27,15 @@ pub type ConstructFn = fn(&ActionRequest, &ActionContext) -> Result<Box<dyn Acti
 
 pub struct ActionTypeEntry {
     pub risk_level: RiskLevel,
+    /// Unit U10 (SRS FR-TUNE-003): whether this action type's `rollback`
+    /// is *unconditionally* safe to rely on — not "usually works," but
+    /// proven to round-trip without any privilege gap. `false` is the
+    /// honest, conservative default; a type is only ever `true` when a
+    /// real test has proven a full unprivileged round trip (see
+    /// docs/adr/0015 — `host.set_process_priority` is `false` because
+    /// ADR 0013 already found its rollback can fail without
+    /// `CAP_SYS_NICE`, `host.set_process_cpu_affinity` is `true`).
+    pub reversible: bool,
     pub validate_parameters: fn(&serde_json::Value) -> Result<(), String>,
     pub construct: ConstructFn,
 }

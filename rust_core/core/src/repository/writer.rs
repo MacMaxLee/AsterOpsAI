@@ -13,13 +13,14 @@ use super::benchmark::{insert_benchmark_run, mark_rolled_back};
 use super::error::RepositoryError;
 use super::models::{
     AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
-    PerformanceAnalysisRow, PolicyActionRow, RetentionReport, TelemetrySnapshotRow,
-    TransitionPatch,
+    NewTuningPlan, PerformanceAnalysisRow, PolicyActionRow, RetentionReport, TelemetrySnapshotRow,
+    TransitionPatch, TuningPlanRow,
 };
 use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
 use super::telemetry_store::insert_raw_snapshot;
+use super::tuning::{insert_tuning_plan, mark_plan_completed};
 
 const COMMAND_CHANNEL_CAPACITY: usize = 1024;
 
@@ -81,6 +82,23 @@ pub enum WriteCommand {
         id: i64,
         rollback_action_id: i64,
         reply: oneshot::Sender<Result<BenchmarkRunRow, RepositoryError>>,
+    },
+    /// Inserts a new `tuning_plans` row (unit U10), `IN_FLIGHT` status. A
+    /// second insert for a target that already has an `IN_FLIGHT` row hits
+    /// the partial `UNIQUE` index and comes back as
+    /// `RepositoryError::TuningPlanAlreadyInFlight` (FR-TUNE-002).
+    TuningPlanInsert {
+        new: NewTuningPlan,
+        reply: oneshot::Sender<Result<TuningPlanRow, RepositoryError>>,
+    },
+    /// Marks a `tuning_plans` row `COMPLETED`/`REJECTED`, recording the
+    /// final candidate list (each candidate's outcome, unit U10).
+    TuningPlanMarkCompleted {
+        id: i64,
+        status: String,
+        completed_at: DateTime<Utc>,
+        candidates_json: String,
+        reply: oneshot::Sender<Result<TuningPlanRow, RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -162,6 +180,25 @@ pub fn spawn(
                         reply,
                     } => {
                         drop(reply.send(mark_rolled_back(&conn, id, rollback_action_id)));
+                    }
+                    WriteCommand::TuningPlanInsert { new, reply } => {
+                        drop(reply.send(insert_tuning_plan(&conn, &new)));
+                    }
+                    WriteCommand::TuningPlanMarkCompleted {
+                        id,
+                        status,
+                        completed_at,
+                        candidates_json,
+                        reply,
+                    } => {
+                        let result = mark_plan_completed(
+                            &conn,
+                            id,
+                            &status,
+                            completed_at,
+                            &candidates_json,
+                        );
+                        drop(reply.send(result));
                     }
                     WriteCommand::Shutdown { reply } => {
                         let _ = reply.send(());

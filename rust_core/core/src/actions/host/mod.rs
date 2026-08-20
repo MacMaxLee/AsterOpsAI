@@ -25,6 +25,11 @@ use crate::policy::{ActionRequest, ActionTypeEntry, RiskLevel};
 pub fn set_process_priority_entry() -> ActionTypeEntry {
     ActionTypeEntry {
         risk_level: RiskLevel::Low,
+        // NOT reversible (unit U10, docs/adr/0015): ADR 0013 already
+        // proved restoring a *lowered* nice value needs CAP_SYS_NICE —
+        // rollback can genuinely fail without privilege, so this can't
+        // honestly claim an unconditional round trip.
+        reversible: false,
         validate_parameters: |params| priority::parse_priority_param(params).map(|_| ()),
         construct: construct_set_process_priority,
     }
@@ -41,6 +46,10 @@ fn construct_set_process_priority(
 pub fn set_process_cpu_affinity_entry() -> ActionTypeEntry {
     ActionTypeEntry {
         risk_level: RiskLevel::Low,
+        // Reversible (unit U10): U8's own end-to-end test already proves
+        // a full unprivileged round trip, with no analogue of the
+        // priority action's privilege asymmetry.
+        reversible: true,
         validate_parameters: |params| affinity::parse_affinity_param(params).map(|_| ()),
         construct: construct_set_process_cpu_affinity,
     }

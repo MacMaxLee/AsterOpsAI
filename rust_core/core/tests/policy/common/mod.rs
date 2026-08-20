@@ -226,6 +226,7 @@ pub fn test_registry() -> ActionTypeRegistry {
         "test.kill_process",
         ActionTypeEntry {
             risk_level: RiskLevel::High,
+            reversible: false, // TestActionKind::rollback always errors
             validate_parameters: validate_no_parameters,
             construct: construct_test_kill_process,
         },
@@ -294,6 +295,7 @@ pub fn lifecycle_test_registry() -> ActionTypeRegistry {
         "test.auto_allow",
         ActionTypeEntry {
             risk_level: RiskLevel::Informational,
+            reversible: true, // NoOpActionKind::rollback always succeeds
             validate_parameters: validate_no_parameters,
             construct: construct_auto_allow,
         },
@@ -302,6 +304,7 @@ pub fn lifecycle_test_registry() -> ActionTypeRegistry {
         "test.needs_approval",
         ActionTypeEntry {
             risk_level: RiskLevel::Medium,
+            reversible: true, // NoOpActionKind::rollback always succeeds
             validate_parameters: validate_no_parameters,
             construct: construct_needs_approval,
         },

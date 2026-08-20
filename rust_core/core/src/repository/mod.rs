@@ -15,6 +15,7 @@ pub mod reader;
 pub mod retention;
 pub mod telemetry_store;
 mod time;
+pub mod tuning;
 pub mod writer;
 
 use std::path::PathBuf;
@@ -27,8 +28,8 @@ pub use history::{
 };
 pub use models::{
     AuditEventRecorded, BenchmarkRunRow, ChainVerification, NewAuditEvent, NewBenchmarkRun,
-    NewProposedAction, PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail,
-    RetentionReport, TelemetrySnapshotRow, TransitionPatch,
+    NewProposedAction, NewTuningPlan, PerformanceAnalysisRow, PolicyActionRow,
+    RetentionAuditDetail, RetentionReport, TelemetrySnapshotRow, TransitionPatch, TuningPlanRow,
 };
 pub use writer::WriteCommand;
 
@@ -226,6 +227,64 @@ pub async fn get_benchmark_run(
 ) -> Result<Option<BenchmarkRunRow>, RepositoryError> {
     let conn = reader::checkout(&handle.read_pool)?;
     benchmark::get_by_id(&conn, id)
+}
+
+pub async fn insert_tuning_plan(
+    handle: &RepositoryHandle,
+    new: NewTuningPlan,
+) -> Result<TuningPlanRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::TuningPlanInsert {
+            new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn mark_tuning_plan_completed(
+    handle: &RepositoryHandle,
+    id: i64,
+    status: impl Into<String>,
+    completed_at: chrono::DateTime<chrono::Utc>,
+    candidates_json: impl Into<String>,
+) -> Result<TuningPlanRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::TuningPlanMarkCompleted {
+            id,
+            status: status.into(),
+            completed_at,
+            candidates_json: candidates_json.into(),
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn get_tuning_plan(
+    handle: &RepositoryHandle,
+    id: i64,
+) -> Result<Option<TuningPlanRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    tuning::get_by_id(&conn, id)
+}
+
+pub async fn has_improved_benchmark_history(
+    handle: &RepositoryHandle,
+    action_type: &str,
+) -> Result<bool, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    benchmark::query_improved_run_exists(&conn, action_type)
 }
 
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {

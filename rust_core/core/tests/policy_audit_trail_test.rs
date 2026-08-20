@@ -107,6 +107,7 @@ async fn denied_decision_is_audited_even_though_the_action_never_ran() {
         "test.prohibited",
         ai_ops_core::policy::ActionTypeEntry {
             risk_level: ai_ops_core::policy::RiskLevel::Prohibited,
+            reversible: false,
             validate_parameters: |_| Ok(()),
             construct: |_, _| unreachable!("a Prohibited action is never constructed"),
         },

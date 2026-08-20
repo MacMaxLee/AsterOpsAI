@@ -21,6 +21,7 @@ const EXPECTED_TABLES: &[&str] = &[
     "dbms_connections",
     "dbms_snapshots",
     "benchmark_runs",
+    "tuning_plans",
 ];
 
 fn table_names(conn: &Connection) -> Vec<String> {

@@ -61,3 +61,9 @@ pub mod actions;
 // `MetricSampler` implementation (`sampler::HostCpuUtilizationSampler`) is
 // internally Linux-gated, same pattern as `actions::host` (unit U9).
 pub mod benchmark;
+
+// Profile -> candidate-action translation and automation-mode orchestration
+// over `policy`/`actions`/`benchmark` — pure logic of its own, no OS
+// interaction; not gated to Linux for the same reason `policy`/`actions`
+// aren't (unit U10).
+pub mod tuning;

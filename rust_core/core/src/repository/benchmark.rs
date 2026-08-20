@@ -82,3 +82,27 @@ pub fn mark_rolled_back(
     )?;
     must_get_by_id(conn, id)
 }
+
+/// Unit U10 (SRS FR-TUNE-003): whether at least one `benchmark_runs` row
+/// exists whose action was of `action_type` and whose verdict was
+/// `IMPROVED`, never rolled back — the real join `benchmark_runs` on its
+/// own can't answer, since it only has `action_id`, not `action_type`
+/// (that lives on `actions`, unit U7).
+pub fn query_improved_run_exists(
+    conn: &Connection,
+    action_type: &str,
+) -> Result<bool, RepositoryError> {
+    conn.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM benchmark_runs
+            JOIN actions ON benchmark_runs.action_id = actions.id
+            WHERE actions.action_type = ?1
+              AND benchmark_runs.verdict = 'IMPROVED'
+              AND benchmark_runs.rolled_back = 0
+         )",
+        params![action_type],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count != 0)
+    .map_err(Into::into)
+}

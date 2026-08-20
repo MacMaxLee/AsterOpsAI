@@ -188,6 +188,31 @@ pub struct NewBenchmarkRun {
     pub confounders_json: String,
 }
 
+/// One row of the `tuning_plans` table (migrations/V11, unit U10).
+#[derive(Debug, Clone)]
+pub struct TuningPlanRow {
+    pub id: i64,
+    pub created_at: DateTime<Utc>,
+    pub target_identity_json: String,
+    pub target_start_time: i64,
+    pub profile: String,
+    pub mode: String,
+    pub status: String,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub candidates_json: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewTuningPlan {
+    pub created_at: DateTime<Utc>,
+    pub target_identity_json: String,
+    pub target_start_time: i64,
+    pub profile: String,
+    pub mode: String,
+    pub status: String,
+    pub candidates_json: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct RetentionAuditDetail {
     pub rows_deleted_raw: u64,
