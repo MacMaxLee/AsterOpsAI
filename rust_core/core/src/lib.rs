@@ -42,3 +42,8 @@ pub mod dbms;
 // types and `repository` row types, not raw `/proc`/`/sys` reads) — not
 // gated to Linux, same reasoning as `dbms` above (unit U5).
 pub mod analysis;
+
+// Talks to a local/LAN Ollama endpoint over plain HTTP; reads no local OS
+// files — not gated to Linux, same reasoning as `dbms`/`analysis` above
+// (unit U6).
+pub mod ai;
