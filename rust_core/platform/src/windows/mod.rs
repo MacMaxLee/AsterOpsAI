@@ -57,4 +57,24 @@ impl PlatformAdapter for WindowsPlatformAdapter {
             "windows CPU affinity not implemented yet, see unit U12".to_string(),
         ))
     }
+
+    // Real implementation is `SuspendThread`/`ResumeThread` per-thread (no
+    // direct process-level SIGSTOP equivalent) — same U12 deferral as above.
+    fn suspend_process(&self, _pid: u32) -> Result<(), CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "windows process suspend not implemented yet, see unit U12".to_string(),
+        ))
+    }
+
+    fn resume_process(&self, _pid: u32) -> Result<(), CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "windows process resume not implemented yet, see unit U12".to_string(),
+        ))
+    }
+
+    fn is_process_stopped(&self, _pid: u32) -> Result<bool, CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "windows process state query not implemented yet, see unit U12".to_string(),
+        ))
+    }
 }

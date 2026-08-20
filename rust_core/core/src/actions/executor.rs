@@ -115,6 +115,38 @@ pub async fn execute(
         return Err(err);
     }
 
+    // Unit U11 (SRS FR-SEC-003): a security-relevant flag on the resource
+    // overrides any performance-motivated action targeting it — checked
+    // here, not in `policy::evaluate`, for the same "freshest possible
+    // check, at execute-time" reasoning ADR 0012 already established for
+    // the protected-resource stage just above. A security response action
+    // itself is never blocked by its own resource's flag.
+    if !action.is_security_response() {
+        let resource_descriptor_json = match serde_json::to_string(&resource) {
+            Ok(json) => json,
+            Err(err) => {
+                let err = ActionError::Serde(err);
+                fail(handle, row_id, &err).await;
+                return Err(err);
+            }
+        };
+        match crate::repository::resource_is_security_flagged(handle, &resource_descriptor_json)
+            .await
+        {
+            Ok(true) => {
+                let err = ActionError::SecurityFlagged(resource.name.clone());
+                fail(handle, row_id, &err).await;
+                return Err(err);
+            }
+            Ok(false) => {}
+            Err(repo_err) => {
+                let err = ActionError::Repository(repo_err);
+                fail(handle, row_id, &err).await;
+                return Err(err);
+            }
+        }
+    }
+
     // Stage 6: capture previous state.
     let previous_state = match action.capture_previous_state() {
         Ok(state) => state,

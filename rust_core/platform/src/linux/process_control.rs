@@ -166,6 +166,43 @@ pub fn set_cpu_affinity(pid: u32, mask: &CpuAffinityMask) -> Result<(), Capabili
     Ok(())
 }
 
+/// # SAFETY (documented at the call site below)
+/// `kill(2)`'s `0`/`-1` return is unambiguous, same as `setpriority`.
+#[allow(unsafe_code)]
+pub fn suspend(pid: u32) -> Result<(), CapabilityError> {
+    // SAFETY: `pid` is a plain integer; `kill` performs no pointer
+    // dereference on this process's memory.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGSTOP) };
+    if rc != 0 {
+        return Err(map_last_os_error());
+    }
+    Ok(())
+}
+
+/// # SAFETY (documented at the call site below)
+#[allow(unsafe_code)]
+pub fn resume(pid: u32) -> Result<(), CapabilityError> {
+    // SAFETY: same reasoning as `suspend` above.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGCONT) };
+    if rc != 0 {
+        return Err(map_last_os_error());
+    }
+    Ok(())
+}
+
+/// Real verify step for `suspend`/`resume`: `/proc/[pid]/stat`'s state
+/// field (3) is `T` (stopped by a signal) or `t` (ptrace-stop) — both
+/// mean "not running," the only distinction `SuspendProcessAction`'s
+/// verify stage cares about.
+pub fn is_stopped(pid: u32) -> Result<bool, CapabilityError> {
+    let raw = read_stat_field(pid, 3)?;
+    let state = raw
+        .chars()
+        .next()
+        .ok_or_else(|| CapabilityError::Unavailable(format!("empty state field for pid {pid}")))?;
+    Ok(state == 'T' || state == 't')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

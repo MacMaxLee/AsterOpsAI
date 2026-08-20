@@ -70,4 +70,17 @@ pub trait PlatformAdapter: Send + Sync {
         pid: u32,
         mask: &CpuAffinityMask,
     ) -> Result<(), CapabilityError>;
+
+    /// Unit U11's `SuspendProcess` security response action: stops the
+    /// process's execution (`SIGSTOP` on Linux) without terminating it.
+    fn suspend_process(&self, pid: u32) -> Result<(), CapabilityError>;
+
+    /// Resumes a process stopped by `suspend_process` (`SIGCONT` on
+    /// Linux) — `SuspendProcessAction`'s rollback.
+    fn resume_process(&self, pid: u32) -> Result<(), CapabilityError>;
+
+    /// `SuspendProcessAction`'s real verify step: is the process's live
+    /// state actually stopped (`/proc/[pid]/stat`'s state field == `T` on
+    /// Linux) — not merely "does `suspend_process` return `Ok`."
+    fn is_process_stopped(&self, pid: u32) -> Result<bool, CapabilityError>;
 }

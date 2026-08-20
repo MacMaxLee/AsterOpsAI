@@ -57,4 +57,10 @@ pub enum RepositoryError {
 
     #[error("no tuning plan row with id {0}")]
     TuningPlanNotFound(i64),
+
+    #[error("no security event row with id {0}")]
+    SecurityEventNotFound(i64),
+
+    #[error("no security incident row with id {0}")]
+    SecurityIncidentNotFound(i64),
 }

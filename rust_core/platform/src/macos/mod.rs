@@ -57,4 +57,24 @@ impl PlatformAdapter for MacosPlatformAdapter {
             "macos CPU affinity not implemented yet, see unit U12".to_string(),
         ))
     }
+
+    // Real implementation is `kill(2)` with SIGSTOP/SIGCONT, same POSIX
+    // call Linux uses — same U12 deferral as above.
+    fn suspend_process(&self, _pid: u32) -> Result<(), CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "macos process suspend not implemented yet, see unit U12".to_string(),
+        ))
+    }
+
+    fn resume_process(&self, _pid: u32) -> Result<(), CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "macos process resume not implemented yet, see unit U12".to_string(),
+        ))
+    }
+
+    fn is_process_stopped(&self, _pid: u32) -> Result<bool, CapabilityError> {
+        Err(CapabilityError::Unsupported(
+            "macos process state query not implemented yet, see unit U12".to_string(),
+        ))
+    }
 }

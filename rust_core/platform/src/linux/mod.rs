@@ -45,6 +45,18 @@ impl PlatformAdapter for LinuxPlatformAdapter {
         process_control::set_cpu_affinity(pid, mask)
     }
 
+    fn suspend_process(&self, pid: u32) -> Result<(), CapabilityError> {
+        process_control::suspend(pid)
+    }
+
+    fn resume_process(&self, pid: u32) -> Result<(), CapabilityError> {
+        process_control::resume(pid)
+    }
+
+    fn is_process_stopped(&self, pid: u32) -> Result<bool, CapabilityError> {
+        process_control::is_stopped(pid)
+    }
+
     fn self_process_metrics(&self) -> Result<ProcessSelfMetrics, CapabilityError> {
         let usage = get_rusage_self()?;
 

@@ -10,15 +10,18 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::audit::{insert_audit_event, seed_chain_state};
 use super::benchmark::{insert_benchmark_run, mark_rolled_back};
+use super::device_trust;
 use super::error::RepositoryError;
 use super::models::{
     AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
-    NewTuningPlan, PerformanceAnalysisRow, PolicyActionRow, RetentionReport, TelemetrySnapshotRow,
+    NewSecurityEvent, NewSecuritySuppression, NewTuningPlan, PerformanceAnalysisRow,
+    PolicyActionRow, RetentionReport, SecurityEventRow, SecurityIncidentRow, TelemetrySnapshotRow,
     TransitionPatch, TuningPlanRow,
 };
 use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
+use super::security::{insert_suppression, record_event_checked};
 use super::telemetry_store::insert_raw_snapshot;
 use super::tuning::{insert_tuning_plan, mark_plan_completed};
 
@@ -99,6 +102,29 @@ pub enum WriteCommand {
         completed_at: DateTime<Utc>,
         candidates_json: String,
         reply: oneshot::Sender<Result<TuningPlanRow, RepositoryError>>,
+    },
+    /// Records a detected security event (unit U11), correlating it into
+    /// an existing `OPEN` incident or opening a new one — `Ok(None)` means
+    /// it was suppressed (FR-SEC-005), not an error.
+    #[allow(clippy::type_complexity)]
+    RecordSecurityEvent {
+        new: NewSecurityEvent,
+        reply: oneshot::Sender<
+            Result<Option<(SecurityEventRow, SecurityIncidentRow)>, RepositoryError>,
+        >,
+    },
+    /// Records a new suppression rule (unit U11, FR-SEC-005).
+    RecordSuppression {
+        new: NewSecuritySuppression,
+        reply: oneshot::Sender<Result<(), RepositoryError>>,
+    },
+    /// Records that a device identifier has been observed (unit U11) —
+    /// replaces the service sampler's own ephemeral in-process `HashSet`.
+    /// Replies with whether it was *already* known before this call.
+    RecordDeviceSeen {
+        identifier: String,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<bool, RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -199,6 +225,19 @@ pub fn spawn(
                             &candidates_json,
                         );
                         drop(reply.send(result));
+                    }
+                    WriteCommand::RecordSecurityEvent { new, reply } => {
+                        drop(reply.send(record_event_checked(&conn, &new)));
+                    }
+                    WriteCommand::RecordSuppression { new, reply } => {
+                        drop(reply.send(insert_suppression(&conn, &new)));
+                    }
+                    WriteCommand::RecordDeviceSeen {
+                        identifier,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(device_trust::record_seen(&conn, &identifier, now)));
                     }
                     WriteCommand::Shutdown { reply } => {
                         let _ = reply.send(());

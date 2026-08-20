@@ -16,6 +16,16 @@ pub trait ActionKind: Send + Sync {
 
     fn risk_level(&self) -> RiskLevel;
 
+    /// Unit U11 (SRS FR-SEC-003): whether this action type IS itself a
+    /// security response (`core::security::response`'s closed set) —
+    /// `executor::execute`'s security-flag stage never blocks these
+    /// against their own flagged resource, only "performance-motivated"
+    /// actions. Default `false`: only a real security response action
+    /// overrides it.
+    fn is_security_response(&self) -> bool {
+        false
+    }
+
     /// TRS §26 stage 4. Default `Ok(())` — most action types need no extra
     /// runtime capability probe beyond what construction already implies;
     /// override when one is needed.

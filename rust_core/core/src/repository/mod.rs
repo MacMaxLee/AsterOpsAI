@@ -5,6 +5,7 @@
 pub mod audit;
 pub mod benchmark;
 pub mod connection;
+pub mod device_trust;
 pub mod error;
 pub mod history;
 pub mod migrations;
@@ -13,6 +14,7 @@ pub mod performance_analysis;
 pub mod policy;
 pub mod reader;
 pub mod retention;
+pub mod security;
 pub mod telemetry_store;
 mod time;
 pub mod tuning;
@@ -28,8 +30,9 @@ pub use history::{
 };
 pub use models::{
     AuditEventRecorded, BenchmarkRunRow, ChainVerification, NewAuditEvent, NewBenchmarkRun,
-    NewProposedAction, NewTuningPlan, PerformanceAnalysisRow, PolicyActionRow,
-    RetentionAuditDetail, RetentionReport, TelemetrySnapshotRow, TransitionPatch, TuningPlanRow,
+    NewProposedAction, NewSecurityEvent, NewSecuritySuppression, NewTuningPlan,
+    PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail, RetentionReport,
+    SecurityEventRow, SecurityIncidentRow, TelemetrySnapshotRow, TransitionPatch, TuningPlanRow,
 };
 pub use writer::WriteCommand;
 
@@ -285,6 +288,74 @@ pub async fn has_improved_benchmark_history(
 ) -> Result<bool, RepositoryError> {
     let conn = reader::checkout(&handle.read_pool)?;
     benchmark::query_improved_run_exists(&conn, action_type)
+}
+
+#[allow(clippy::type_complexity)]
+pub async fn record_security_event(
+    handle: &RepositoryHandle,
+    new: NewSecurityEvent,
+) -> Result<Option<(SecurityEventRow, SecurityIncidentRow)>, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordSecurityEvent {
+            new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn record_security_suppression(
+    handle: &RepositoryHandle,
+    new: NewSecuritySuppression,
+) -> Result<(), RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordSuppression {
+            new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Returns whether `identifier` was already known before this call.
+pub async fn record_device_seen(
+    handle: &RepositoryHandle,
+    identifier: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<bool, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordDeviceSeen {
+            identifier: identifier.into(),
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// SRS FR-SEC-003's own query, exposed directly (not via a `WriteCommand`
+/// — reads go through the pool, same as `get_action`/`get_tuning_plan`).
+pub async fn resource_is_security_flagged(
+    handle: &RepositoryHandle,
+    resource_descriptor_json: &str,
+) -> Result<bool, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    security::resource_is_flagged(&conn, resource_descriptor_json)
 }
 
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {

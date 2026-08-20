@@ -213,6 +213,58 @@ pub struct NewTuningPlan {
     pub candidates_json: String,
 }
 
+/// One row of the `security_events` table (migrations/V6 + V12, unit
+/// U11). `resource_descriptor_json` (V12) is what FR-SEC-003's
+/// `resource_is_flagged` query matches against.
+#[derive(Debug, Clone)]
+pub struct SecurityEventRow {
+    pub id: i64,
+    pub ts: DateTime<Utc>,
+    pub detector_id: String,
+    pub severity: String,
+    pub category: String,
+    pub summary: String,
+    pub evidence_json: String,
+    pub incident_id: i64,
+    pub resource_descriptor_json: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewSecurityEvent {
+    pub ts: DateTime<Utc>,
+    pub detector_id: String,
+    pub severity: String,
+    pub category: String,
+    pub summary: String,
+    pub evidence_json: String,
+    pub resource_descriptor_json: String,
+}
+
+/// One row of the `security_incidents` table (migrations/V6, unit U11 is
+/// the first code to write it). `status` is `OPEN`/`CLOSED`; a `severity`
+/// is copied onto the incident from the event that opened it.
+#[derive(Debug, Clone)]
+pub struct SecurityIncidentRow {
+    pub id: i64,
+    pub opened_at: DateTime<Utc>,
+    pub closed_at: Option<DateTime<Utc>>,
+    pub severity: String,
+    pub status: String,
+    pub summary: String,
+}
+
+/// One row of the `security_suppressions` table (migrations/V12, unit
+/// U11, SRS FR-SEC-005). `resource_descriptor_json: None` suppresses
+/// `detector_id` everywhere; `Some` suppresses it only for that resource.
+#[derive(Debug, Clone)]
+pub struct NewSecuritySuppression {
+    pub created_at: DateTime<Utc>,
+    pub created_by: String,
+    pub detector_id: String,
+    pub resource_descriptor_json: Option<String>,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct RetentionAuditDetail {
     pub rows_deleted_raw: u64,

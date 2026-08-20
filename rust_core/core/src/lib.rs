@@ -67,3 +67,8 @@ pub mod benchmark;
 // interaction; not gated to Linux for the same reason `policy`/`actions`
 // aren't (unit U10).
 pub mod tuning;
+
+// Detector logic is pure, cross-platform arithmetic; only its one real
+// response action (`security::response`) is internally Linux-gated, same
+// pattern as `actions::host`/`benchmark::sampler` (unit U11).
+pub mod security;

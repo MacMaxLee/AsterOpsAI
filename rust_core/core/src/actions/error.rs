@@ -16,6 +16,14 @@ pub enum ActionError {
     #[error("resource is protected: {0}")]
     Protected(String),
 
+    /// Unit U11 (SRS FR-SEC-003): a security-relevant flag (an open
+    /// incident) on this resource overrides a performance-motivated
+    /// action targeting it — a security response action itself is never
+    /// blocked by its own resource's flag (`ActionKind::
+    /// is_security_response`).
+    #[error("resource has an open security incident: {0}")]
+    SecurityFlagged(String),
+
     #[error("failed to capture previous state: {0}")]
     CapturePreviousState(String),
 
