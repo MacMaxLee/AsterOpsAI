@@ -11,5 +11,15 @@ abstract class LocalTransport {
     Duration timeout = const Duration(seconds: 5),
   });
 
+  /// Unit U16's first mutating call (the policy approval inbox's
+  /// grant/reject) — every prior transport user only ever read. `body` is
+  /// sent as-is with a `content-type: application/json` header; callers
+  /// encode their own request shape.
+  Future<ApiResult<String>> postRaw(
+    String path, {
+    required String body,
+    Duration timeout = const Duration(seconds: 5),
+  });
+
   void close();
 }

@@ -17,9 +17,17 @@ class _QueuedResponse {
   _QueuedResponse(this.response, this.waitFor);
 }
 
+class QueuedPost {
+  final String requestedPath;
+  final String body;
+  QueuedPost(this.requestedPath, this.body);
+}
+
 class FakeTransport implements LocalTransport {
   final Map<String, List<_QueuedResponse>> _queues = {};
+  final Map<String, List<_QueuedResponse>> _postQueues = {};
   final List<String> requestedPaths = [];
+  final List<QueuedPost> postedRequests = [];
 
   void queue(
     String pathPrefix,
@@ -27,6 +35,20 @@ class FakeTransport implements LocalTransport {
     Future<void>? waitFor,
   }) {
     _queues
+        .putIfAbsent(pathPrefix, () => [])
+        .add(_QueuedResponse(response, waitFor));
+  }
+
+  /// Mirrors [queue] for `postRaw` — a separate FIFO per path prefix, kept
+  /// distinct from the `getRaw` queues above so a screen that both polls a
+  /// list and posts a mutation to overlapping-looking paths can script
+  /// each independently.
+  void queuePost(
+    String pathPrefix,
+    ApiResult<String> response, {
+    Future<void>? waitFor,
+  }) {
+    _postQueues
         .putIfAbsent(pathPrefix, () => [])
         .add(_QueuedResponse(response, waitFor));
   }
@@ -42,6 +64,30 @@ class FakeTransport implements LocalTransport {
       orElse: () => '',
     );
     final queue = _queues[prefix];
+    if (queue == null || queue.isEmpty) {
+      return const ApiErr(
+        ApiFailureUnavailable('FakeTransport: no response scripted'),
+      );
+    }
+    final queued = queue.removeAt(0);
+    if (queued.waitFor != null) {
+      await queued.waitFor;
+    }
+    return queued.response;
+  }
+
+  @override
+  Future<ApiResult<String>> postRaw(
+    String path, {
+    required String body,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    postedRequests.add(QueuedPost(path, body));
+    final prefix = _postQueues.keys.firstWhere(
+      (p) => path.startsWith(p),
+      orElse: () => '',
+    );
+    final queue = _postQueues[prefix];
     if (queue == null || queue.isEmpty) {
       return const ApiErr(
         ApiFailureUnavailable('FakeTransport: no response scripted'),

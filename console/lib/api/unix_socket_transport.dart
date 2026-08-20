@@ -74,5 +74,33 @@ final class UnixSocketTransport implements LocalTransport {
   }
 
   @override
+  Future<ApiResult<String>> postRaw(
+    String path, {
+    required String body,
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    try {
+      final responseBody = await _postBody(path, body).timeout(timeout);
+      return ApiOk(responseBody);
+    } on TimeoutException {
+      return const ApiErr(ApiFailureTimeout());
+    } on SocketException catch (e) {
+      return ApiErr(ApiFailureUnavailable(e.message));
+    } on HttpException catch (e) {
+      return ApiErr(ApiFailureUnavailable(e.message));
+    } catch (e) {
+      return ApiErr(ApiFailureUnavailable(e.toString()));
+    }
+  }
+
+  Future<String> _postBody(String path, String body) async {
+    final request = await _client.postUrl(Uri.http('localhost', path));
+    request.headers.contentType = ContentType.json;
+    request.write(body);
+    final response = await request.close();
+    return response.transform(utf8.decoder).join();
+  }
+
+  @override
   void close() => _client.close(force: true);
 }

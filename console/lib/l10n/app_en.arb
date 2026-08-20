@@ -10,6 +10,7 @@
   "navNetwork": "Network",
   "navProcesses": "Processes",
   "navDevices": "Devices",
+  "navPolicy": "Policy",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -106,6 +107,13 @@
   "deviceColumnName": "Name",
   "deviceColumnKind": "Kind",
   "deviceColumnTrusted": "Trusted",
+
+  "policyColumnResource": "Resource",
+  "policyColumnRequestedBy": "Requested by",
+  "policyColumnRisk": "Risk",
+  "policyColumnExpires": "Expires",
+  "policyGrant": "Grant",
+  "policyReject": "Reject",
 
   "genericLoading": "Loading...",
   "genericEmpty": "Nothing to show"

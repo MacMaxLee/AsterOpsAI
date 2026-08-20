@@ -10,6 +10,7 @@
   "navNetwork": "網路",
   "navProcesses": "處理程序",
   "navDevices": "裝置",
+  "navPolicy": "政策",
   "navSettings": "設定",
 
   "connectionConnecting": "正在連線至核心服務...",
@@ -106,6 +107,13 @@
   "deviceColumnName": "名稱",
   "deviceColumnKind": "類型",
   "deviceColumnTrusted": "已信任",
+
+  "policyColumnResource": "資源",
+  "policyColumnRequestedBy": "申請者",
+  "policyColumnRisk": "風險",
+  "policyColumnExpires": "到期時間",
+  "policyGrant": "核准",
+  "policyReject": "拒絕",
 
   "genericLoading": "載入中...",
   "genericEmpty": "沒有可顯示的內容"
