@@ -41,6 +41,24 @@ fn must_get_by_id(conn: &Connection, id: i64) -> Result<TuningPlanRow, Repositor
     get_by_id(conn, id)?.ok_or(RepositoryError::TuningPlanNotFound(id))
 }
 
+/// Unit U14's tuning plan history view: the most recent plans, newest
+/// first — a history view reads from the most recent backward, the
+/// opposite ordering from `policy::list_pending_approval`'s own
+/// oldest-first inbox. `tuning_plans` has no retention policy (unlike
+/// telemetry rollups), so this is capped at a real, explicit limit
+/// rather than returning an unbounded, ever-growing result set.
+const RECENT_PLANS_LIMIT: i64 = 100;
+
+pub fn list_recent(conn: &Connection) -> Result<Vec<TuningPlanRow>, RepositoryError> {
+    let sql =
+        format!("SELECT {SELECT_COLUMNS} FROM tuning_plans ORDER BY created_at DESC LIMIT ?1");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(params![RECENT_PLANS_LIMIT], row_from_sqlite)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 /// A constraint-violation `rusqlite::Error` is `SqliteFailure` with a
 /// primary `ErrorCode::ConstraintViolation` — the only `UNIQUE`/`CHECK`
 /// index this insert can hit is `idx_tuning_plans_one_in_flight_per_target`

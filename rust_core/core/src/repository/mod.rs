@@ -281,6 +281,13 @@ pub async fn mark_tuning_plan_completed(
         .map_err(|_| RepositoryError::WriterDidNotReply)?
 }
 
+pub async fn list_recent_tuning_plans(
+    handle: &RepositoryHandle,
+) -> Result<Vec<TuningPlanRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    tuning::list_recent(&conn)
+}
+
 pub async fn get_tuning_plan(
     handle: &RepositoryHandle,
     id: i64,

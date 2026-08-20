@@ -8,6 +8,7 @@ pub mod policy;
 pub mod processes;
 pub mod storage;
 pub mod system_status;
+pub mod tuning;
 
 use axum::routing::{get, post};
 use axum::Router;
@@ -31,4 +32,5 @@ pub fn router() -> Router<AppState> {
         .route("/policy/pending", get(policy::pending))
         .route("/policy/:id/grant", post(policy::grant))
         .route("/policy/:id/reject", post(policy::reject))
+        .route("/tuning/plans", get(tuning::plans))
 }
