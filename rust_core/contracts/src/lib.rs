@@ -12,6 +12,7 @@ pub mod envelope;
 pub mod error;
 pub mod health;
 pub mod policy;
+pub mod security;
 pub mod telemetry;
 pub mod tuning;
 
@@ -20,6 +21,7 @@ pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};
 pub use policy::PendingActionSummary;
+pub use security::SecurityIncidentSummary;
 pub use tuning::TuningPlanSummary;
 
 /// The API's own version, distinct from the crate/package version. Bumped

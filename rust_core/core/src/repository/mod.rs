@@ -379,6 +379,13 @@ pub async fn latest_audit_event_type(
     audit::latest_event_type(&conn)
 }
 
+pub async fn list_open_security_incidents(
+    handle: &RepositoryHandle,
+) -> Result<Vec<(SecurityIncidentRow, i64)>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    security::list_open_incidents(&conn)
+}
+
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     handle

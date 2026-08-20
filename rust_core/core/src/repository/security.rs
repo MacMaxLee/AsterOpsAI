@@ -181,6 +181,43 @@ pub fn is_suppressed(
     .map_err(Into::into)
 }
 
+/// Unit U15's security triage view: `OPEN` incidents, newest first —
+/// same "read backward from now" reasoning `tuning::list_recent` already
+/// used (ADR 0019), distinct from `policy::list_pending_approval`'s own
+/// oldest-first inbox. Capped at a real, explicit limit (no retention
+/// policy exists for `security_incidents`/`security_events` either).
+/// `security_incidents` has no denormalized event count, so this is a
+/// real `LEFT JOIN ... GROUP BY`, not a second query per row.
+const OPEN_INCIDENTS_LIMIT: i64 = 100;
+
+pub fn list_open_incidents(
+    conn: &Connection,
+) -> Result<Vec<(SecurityIncidentRow, i64)>, RepositoryError> {
+    let sql = format!(
+        "SELECT {cols}, COUNT(security_events.id) AS event_count
+         FROM security_incidents
+         LEFT JOIN security_events ON security_events.incident_id = security_incidents.id
+         WHERE security_incidents.status = 'OPEN'
+         GROUP BY security_incidents.id
+         ORDER BY security_incidents.opened_at DESC
+         LIMIT ?1",
+        cols = INCIDENT_COLUMNS
+            .split(", ")
+            .map(|c| format!("security_incidents.{c}"))
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(params![OPEN_INCIDENTS_LIMIT], |row| {
+            let incident = incident_from_sqlite(row)?;
+            let event_count: i64 = row.get(6)?;
+            Ok((incident, event_count))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
+}
+
 pub fn insert_suppression(
     conn: &Connection,
     new: &NewSecuritySuppression,

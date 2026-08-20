@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SecurityIncidentSummary",
+  "type": "object",
+  "required": [
+    "event_count",
+    "id",
+    "opened_at",
+    "severity",
+    "status",
+    "summary"
+  ],
+  "properties": {
+    "closed_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "event_count": {
+      "description": "How many detector events have correlated into this incident — `security_incidents` has no denormalized column for this; the server computes it via a real join, never a client-side guess.",
+      "type": "integer",
+      "format": "int64"
+    },
+    "id": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "opened_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "severity": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    }
+  }
+}

@@ -6,6 +6,7 @@ pub mod memory;
 pub mod network;
 pub mod policy;
 pub mod processes;
+pub mod security;
 pub mod storage;
 pub mod system_status;
 pub mod tuning;
@@ -33,4 +34,6 @@ pub fn router() -> Router<AppState> {
         .route("/policy/:id/grant", post(policy::grant))
         .route("/policy/:id/reject", post(policy::reject))
         .route("/tuning/plans", get(tuning::plans))
+        .route("/security/incidents", get(security::incidents))
+        .route("/security/suppress", post(security::suppress))
 }
