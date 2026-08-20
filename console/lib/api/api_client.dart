@@ -92,6 +92,34 @@ final class ApiClient {
         .toList(),
   );
 
+  Future<ApiResult<List<SecurityIncidentSummary>>> getOpenIncidents() => _get(
+    '/api/v1/security/incidents',
+    (json) => (json as List<dynamic>)
+        .map((e) => SecurityIncidentSummary.fromJson(e))
+        .toList(),
+  );
+
+  /// `resourceKind`/`resourceName` are both-or-neither — the caller
+  /// (the suppress dialog) enforces that before this is ever called, so
+  /// this never sends a half-built resource to the server.
+  Future<ApiResult<void>> suppressDetector({
+    required String detectorId,
+    String? resourceKind,
+    String? resourceName,
+    required String reason,
+    required String createdBy,
+  }) => _postForSuccess(
+    '/api/v1/security/suppress',
+    jsonEncode({
+      'detector_id': detectorId,
+      'resource': resourceKind == null
+          ? null
+          : {'kind': resourceKind, 'name': resourceName},
+      'reason': reason,
+      'created_by': createdBy,
+    }),
+  );
+
   Future<ApiResult<T>> _get<T>(
     String path,
     T Function(dynamic) dataFromJson,

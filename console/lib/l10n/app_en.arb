@@ -12,6 +12,7 @@
   "navDevices": "Devices",
   "navPolicy": "Policy",
   "navTuning": "Tuning",
+  "navSecurity": "Security",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -122,6 +123,23 @@
       "completedAt": { "type": "String" }
     }
   },
+
+  "securityColumnEvents": "{count} event(s)",
+  "@securityColumnEvents": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "securitySuppressAction": "Suppress a detector",
+  "securitySuppressDialogTitle": "Suppress a detector",
+  "securitySuppressDetectorId": "Detector ID",
+  "securitySuppressResourceKind": "Resource kind (optional)",
+  "securitySuppressResourceName": "Resource name (optional)",
+  "securitySuppressResourceBothOrNeither": "Resource kind and name must both be given, or both left blank",
+  "securitySuppressReason": "Reason",
+  "securitySuppressSubmit": "Suppress",
+  "securitySuppressSuccess": "Detector suppressed",
+  "genericCancel": "Cancel",
 
   "genericLoading": "Loading...",
   "genericEmpty": "Nothing to show"

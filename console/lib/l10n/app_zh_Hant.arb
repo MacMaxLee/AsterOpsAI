@@ -12,6 +12,7 @@
   "navDevices": "裝置",
   "navPolicy": "政策",
   "navTuning": "調校",
+  "navSecurity": "安全性",
   "navSettings": "設定",
 
   "connectionConnecting": "正在連線至核心服務...",
@@ -122,6 +123,23 @@
       "completedAt": { "type": "String" }
     }
   },
+
+  "securityColumnEvents": "{count} 個事件",
+  "@securityColumnEvents": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "securitySuppressAction": "抑制偵測規則",
+  "securitySuppressDialogTitle": "抑制偵測規則",
+  "securitySuppressDetectorId": "偵測器 ID",
+  "securitySuppressResourceKind": "資源類型（選填）",
+  "securitySuppressResourceName": "資源名稱（選填）",
+  "securitySuppressResourceBothOrNeither": "資源類型與名稱必須同時填寫，或同時留空",
+  "securitySuppressReason": "原因",
+  "securitySuppressSubmit": "抑制",
+  "securitySuppressSuccess": "偵測器已抑制",
+  "genericCancel": "取消",
 
   "genericLoading": "載入中...",
   "genericEmpty": "沒有可顯示的內容"

@@ -9,6 +9,7 @@ import 'memory_screen.dart';
 import 'network_screen.dart';
 import 'policy_inbox_screen.dart';
 import 'processes_screen.dart';
+import 'security_incidents_screen.dart';
 import 'settings_screen.dart';
 import 'storage_screen.dart';
 import 'tuning_history_screen.dart';
@@ -38,6 +39,11 @@ class _AppShellState extends State<AppShell> {
       (l10n.navDevices, Icons.devices_other_outlined, const DevicesScreen()),
       (l10n.navPolicy, Icons.fact_check_outlined, const PolicyInboxScreen()),
       (l10n.navTuning, Icons.tune_outlined, const TuningHistoryScreen()),
+      (
+        l10n.navSecurity,
+        Icons.security_outlined,
+        const SecurityIncidentsScreen(),
+      ),
       (l10n.navSettings, Icons.settings_outlined, const SettingsScreen()),
     ];
 
