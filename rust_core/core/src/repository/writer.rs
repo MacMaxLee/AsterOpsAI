@@ -11,10 +11,11 @@ use tokio::sync::{mpsc, oneshot};
 use super::audit::{insert_audit_event, seed_chain_state};
 use super::error::RepositoryError;
 use super::models::{
-    AuditEventRecorded, NewAuditEvent, PerformanceAnalysisRow, RetentionReport,
-    TelemetrySnapshotRow,
+    AuditEventRecorded, NewAuditEvent, NewProposedAction, PerformanceAnalysisRow, PolicyActionRow,
+    RetentionReport, TelemetrySnapshotRow, TransitionPatch,
 };
 use super::performance_analysis::insert_performance_analysis;
+use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
 use super::telemetry_store::insert_raw_snapshot;
 
@@ -43,6 +44,27 @@ pub enum WriteCommand {
     RunRetentionSweep {
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<RetentionReport, RepositoryError>>,
+    },
+    /// Proposes a new action-lifecycle row, or a rollback attempt of a
+    /// previously executed one (unit U7). Has a reply since every caller
+    /// needs the assigned row id back.
+    PolicyPropose {
+        new: NewProposedAction,
+        reply: oneshot::Sender<Result<PolicyActionRow, RepositoryError>>,
+    },
+    /// The one atomic compare-and-swap lifecycle transition every policy
+    /// step (grant, authorize/consume, record result, start rollback) goes
+    /// through (unit U7) — see `repository::policy::transition`'s own doc
+    /// comment for why this is race-free without extra locking.
+    #[allow(clippy::type_complexity)]
+    PolicyTransition {
+        id: i64,
+        expected_status: String,
+        new_status: String,
+        now: DateTime<Utc>,
+        check_not_expired: bool,
+        patch: TransitionPatch,
+        reply: oneshot::Sender<Result<PolicyActionRow, RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -90,6 +112,29 @@ pub fn spawn(
                     }
                     WriteCommand::RunRetentionSweep { now, reply } => {
                         let result = run_sweep(&conn, &mut next_audit_id, &mut last_row_hash, now);
+                        drop(reply.send(result));
+                    }
+                    WriteCommand::PolicyPropose { new, reply } => {
+                        drop(reply.send(insert_proposed_action(&conn, &new)));
+                    }
+                    WriteCommand::PolicyTransition {
+                        id,
+                        expected_status,
+                        new_status,
+                        now,
+                        check_not_expired,
+                        patch,
+                        reply,
+                    } => {
+                        let result = transition(
+                            &conn,
+                            id,
+                            &expected_status,
+                            &new_status,
+                            now,
+                            check_not_expired,
+                            &patch,
+                        );
                         drop(reply.send(result));
                     }
                     WriteCommand::Shutdown { reply } => {

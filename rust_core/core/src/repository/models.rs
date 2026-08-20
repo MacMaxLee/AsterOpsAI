@@ -90,6 +90,66 @@ pub struct PerformanceAnalysisRow {
     pub evidence_json: String,
 }
 
+/// One row of the `actions` table (migrations/V4 + V9, unit U7) — a full
+/// action lifecycle instance, from proposal through approval/denial/expiry
+/// to execution/rollback. `status` is a raw string; `core::policy` owns the
+/// `ActionStatus` enum's semantics and parses/formats it at the boundary,
+/// mirroring `TelemetrySnapshotRow.cpu_pressure`'s own precedent — this
+/// crate only knows the row shape.
+#[derive(Debug, Clone)]
+pub struct PolicyActionRow {
+    pub id: i64,
+    pub created_at: DateTime<Utc>,
+    pub action_type: String,
+    pub target_identity_json: String,
+    pub target_start_time: i64,
+    pub risk_classification: String,
+    pub status: String,
+    pub approved_by: Option<String>,
+    pub executed_at: Option<DateTime<Utc>>,
+    pub rollback_of: Option<i64>,
+    pub evidence_json: String,
+    pub result_json: Option<String>,
+    pub requested_by: String,
+    pub parameters_json: String,
+    pub parameters_hash: String,
+    pub resource_descriptor_json: String,
+    pub approval_expires_at: Option<DateTime<Utc>>,
+}
+
+/// What a caller supplies to propose a new action (or a rollback of one —
+/// `rollback_of` is `Some` in that case). `status`/`risk_classification`
+/// are raw strings supplied by `core::policy`, same reasoning as
+/// `PolicyActionRow.status`.
+#[derive(Debug, Clone)]
+pub struct NewProposedAction {
+    pub created_at: DateTime<Utc>,
+    pub action_type: String,
+    pub target_identity_json: String,
+    pub target_start_time: i64,
+    pub risk_classification: String,
+    pub status: String,
+    pub evidence_json: String,
+    pub requested_by: String,
+    pub parameters_json: String,
+    pub parameters_hash: String,
+    pub resource_descriptor_json: String,
+    pub approval_expires_at: Option<DateTime<Utc>>,
+    pub rollback_of: Option<i64>,
+}
+
+/// Fields an atomic lifecycle [`transition`](super::policy::transition) may
+/// update alongside `status` — `None` leaves the existing column value
+/// untouched (`COALESCE`d in the `UPDATE`), so a single generic transition
+/// function can back every lifecycle step without each caller needing to
+/// know every column.
+#[derive(Debug, Clone, Default)]
+pub struct TransitionPatch {
+    pub approved_by: Option<String>,
+    pub executed_at: Option<DateTime<Utc>>,
+    pub result_json: Option<String>,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct RetentionAuditDetail {
     pub rows_deleted_raw: u64,

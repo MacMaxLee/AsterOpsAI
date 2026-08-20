@@ -47,3 +47,12 @@ pub mod analysis;
 // files — not gated to Linux, same reasoning as `dbms`/`analysis` above
 // (unit U6).
 pub mod ai;
+
+// Pure decision/typestate logic, no OS interaction of its own — not gated
+// to Linux, same reasoning as `dbms`/`analysis`/`ai` above (unit U7).
+pub mod policy;
+
+// The `ActionKind`/`TargetVerifier` traits have no OS-specific code in
+// `core/src` (zero production implementations ship this unit) — not gated
+// to Linux for the same reason `policy` above isn't (unit U7).
+pub mod actions;

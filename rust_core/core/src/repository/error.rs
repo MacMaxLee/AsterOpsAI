@@ -34,4 +34,17 @@ pub enum RepositoryError {
 
     #[error("the repository writer task did not reply")]
     WriterDidNotReply,
+
+    #[error("no action row with id {0}")]
+    PolicyActionNotFound(i64),
+
+    #[error("action {id} is not in the expected status: expected {expected:?}, actual {actual:?}")]
+    PolicyActionWrongStatus {
+        id: i64,
+        expected: String,
+        actual: String,
+    },
+
+    #[error("action {0}'s approval has expired")]
+    PolicyActionExpired(i64),
 }

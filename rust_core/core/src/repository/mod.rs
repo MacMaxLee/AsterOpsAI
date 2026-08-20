@@ -9,6 +9,7 @@ pub mod history;
 pub mod migrations;
 pub mod models;
 pub mod performance_analysis;
+pub mod policy;
 pub mod reader;
 pub mod retention;
 pub mod telemetry_store;
@@ -24,8 +25,9 @@ pub use history::{
     query_storage_history, HistoryRange, ResolvedRange,
 };
 pub use models::{
-    AuditEventRecorded, ChainVerification, NewAuditEvent, PerformanceAnalysisRow,
-    RetentionAuditDetail, RetentionReport, TelemetrySnapshotRow,
+    AuditEventRecorded, ChainVerification, NewAuditEvent, NewProposedAction,
+    PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail, RetentionReport,
+    TelemetrySnapshotRow, TransitionPatch,
 };
 pub use writer::WriteCommand;
 
@@ -120,6 +122,63 @@ pub async fn run_retention_sweep(
     reply_rx
         .await
         .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn propose_action(
+    handle: &RepositoryHandle,
+    new: NewProposedAction,
+) -> Result<PolicyActionRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::PolicyPropose {
+            new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// See `repository::policy::transition`'s own doc comment for the
+/// compare-and-swap semantics this wraps.
+#[allow(clippy::too_many_arguments)]
+pub async fn transition_action(
+    handle: &RepositoryHandle,
+    id: i64,
+    expected_status: impl Into<String>,
+    new_status: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+    check_not_expired: bool,
+    patch: TransitionPatch,
+) -> Result<PolicyActionRow, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::PolicyTransition {
+            id,
+            expected_status: expected_status.into(),
+            new_status: new_status.into(),
+            now,
+            check_not_expired,
+            patch,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+pub async fn get_action(
+    handle: &RepositoryHandle,
+    id: i64,
+) -> Result<Option<PolicyActionRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    policy::get_by_id(&conn, id)
 }
 
 pub async fn shutdown(handle: &RepositoryHandle) -> Result<(), RepositoryError> {
