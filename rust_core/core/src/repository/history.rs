@@ -15,6 +15,7 @@ use contracts::telemetry::{
 use rusqlite::Connection;
 
 use super::error::RepositoryError;
+use super::models::TelemetrySnapshotRow;
 use super::time::{format_ts, parse_ts};
 
 #[derive(Debug, Clone, Copy)]
@@ -320,6 +321,53 @@ pub fn query_storage_history(
         )?;
         rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
     }
+}
+
+/// Full-row raw snapshots since `since` — unlike the narrow per-metric
+/// `query_*_history` functions above (built for the console history
+/// endpoints), this returns every column so `analysis::classify_host` has
+/// a complete evidence window to classify over (unit U5). Raw tier only:
+/// classification needs individual samples' pressure tiers, which the
+/// hourly/daily rollups don't preserve.
+pub fn query_recent_snapshots(
+    conn: &Connection,
+    since: DateTime<Utc>,
+) -> Result<Vec<TelemetrySnapshotRow>, RepositoryError> {
+    let mut stmt = conn.prepare(
+        "SELECT ts, \
+         cpu_aggregate_util_pct, cpu_aggregate_util_state, cpu_load_avg_1m, cpu_pressure, cpu_per_core_json, \
+         mem_total_bytes, mem_used_bytes, mem_used_bytes_state, mem_available_bytes, mem_swap_used_bytes, mem_pressure, \
+         storage_read_bytes_ps, storage_write_bytes_ps, storage_volumes_json, \
+         net_rx_bytes_ps, net_tx_bytes_ps, net_interfaces_json, \
+         process_total_count, device_count, containerized \
+         FROM telemetry_snapshots WHERE ts >= ?1 ORDER BY ts ASC",
+    )?;
+    let rows = stmt.query_map(rusqlite::params![format_ts(since)], |row| {
+        Ok(TelemetrySnapshotRow {
+            ts: parse_ts(&row.get::<_, String>(0)?),
+            cpu_aggregate_util_pct: row.get(1)?,
+            cpu_aggregate_util_state: row.get(2)?,
+            cpu_load_avg_1m: row.get(3)?,
+            cpu_pressure: row.get(4)?,
+            cpu_per_core_json: row.get(5)?,
+            mem_total_bytes: row.get(6)?,
+            mem_used_bytes: row.get(7)?,
+            mem_used_bytes_state: row.get(8)?,
+            mem_available_bytes: row.get(9)?,
+            mem_swap_used_bytes: row.get(10)?,
+            mem_pressure: row.get(11)?,
+            storage_read_bytes_ps: row.get(12)?,
+            storage_write_bytes_ps: row.get(13)?,
+            storage_volumes_json: row.get(14)?,
+            net_rx_bytes_ps: row.get(15)?,
+            net_tx_bytes_ps: row.get(16)?,
+            net_interfaces_json: row.get(17)?,
+            process_total_count: row.get(18)?,
+            device_count: row.get(19)?,
+            containerized: row.get::<_, i64>(20)? != 0,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
 pub fn query_network_history(

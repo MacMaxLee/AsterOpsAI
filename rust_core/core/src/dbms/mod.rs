@@ -60,6 +60,14 @@ pub struct VersionInfo {
 pub struct DatabaseInfo {
     pub name: String,
     pub size_bytes: i64,
+    /// `pg_stat_database.xact_commit`/`.xact_rollback` — lifetime cumulative
+    /// counters (reset only on server restart or `pg_stat_reset()`), added
+    /// in unit U5 as the only data source for rollback-ratio classification
+    /// (SRS FR-PERF-003). Not a rate for the same reason `TempFileActivity`/
+    /// `DeadlockInfo` aren't: no live poll loop persists history to diff
+    /// against yet.
+    pub xact_commit: i64,
+    pub xact_rollback: i64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

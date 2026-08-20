@@ -10,7 +10,11 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::audit::{insert_audit_event, seed_chain_state};
 use super::error::RepositoryError;
-use super::models::{AuditEventRecorded, NewAuditEvent, RetentionReport, TelemetrySnapshotRow};
+use super::models::{
+    AuditEventRecorded, NewAuditEvent, PerformanceAnalysisRow, RetentionReport,
+    TelemetrySnapshotRow,
+};
+use super::performance_analysis::insert_performance_analysis;
 use super::retention::run_sweep;
 use super::telemetry_store::insert_raw_snapshot;
 
@@ -22,6 +26,10 @@ pub enum WriteCommand {
     /// (logged), matching the "slow consumer must not block sampling" rule
     /// already applied to the API server and the sampler itself.
     InsertTelemetrySnapshot(Box<TelemetrySnapshotRow>),
+    /// Fire-and-forget, same reasoning as `InsertTelemetrySnapshot` — a
+    /// dropped performance-analysis result under channel pressure is
+    /// logged, never blocks the caller (unit U5).
+    InsertPerformanceAnalysis(Box<PerformanceAnalysisRow>),
     /// Low-frequency; has a reply since callers may want the resulting
     /// id/hash back.
     InsertAuditEvent {
@@ -64,6 +72,11 @@ pub fn spawn(
                     WriteCommand::InsertTelemetrySnapshot(row) => {
                         if let Err(err) = insert_raw_snapshot(&conn, &row) {
                             tracing::warn!(error = %err, "failed to persist telemetry snapshot");
+                        }
+                    }
+                    WriteCommand::InsertPerformanceAnalysis(row) => {
+                        if let Err(err) = insert_performance_analysis(&conn, &row) {
+                            tracing::warn!(error = %err, "failed to persist performance analysis result");
                         }
                     }
                     WriteCommand::InsertAuditEvent { new, reply } => {

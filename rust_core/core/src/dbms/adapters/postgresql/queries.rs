@@ -28,8 +28,11 @@ pub async fn list_databases(
 ) -> Result<Vec<DatabaseInfo>, DbmsError> {
     let rows = client
         .query(
-            "SELECT datname, pg_database_size(datname) FROM pg_database \
-             WHERE datistemplate = false ORDER BY datname",
+            "SELECT d.datname, pg_database_size(d.datname), \
+             COALESCE(s.xact_commit, 0), COALESCE(s.xact_rollback, 0) \
+             FROM pg_database d \
+             LEFT JOIN pg_stat_database s ON s.datname = d.datname \
+             WHERE d.datistemplate = false ORDER BY d.datname",
             &[],
         )
         .await?;
@@ -38,6 +41,8 @@ pub async fn list_databases(
         .map(|row| DatabaseInfo {
             name: row.get(0),
             size_bytes: row.get(1),
+            xact_commit: row.get(2),
+            xact_rollback: row.get(3),
         })
         .collect())
 }

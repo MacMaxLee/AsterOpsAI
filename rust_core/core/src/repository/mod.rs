@@ -8,6 +8,7 @@ pub mod error;
 pub mod history;
 pub mod migrations;
 pub mod models;
+pub mod performance_analysis;
 pub mod reader;
 pub mod retention;
 pub mod telemetry_store;
@@ -19,12 +20,12 @@ use std::path::PathBuf;
 pub use connection::ReadPool;
 pub use error::RepositoryError;
 pub use history::{
-    query_cpu_history, query_memory_history, query_network_history, query_storage_history,
-    HistoryRange, ResolvedRange,
+    query_cpu_history, query_memory_history, query_network_history, query_recent_snapshots,
+    query_storage_history, HistoryRange, ResolvedRange,
 };
 pub use models::{
-    AuditEventRecorded, ChainVerification, NewAuditEvent, RetentionAuditDetail, RetentionReport,
-    TelemetrySnapshotRow,
+    AuditEventRecorded, ChainVerification, NewAuditEvent, PerformanceAnalysisRow,
+    RetentionAuditDetail, RetentionReport, TelemetrySnapshotRow,
 };
 pub use writer::WriteCommand;
 
@@ -69,6 +70,19 @@ pub fn try_persist_telemetry_snapshot(handle: &RepositoryHandle, row: TelemetryS
         .is_err()
     {
         tracing::debug!("telemetry snapshot dropped: writer channel full or unavailable");
+    }
+}
+
+/// Fire-and-forget, same reasoning as `try_persist_telemetry_snapshot`:
+/// performance-analysis results are periodic derived data, not something a
+/// caller needs to await the durability of.
+pub fn try_persist_performance_analysis(handle: &RepositoryHandle, row: PerformanceAnalysisRow) {
+    if handle
+        .command_tx
+        .try_send(WriteCommand::InsertPerformanceAnalysis(Box::new(row)))
+        .is_err()
+    {
+        tracing::debug!("performance analysis result dropped: writer channel full or unavailable");
     }
 }
 

@@ -75,6 +75,21 @@ pub struct ChainVerification {
     pub first_broken_id: Option<i64>,
 }
 
+/// One row for the `performance_analysis` table (migrations/V5, unit U5).
+/// `subject` distinguishes what was classified — `"HOST"` for a host
+/// bottleneck verdict, or a DB connection's name for a DB health verdict —
+/// and `score_version` is one of `analysis::HOST_SCORE_VERSION` /
+/// `analysis::DB_SCORE_VERSION`, never mutated in place (SRS FR-PERF-004).
+#[derive(Debug, Clone)]
+pub struct PerformanceAnalysisRow {
+    pub ts: DateTime<Utc>,
+    pub subject: String,
+    pub score: f64,
+    pub score_version: String,
+    pub verdict: String,
+    pub evidence_json: String,
+}
+
 #[derive(Debug, Clone, Default, Serialize)]
 pub struct RetentionAuditDetail {
     pub rows_deleted_raw: u64,

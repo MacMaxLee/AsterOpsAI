@@ -37,3 +37,8 @@ pub mod repository;
 // reads local OS files, so — like `repository` above — this isn't gated to
 // Linux the way `telemetry` is (unit U4).
 pub mod dbms;
+
+// Pure classification/scoring over caller-supplied evidence (`contracts`
+// types and `repository` row types, not raw `/proc`/`/sys` reads) — not
+// gated to Linux, same reasoning as `dbms` above (unit U5).
+pub mod analysis;
