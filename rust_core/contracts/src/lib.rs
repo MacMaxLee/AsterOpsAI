@@ -7,6 +7,7 @@
 //! console actually exchange. See docs/adr/0002-contract-first-schema-codegen.md.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod analysis;
 pub mod capability;
 pub mod envelope;
 pub mod error;
@@ -16,6 +17,7 @@ pub mod security;
 pub mod telemetry;
 pub mod tuning;
 
+pub use analysis::HostVerdict;
 pub use capability::{default_capability_registry, Capability, CapabilityFamily};
 pub use envelope::Envelope;
 pub use error::ApiError;

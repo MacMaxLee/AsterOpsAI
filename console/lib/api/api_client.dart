@@ -120,6 +120,9 @@ final class ApiClient {
     }),
   );
 
+  Future<ApiResult<HostVerdict>> getHostAnalysis() =>
+      _get('/api/v1/analysis/host', HostVerdict.fromJson);
+
   Future<ApiResult<T>> _get<T>(
     String path,
     T Function(dynamic) dataFromJson,

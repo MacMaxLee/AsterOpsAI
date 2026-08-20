@@ -13,6 +13,7 @@
   "navPolicy": "Policy",
   "navTuning": "Tuning",
   "navSecurity": "Security",
+  "navAnalysis": "Analysis",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -140,6 +141,41 @@
   "securitySuppressSubmit": "Suppress",
   "securitySuppressSuccess": "Detector suppressed",
   "genericCancel": "Cancel",
+
+  "analysisScore": "Score {score} ({scoreVersion})",
+  "@analysisScore": {
+    "placeholders": {
+      "score": { "type": "int" },
+      "scoreVersion": { "type": "String" }
+    }
+  },
+  "analysisDomainSignalsHeading": "Domain signals",
+  "analysisDomainSignalDetail": "{tier} — {crossedCount}/{sampleCount} samples crossed",
+  "@analysisDomainSignalDetail": {
+    "placeholders": {
+      "tier": { "type": "String" },
+      "crossedCount": { "type": "int" },
+      "sampleCount": { "type": "int" }
+    }
+  },
+  "analysisBottleneckNone": "No bottleneck",
+  "analysisBottleneckCpu": "CPU",
+  "analysisBottleneckMemory": "Memory",
+  "analysisBottleneckStorageIo": "Storage I/O",
+  "analysisBottleneckNetwork": "Network",
+  "analysisBottleneckThermal": "Thermal",
+  "analysisBottleneckPower": "Power",
+  "analysisBottleneckBackground": "Background processes",
+  "analysisBottleneckMultiple": "Multiple",
+  "analysisBottleneckUnknown": "Unknown (insufficient data)",
+  "analysisDomainCpu": "CPU",
+  "analysisDomainMemory": "Memory",
+  "analysisDomainStorageIo": "Storage I/O",
+  "analysisDomainNetwork": "Network",
+  "analysisTierNormal": "Normal",
+  "analysisTierElevated": "Elevated",
+  "analysisTierHigh": "High",
+  "analysisTierCritical": "Critical",
 
   "genericLoading": "Loading...",
   "genericEmpty": "Nothing to show"

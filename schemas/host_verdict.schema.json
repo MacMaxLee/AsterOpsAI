@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "HostVerdict",
+  "type": "object",
+  "required": [
+    "bottleneck",
+    "domain_signals",
+    "evidence",
+    "score",
+    "score_version"
+  ],
+  "properties": {
+    "bottleneck": {
+      "$ref": "#/definitions/HostBottleneck"
+    },
+    "domain_signals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/DomainSignal"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Evidence"
+      }
+    },
+    "score": {
+      "type": "integer",
+      "format": "uint8",
+      "minimum": 0.0
+    },
+    "score_version": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "DomainSignal": {
+      "type": "object",
+      "required": [
+        "crossed_count",
+        "domain",
+        "sample_count",
+        "tier"
+      ],
+      "properties": {
+        "crossed_count": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "domain": {
+          "$ref": "#/definitions/HostDomain"
+        },
+        "sample_count": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "tier": {
+          "$ref": "#/definitions/Tier"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": [
+        "metric",
+        "observed",
+        "threshold",
+        "window_end",
+        "window_start"
+      ],
+      "properties": {
+        "metric": {
+          "type": "string"
+        },
+        "observed": {
+          "type": "number",
+          "format": "double"
+        },
+        "threshold": {
+          "type": "number",
+          "format": "double"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "HostBottleneck": {
+      "description": "SRS FR-PERF-001's exact ten values.",
+      "type": "string",
+      "enum": [
+        "NONE",
+        "CPU",
+        "MEMORY",
+        "STORAGE_IO",
+        "NETWORK",
+        "THERMAL",
+        "POWER",
+        "BACKGROUND",
+        "MULTIPLE",
+        "UNKNOWN"
+      ]
+    },
+    "HostDomain": {
+      "type": "string",
+      "enum": [
+        "CPU",
+        "MEMORY",
+        "STORAGE_IO",
+        "NETWORK"
+      ]
+    },
+    "Tier": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}

@@ -1,3 +1,4 @@
+pub mod analysis;
 pub mod cpu;
 pub mod devices;
 pub mod health;
@@ -36,4 +37,5 @@ pub fn router() -> Router<AppState> {
         .route("/tuning/plans", get(tuning::plans))
         .route("/security/incidents", get(security::incidents))
         .route("/security/suppress", post(security::suppress))
+        .route("/analysis/host", get(analysis::host))
 }

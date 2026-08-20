@@ -5,6 +5,7 @@ import '../widgets/connection_banner.dart';
 import 'cpu_screen.dart';
 import 'dashboard_screen.dart';
 import 'devices_screen.dart';
+import 'host_analysis_screen.dart';
 import 'memory_screen.dart';
 import 'network_screen.dart';
 import 'policy_inbox_screen.dart';
@@ -44,6 +45,7 @@ class _AppShellState extends State<AppShell> {
         Icons.security_outlined,
         const SecurityIncidentsScreen(),
       ),
+      (l10n.navAnalysis, Icons.speed_outlined, const HostAnalysisScreen()),
       (l10n.navSettings, Icons.settings_outlined, const SettingsScreen()),
     ];
 

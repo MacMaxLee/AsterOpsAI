@@ -11,6 +11,7 @@
   "navPolicy": "政策",
   "navTuning": "調校",
   "navSecurity": "安全性",
+  "navAnalysis": "分析",
   "navSettings": "設定",
   "connectionConnecting": "正在連線至核心服務...",
   "connectionReconnecting": "正在重新連線至核心服務...",
@@ -136,6 +137,40 @@
   "securitySuppressSubmit": "抑制",
   "securitySuppressSuccess": "偵測器已抑制",
   "genericCancel": "取消",
+  "analysisScore": "分數 {score}（{scoreVersion}）",
+  "@analysisScore": {
+    "placeholders": {
+      "score": { "type": "int" },
+      "scoreVersion": { "type": "String" }
+    }
+  },
+  "analysisDomainSignalsHeading": "領域訊號",
+  "analysisDomainSignalDetail": "{tier} — {crossedCount}/{sampleCount} 個樣本超過門檻",
+  "@analysisDomainSignalDetail": {
+    "placeholders": {
+      "tier": { "type": "String" },
+      "crossedCount": { "type": "int" },
+      "sampleCount": { "type": "int" }
+    }
+  },
+  "analysisBottleneckNone": "無瓶頸",
+  "analysisBottleneckCpu": "CPU",
+  "analysisBottleneckMemory": "記憶體",
+  "analysisBottleneckStorageIo": "儲存 I/O",
+  "analysisBottleneckNetwork": "網路",
+  "analysisBottleneckThermal": "溫度",
+  "analysisBottleneckPower": "電源",
+  "analysisBottleneckBackground": "背景處理程序",
+  "analysisBottleneckMultiple": "多重瓶頸",
+  "analysisBottleneckUnknown": "未知（資料不足）",
+  "analysisDomainCpu": "CPU",
+  "analysisDomainMemory": "記憶體",
+  "analysisDomainStorageIo": "儲存 I/O",
+  "analysisDomainNetwork": "網路",
+  "analysisTierNormal": "正常",
+  "analysisTierElevated": "偏高",
+  "analysisTierHigh": "高",
+  "analysisTierCritical": "危急",
   "genericLoading": "載入中...",
   "genericEmpty": "沒有可顯示的內容"
 }

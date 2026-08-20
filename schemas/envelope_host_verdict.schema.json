@@ -1,0 +1,284 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Envelope_for_HostVerdict",
+  "description": "Every API response is wrapped in this envelope: `{success, timestamp, request_id, data, error}`. Exactly one of `data`/`error` is populated, matching `success`.",
+  "type": "object",
+  "required": [
+    "request_id",
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/HostVerdict"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "ApiError": {
+      "description": "Closed, wire-facing error type. Every API error response carries exactly one of these variants — never a bare string — so clients can branch on `code` exhaustively instead of pattern-matching on message text.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "BAD_REQUEST"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NOT_FOUND"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INTERNAL"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "DomainSignal": {
+      "type": "object",
+      "required": [
+        "crossed_count",
+        "domain",
+        "sample_count",
+        "tier"
+      ],
+      "properties": {
+        "crossed_count": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "domain": {
+          "$ref": "#/definitions/HostDomain"
+        },
+        "sample_count": {
+          "type": "integer",
+          "format": "uint64",
+          "minimum": 0.0
+        },
+        "tier": {
+          "$ref": "#/definitions/Tier"
+        }
+      }
+    },
+    "Evidence": {
+      "type": "object",
+      "required": [
+        "metric",
+        "observed",
+        "threshold",
+        "window_end",
+        "window_start"
+      ],
+      "properties": {
+        "metric": {
+          "type": "string"
+        },
+        "observed": {
+          "type": "number",
+          "format": "double"
+        },
+        "threshold": {
+          "type": "number",
+          "format": "double"
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "window_end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "window_start": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "HostBottleneck": {
+      "description": "SRS FR-PERF-001's exact ten values.",
+      "type": "string",
+      "enum": [
+        "NONE",
+        "CPU",
+        "MEMORY",
+        "STORAGE_IO",
+        "NETWORK",
+        "THERMAL",
+        "POWER",
+        "BACKGROUND",
+        "MULTIPLE",
+        "UNKNOWN"
+      ]
+    },
+    "HostDomain": {
+      "type": "string",
+      "enum": [
+        "CPU",
+        "MEMORY",
+        "STORAGE_IO",
+        "NETWORK"
+      ]
+    },
+    "HostVerdict": {
+      "type": "object",
+      "required": [
+        "bottleneck",
+        "domain_signals",
+        "evidence",
+        "score",
+        "score_version"
+      ],
+      "properties": {
+        "bottleneck": {
+          "$ref": "#/definitions/HostBottleneck"
+        },
+        "domain_signals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/DomainSignal"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Evidence"
+          }
+        },
+        "score": {
+          "type": "integer",
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "score_version": {
+          "type": "string"
+        }
+      }
+    },
+    "Tier": {
+      "type": "string",
+      "enum": [
+        "NORMAL",
+        "ELEVATED",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}
