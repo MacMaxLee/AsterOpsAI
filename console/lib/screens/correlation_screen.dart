@@ -17,6 +17,16 @@ import '../widgets/async_result_view.dart';
 /// (cause, reason). No client-side re-derivation of any of it
 /// (FR-CONSOLE-001) — a cause's presence in `ruledOut` is rendered
 /// exactly as honestly as a ranked one, never hidden.
+///
+/// Unit U21 reworked the layout: root cause, evidence, ruled-out list,
+/// and confidence all have to be visible without scrolling or a toggle
+/// (the demo's own REQUIREMENTS #5) — a single unbounded `ListView`
+/// (U20's first version) doesn't guarantee that once more than one cause
+/// is ranked with its own evidence lines. This is a fixed, two-region
+/// `Row` instead: no `ListView`/`SingleChildScrollView` anywhere in this
+/// screen, deliberately — if a result genuinely doesn't fit, that's a
+/// real problem to see (an overflow), not one to quietly paper over with
+/// a scrollbar that defeats the requirement's own point.
 class CorrelationScreen extends ConsumerWidget {
   const CorrelationScreen({super.key});
 
@@ -37,74 +47,93 @@ class _CorrelationBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: _RankedColumn(ranked: result.ranked, l10n: l10n),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: _RuledOutColumn(ruledOut: result.ruledOut, l10n: l10n),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RankedColumn extends StatelessWidget {
+  final List<Hypothesis> ranked;
+  final AppLocalizations l10n;
+  const _RankedColumn({required this.ranked, required this.l10n});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           l10n.correlationRankedHeading,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        if (result.ranked.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(l10n.genericEmpty),
-          )
+        const SizedBox(height: 4),
+        if (ranked.isEmpty)
+          Text(l10n.genericEmpty)
         else
-          for (final hypothesis in result.ranked)
-            _HypothesisCard(hypothesis: hypothesis),
-        const SizedBox(height: 24),
-        Text(
-          l10n.correlationRuledOutHeading,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        if (result.ruledOut.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(l10n.genericEmpty),
-          )
-        else
-          for (final ruledOut in result.ruledOut) _RuledOutRow(ruledOut: ruledOut),
+          for (final hypothesis in ranked)
+            _HypothesisBlock(hypothesis: hypothesis, l10n: l10n),
       ],
     );
   }
 }
 
-class _HypothesisCard extends StatelessWidget {
+class _HypothesisBlock extends StatelessWidget {
   final Hypothesis hypothesis;
-  const _HypothesisCard({required this.hypothesis});
+  final AppLocalizations l10n;
+  const _HypothesisBlock({required this.hypothesis, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _causeLabel(hypothesis.cause, l10n),
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            Text(
-              l10n.correlationConfidence(
-                (hypothesis.confidence * 100).toStringAsFixed(0),
-              ),
-            ),
-            for (final evidence in hypothesis.evidence)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
                 child: Text(
-                  l10n.correlationEvidenceDetail(
-                    evidence.metric,
-                    _formatEvidenceValue(evidence, evidence.observed),
-                    _formatEvidenceValue(evidence, evidence.threshold),
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  _causeLabel(hypothesis.cause, l10n),
+                  style: theme.textTheme.titleSmall,
                 ),
               ),
-          ],
-        ),
+              Text(
+                l10n.correlationConfidence(
+                  (hypothesis.confidence * 100).toStringAsFixed(0),
+                ),
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
+          for (final evidence in hypothesis.evidence)
+            Text(
+              l10n.correlationEvidenceDetail(
+                evidence.metric,
+                _formatEvidenceValue(evidence, evidence.observed),
+                _formatEvidenceValue(evidence, evidence.threshold),
+              ),
+              style: theme.textTheme.bodySmall,
+            ),
+          const Divider(height: 8),
+        ],
       ),
     );
   }
@@ -116,17 +145,57 @@ class _HypothesisCard extends StatelessWidget {
   }
 }
 
-class _RuledOutRow extends StatelessWidget {
-  final RuledOut ruledOut;
-  const _RuledOutRow({required this.ruledOut});
+class _RuledOutColumn extends StatelessWidget {
+  final List<RuledOut> ruledOut;
+  final AppLocalizations l10n;
+  const _RuledOutColumn({required this.ruledOut, required this.l10n});
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return ListTile(
-      dense: true,
-      title: Text(_causeLabel(ruledOut.cause, l10n)),
-      subtitle: Text(ruledOut.reason),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          l10n.correlationRuledOutHeading,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        if (ruledOut.isEmpty)
+          Text(l10n.genericEmpty)
+        else
+          for (final entry in ruledOut) _RuledOutRow(ruledOut: entry, l10n: l10n),
+      ],
+    );
+  }
+}
+
+class _RuledOutRow extends StatelessWidget {
+  final RuledOut ruledOut;
+  final AppLocalizations l10n;
+  const _RuledOutRow({required this.ruledOut, required this.l10n});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _causeLabel(ruledOut.cause, l10n),
+            style: theme.textTheme.bodyMedium,
+          ),
+          Text(
+            ruledOut.reason,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

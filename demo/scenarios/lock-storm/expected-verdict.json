@@ -1,0 +1,12 @@
+{
+  "expected_top_cause": "DB_LOCKS",
+  "expected_ruled_out": [
+    "DB_CONFIGURATION",
+    "CONNECTION_EXHAUSTION",
+    "SLOW_SQL",
+    "HOST_CPU",
+    "HOST_MEMORY",
+    "STORAGE_LATENCY",
+    "NETWORK"
+  ]
+}

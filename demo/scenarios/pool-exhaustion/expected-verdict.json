@@ -1,0 +1,12 @@
+{
+  "expected_top_cause": "CONNECTION_EXHAUSTION",
+  "expected_ruled_out": [
+    "DB_CONFIGURATION",
+    "SLOW_SQL",
+    "HOST_CPU",
+    "HOST_MEMORY",
+    "STORAGE_LATENCY",
+    "NETWORK"
+  ],
+  "_note": "DB_LOCKS is deliberately NOT asserted ruled out here: core::dbms::adapters::postgresql::queries.rs's classify_session_state treats ANY non-null wait_event_type as SessionState::Waiting, including Postgres's own 'Client' wait-event label for an ordinary idle connection waiting on its next command — not just 'Lock'. This scenario's genuinely-idle connections trip that (pre-existing, unmodified core behavior — out of this unit's FORBIDDEN scope to change), so DB_LOCKS realistically ranks alongside CONNECTION_EXHAUSTION too. CONNECTION_EXHAUSTION still robustly wins the top rank (confidence 1.0 vs DB_LOCKS' 0.33). See docs/adr/0026."
+}

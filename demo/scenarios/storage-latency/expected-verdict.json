@@ -1,0 +1,13 @@
+{
+  "expected_top_cause": "STORAGE_LATENCY",
+  "expected_ruled_out": [
+    "DB_LOCKS",
+    "DB_CONFIGURATION",
+    "CONNECTION_EXHAUSTION",
+    "SLOW_SQL",
+    "HOST_CPU",
+    "HOST_MEMORY",
+    "NETWORK"
+  ],
+  "_note": "This is the CORRECT verdict a genuinely slow/contended disk should produce, not necessarily what every machine will show. On the fast virtualized/SSD-backed storage this unit was built on, unprivileged I/O contention (dd, ionice-deprioritized, deliberately kept from CPU-thrashing) never crossed real STORAGE_IO_LATENCY_MS_HIGH/CRITICAL (30ms/80ms) — confirmed empirically, io_latency_ms stayed near 0.03ms regardless of technique. The actual verdict produced there instead ranks HOST_CPU (a real, modest, genuine CPU-sharing signal from the load generator itself on a 2-CPU box, not fabricated) and DB_LOCKS (a real, separate, pre-existing characteristic: core::dbms's classify_session_state treats any non-null wait_event_type, including Postgres's own 'Client' label for an idle connection, as SessionState::Waiting — see docs/adr/0026). A FAIL here should be checked against the actually-observed io_latency_ms evidence, and against docs/demo/RUNBOOK.md's storage-latency troubleshooting section, before assuming a correlation-engine defect."
+}
