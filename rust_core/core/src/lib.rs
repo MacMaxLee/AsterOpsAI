@@ -72,3 +72,8 @@ pub mod tuning;
 // response action (`security::response`) is internally Linux-gated, same
 // pattern as `actions::host`/`benchmark::sampler` (unit U11).
 pub mod security;
+
+// Pure arithmetic over `analysis`'s own already-classified output types —
+// no OS interaction, no AI dependency; not gated to Linux for the same
+// reason `analysis`/`policy`/`tuning`/`security` aren't (unit U12).
+pub mod correlation;
