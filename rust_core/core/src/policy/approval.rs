@@ -70,11 +70,16 @@ pub async fn grant(
 
 /// Consumes an APPROVED (or AUTO_ALLOWED, which needs no separate `grant`)
 /// row, producing the one way to construct a [`PolicyApproved`] — the
-/// approval-check pipeline stage. `target`/`parameters` are re-supplied by
-/// the caller and checked against exactly what was proposed: a mismatch on
-/// either (TRS §25's "different target" / "mutated parameters") is
-/// rejected as [`PolicyError::ApprovalMismatch`], never silently allowed
-/// through with the new values. The status transition to `EXECUTING` is
+/// approval-check pipeline stage. `target`/`parameters`/`resource` are
+/// re-supplied by the caller and checked against exactly what was
+/// proposed: a mismatch on any of them (TRS §25's "different target" /
+/// "mutated parameters" — `resource` gets the identical treatment since
+/// it's exactly the value `actions::execute`'s protected-resource stage
+/// later trusts; letting it drift from what was actually proposed would
+/// make FR-POL-006's protection check checkable against a relabeled
+/// resource instead of the real one) is rejected as
+/// [`PolicyError::ApprovalMismatch`], never silently allowed through with
+/// the new values. The status transition to `EXECUTING` is
 /// the single-use enforcement itself: a second call against the same row
 /// sees a status the CAS no longer matches and fails.
 pub async fn authorize(
@@ -96,6 +101,10 @@ pub async fn authorize(
     }
     let supplied_target_json = serde_json::to_string(target)?;
     if supplied_target_json != row.target_identity_json {
+        return Err(PolicyError::ApprovalMismatch);
+    }
+    let supplied_resource_json = serde_json::to_string(resource)?;
+    if supplied_resource_json != row.resource_descriptor_json {
         return Err(PolicyError::ApprovalMismatch);
     }
 

@@ -277,3 +277,36 @@ async fn changed_target_after_approval_is_rejected() {
         "authorize() with a different target than what was proposed must fail"
     );
 }
+
+#[tokio::test]
+async fn changed_resource_after_approval_is_rejected() {
+    // Regression test: authorize() originally checked target/parameters
+    // deviation but not resource — a caller could propose against one
+    // resource and authorize against a relabeled one, which
+    // `actions::execute`'s protected-resource stage would then trust
+    // instead of what was actually approved (found by adversarial review
+    // after U7 shipped, see docs/adr/0012's follow-up note).
+    let repo = TestRepo::open();
+    let registry = lifecycle_test_registry();
+    let now = Utc::now();
+    let row_id = propose_and_grant(&repo, now).await;
+
+    let different_resource = ResourceDescriptor {
+        kind: ResourceKind::Process,
+        name: "a-different-resource-name".to_string(),
+    };
+    let result = approval::authorize(
+        &repo.handle,
+        row_id,
+        &dummy_target(),
+        &serde_json::json!({"n": 1}),
+        &different_resource,
+        &registry,
+        now,
+    )
+    .await;
+    assert!(
+        result.is_err(),
+        "authorize() with a different resource than what was proposed must fail"
+    );
+}

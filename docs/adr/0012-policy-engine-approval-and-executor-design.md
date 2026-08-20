@@ -140,3 +140,21 @@ chain.
   decision" reasonably includes an operator's approval, not just
   proposal/denial outcomes) — a deliberate, tested addition, not an
   afterthought left undocumented.
+
+## Follow-up fix (post-ship adversarial review)
+
+A dedicated adversarial review after this unit shipped found a real gap:
+`policy::approval::authorize` re-checked the caller-supplied `target` and
+`parameters` against what was proposed (TRS §25's deviation rejection) but
+never checked `resource` the same way, despite `resource` being exactly
+the value `actions::execute`'s protected-resource stage later trusts
+as-is. A caller could propose against one resource, then supply a
+different (unprotected) `ResourceDescriptor` at `authorize()` time — the
+mismatch went uncaught, so FR-POL-006's protection check would run against
+a relabeled resource instead of the one actually approved. Fixed by adding
+a `resource_descriptor_json` equality check identical in shape to the
+existing target/parameters checks (`policy/approval.rs`), with a
+regression test (`changed_resource_after_approval_is_rejected`,
+`policy_approval_lifecycle_test.rs`) verified to fail against the
+pre-fix code and pass against the fix, the same revert-and-confirm
+discipline used for every other regression test in this codebase.
