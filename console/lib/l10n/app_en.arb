@@ -11,6 +11,7 @@
   "navProcesses": "Processes",
   "navDevices": "Devices",
   "navPolicy": "Policy",
+  "navTuning": "Tuning",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -114,6 +115,13 @@
   "policyColumnExpires": "Expires",
   "policyGrant": "Grant",
   "policyReject": "Reject",
+
+  "tuningCompletedAt": "completed {completedAt}",
+  "@tuningCompletedAt": {
+    "placeholders": {
+      "completedAt": { "type": "String" }
+    }
+  },
 
   "genericLoading": "Loading...",
   "genericEmpty": "Nothing to show"

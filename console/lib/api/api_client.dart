@@ -85,6 +85,13 @@ final class ApiClient {
         jsonEncode({'rejected_by': rejectedBy}),
       );
 
+  Future<ApiResult<List<TuningPlanSummary>>> getTuningPlans() => _get(
+    '/api/v1/tuning/plans',
+    (json) => (json as List<dynamic>)
+        .map((e) => TuningPlanSummary.fromJson(e))
+        .toList(),
+  );
+
   Future<ApiResult<T>> _get<T>(
     String path,
     T Function(dynamic) dataFromJson,

@@ -9,6 +9,7 @@
   "navProcesses": "處理程序",
   "navDevices": "裝置",
   "navPolicy": "政策",
+  "navTuning": "調校",
   "navSettings": "設定",
   "connectionConnecting": "正在連線至核心服務...",
   "connectionReconnecting": "正在重新連線至核心服務...",
@@ -112,6 +113,12 @@
   "policyColumnExpires": "到期時間",
   "policyGrant": "核准",
   "policyReject": "拒絕",
+  "tuningCompletedAt": "已於 {completedAt} 完成",
+  "@tuningCompletedAt": {
+    "placeholders": {
+      "completedAt": { "type": "String" }
+    }
+  },
   "genericLoading": "載入中...",
   "genericEmpty": "沒有可顯示的內容"
 }
