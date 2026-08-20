@@ -1,10 +1,15 @@
 pub mod exec;
 pub mod proc_source;
+pub mod process_control;
 pub mod storage;
 
 use std::time::Duration;
 
-use crate::{adapter::ProcessSelfMetrics, error::CapabilityError, PlatformAdapter};
+use crate::{
+    adapter::{CpuAffinityMask, ProcessPriority, ProcessSelfMetrics},
+    error::CapabilityError,
+    PlatformAdapter,
+};
 
 pub use proc_source::{ProcSource, RealProcSource};
 pub use storage::{volume_capacity, VolumeCapacity};
@@ -14,6 +19,30 @@ pub struct LinuxPlatformAdapter;
 impl PlatformAdapter for LinuxPlatformAdapter {
     fn platform_name(&self) -> &'static str {
         "linux"
+    }
+
+    fn get_process_priority(&self, pid: u32) -> Result<ProcessPriority, CapabilityError> {
+        process_control::get_priority(pid)
+    }
+
+    fn set_process_priority(
+        &self,
+        pid: u32,
+        priority: ProcessPriority,
+    ) -> Result<(), CapabilityError> {
+        process_control::set_priority(pid, priority)
+    }
+
+    fn get_process_cpu_affinity(&self, pid: u32) -> Result<CpuAffinityMask, CapabilityError> {
+        process_control::get_cpu_affinity(pid)
+    }
+
+    fn set_process_cpu_affinity(
+        &self,
+        pid: u32,
+        mask: &CpuAffinityMask,
+    ) -> Result<(), CapabilityError> {
+        process_control::set_cpu_affinity(pid, mask)
     }
 
     fn self_process_metrics(&self) -> Result<ProcessSelfMetrics, CapabilityError> {

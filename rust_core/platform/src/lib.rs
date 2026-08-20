@@ -15,7 +15,7 @@ pub mod macos;
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-pub use adapter::{PlatformAdapter, ProcessSelfMetrics};
+pub use adapter::{CpuAffinityMask, PlatformAdapter, ProcessPriority, ProcessSelfMetrics};
 pub use error::CapabilityError;
 
 /// Selects the `PlatformAdapter` implementation for the OS this binary was

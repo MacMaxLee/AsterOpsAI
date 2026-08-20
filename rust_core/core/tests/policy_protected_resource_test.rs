@@ -63,6 +63,7 @@ async fn protected_resource_blocks_execution_even_after_approval() {
         &serde_json::json!({}),
         &resource,
         &registry,
+        &common::test_action_context(),
         Utc::now(),
     )
     .await
@@ -131,6 +132,7 @@ async fn an_unprotected_resource_of_the_same_kind_but_different_name_is_unaffect
         &serde_json::json!({}),
         &resource,
         &registry,
+        &common::test_action_context(),
         Utc::now(),
     )
     .await

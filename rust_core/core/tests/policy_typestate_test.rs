@@ -90,6 +90,7 @@ async fn authorize_is_the_only_way_to_get_a_policy_approved_value() {
         &request.parameters,
         &request.resource,
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await

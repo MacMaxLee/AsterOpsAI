@@ -12,13 +12,25 @@
 #![allow(dead_code, clippy::unwrap_used, clippy::expect_used)]
 
 use std::process::{Child, Command, Stdio};
+use std::sync::Arc;
 use std::time::Duration;
 
-use ai_ops_core::actions::{ActionError, ActionKind, TargetVerifier};
+use ai_ops_core::actions::{ActionContext, ActionError, ActionKind, TargetVerifier};
 use ai_ops_core::policy::{
     ActionRequest, ActionTypeEntry, ActionTypeRegistry, RiskLevel, TargetIdentity,
 };
 use serde_json::Value;
+
+/// A real `PlatformAdapter` for tests that need an `ActionContext` but
+/// (unlike `actions_host_priority_affinity_test.rs`) don't actually
+/// exercise a real host action — `test_registry`'s/`lifecycle_test_
+/// registry`'s `construct` fns all ignore the context, same as before this
+/// unit added the parameter.
+pub fn test_action_context() -> ActionContext {
+    ActionContext {
+        platform: Arc::from(platform::current_platform_adapter()),
+    }
+}
 
 /// Mirrors `core::telemetry::process`'s own `/proc/[pid]/stat` field-22
 /// parsing (that code is Linux-gated, private, and lives in a different
@@ -189,14 +201,17 @@ impl ActionKind for TestActionKind {
     }
 }
 
-fn construct_test_kill_process(request: &ActionRequest) -> Box<dyn ActionKind> {
+fn construct_test_kill_process(
+    request: &ActionRequest,
+    _context: &ActionContext,
+) -> Result<Box<dyn ActionKind>, String> {
     match request.target {
         TargetIdentity::Process {
             pid,
             start_time_ticks,
-        } => Box::new(TestActionKind::for_target(pid, start_time_ticks)),
+        } => Ok(Box::new(TestActionKind::for_target(pid, start_time_ticks))),
         TargetIdentity::DbSession { .. } => {
-            unreachable!("test registry only ever proposes Process targets")
+            Err("test.kill_process requires a Process target".to_string())
         }
     }
 }
@@ -251,16 +266,22 @@ impl ActionKind for NoOpActionKind {
     }
 }
 
-fn construct_auto_allow(_request: &ActionRequest) -> Box<dyn ActionKind> {
-    Box::new(NoOpActionKind {
+fn construct_auto_allow(
+    _request: &ActionRequest,
+    _context: &ActionContext,
+) -> Result<Box<dyn ActionKind>, String> {
+    Ok(Box::new(NoOpActionKind {
         risk_level: RiskLevel::Informational,
-    })
+    }))
 }
 
-fn construct_needs_approval(_request: &ActionRequest) -> Box<dyn ActionKind> {
-    Box::new(NoOpActionKind {
+fn construct_needs_approval(
+    _request: &ActionRequest,
+    _context: &ActionContext,
+) -> Result<Box<dyn ActionKind>, String> {
+    Ok(Box::new(NoOpActionKind {
         risk_level: RiskLevel::Medium,
-    })
+    }))
 }
 
 /// A registry for the approval-lifecycle/protected-resource tests: one

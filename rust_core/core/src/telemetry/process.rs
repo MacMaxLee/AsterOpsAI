@@ -61,6 +61,15 @@ fn parse_stat_line(raw: &str) -> Option<StatFields> {
     })
 }
 
+/// Shared with `core::actions::host::target_verifier` (unit U8's real
+/// `TargetVerifier`, which needs the exact same field-22 read to
+/// re-verify a live process's identity before acting on it) — one
+/// canonical `/proc/[pid]/stat` parse, not a second copy in that module.
+pub(crate) fn read_start_time_ticks(source: &dyn ProcSource, pid: u32) -> Option<u64> {
+    let raw = source.read(&format!("proc/{pid}/stat")).ok()?;
+    parse_stat_line(&raw).map(|fields| fields.starttime)
+}
+
 fn parse_status(raw: &str) -> (Option<u32>, MetricValue<u64>) {
     let mut uid = None;
     let mut rss_bytes = MetricValue::Unavailable {

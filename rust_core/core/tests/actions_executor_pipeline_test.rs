@@ -73,6 +73,7 @@ async fn full_pipeline_kills_a_real_process() {
             name: "sleep-test-target".to_string(),
         },
         &registry,
+        &common::test_action_context(),
         Utc::now(),
     )
     .await
@@ -138,6 +139,7 @@ async fn target_identity_mismatch_aborts_before_apply() {
             name: "sleep-test-target".to_string(),
         },
         &registry,
+        &common::test_action_context(),
         Utc::now(),
     )
     .await

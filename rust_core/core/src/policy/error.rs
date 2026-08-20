@@ -27,6 +27,12 @@ pub enum PolicyError {
     #[error("target or parameters do not match what was approved")]
     ApprovalMismatch,
 
+    /// A real `construct` fn (unit U8) failed for a reason
+    /// `validate_parameters` couldn't have caught — e.g. an action type
+    /// registered for one `TargetIdentity` kind receiving another.
+    #[error("failed to construct action: {0}")]
+    ConstructionFailed(String),
+
     #[error("repository error: {0}")]
     Repository(#[from] RepositoryError),
 

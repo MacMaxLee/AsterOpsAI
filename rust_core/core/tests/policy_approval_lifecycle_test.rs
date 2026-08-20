@@ -95,6 +95,7 @@ async fn auto_allowed_actions_skip_grant_and_authorize_directly() {
         &serde_json::json!({"n": 1}),
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await
@@ -117,6 +118,7 @@ async fn single_use_a_second_authorize_call_on_the_same_row_fails() {
         &params,
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await
@@ -129,6 +131,7 @@ async fn single_use_a_second_authorize_call_on_the_same_row_fails() {
         &params,
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await;
@@ -153,6 +156,7 @@ async fn replay_of_a_consumed_approval_after_a_delay_still_fails() {
         &params,
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         t0,
     )
     .await
@@ -167,6 +171,7 @@ async fn replay_of_a_consumed_approval_after_a_delay_still_fails() {
         &params,
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         replay_time,
     )
     .await;
@@ -193,6 +198,7 @@ async fn expired_approval_is_rejected() {
         &serde_json::json!({"n": 1}),
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         past_expiry,
     )
     .await;
@@ -242,6 +248,7 @@ async fn mutated_parameters_after_approval_are_rejected() {
         &mutated_params,
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await;
@@ -269,6 +276,7 @@ async fn changed_target_after_approval_is_rejected() {
         &serde_json::json!({"n": 1}),
         &dummy_resource(),
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await;
@@ -302,6 +310,7 @@ async fn changed_resource_after_approval_is_rejected() {
         &serde_json::json!({"n": 1}),
         &different_resource,
         &registry,
+        &common::test_action_context(),
         now,
     )
     .await;

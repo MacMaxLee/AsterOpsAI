@@ -10,6 +10,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 
+use crate::actions::ActionContext;
 use crate::repository::{
     get_action, record_audit_event, transition_action, NewAuditEvent, RepositoryHandle,
     TransitionPatch,
@@ -82,6 +83,7 @@ pub async fn grant(
 /// the new values. The status transition to `EXECUTING` is
 /// the single-use enforcement itself: a second call against the same row
 /// sees a status the CAS no longer matches and fails.
+#[allow(clippy::too_many_arguments)]
 pub async fn authorize(
     handle: &RepositoryHandle,
     row_id: i64,
@@ -89,6 +91,7 @@ pub async fn authorize(
     parameters: &Value,
     resource: &ResourceDescriptor,
     registry: &ActionTypeRegistry,
+    context: &ActionContext,
     now: DateTime<Utc>,
 ) -> Result<PolicyApproved, PolicyError> {
     let row = get_action(handle, row_id)
@@ -142,7 +145,9 @@ pub async fn authorize(
         parameters: parameters.clone(),
         requested_by: updated.requested_by.clone(),
     };
-    let action: Arc<dyn crate::actions::ActionKind> = Arc::from((entry.construct)(&request));
+    let constructed =
+        (entry.construct)(&request, context).map_err(PolicyError::ConstructionFailed)?;
+    let action: Arc<dyn crate::actions::ActionKind> = Arc::from(constructed);
 
     Ok(PolicyApproved::new(
         action,

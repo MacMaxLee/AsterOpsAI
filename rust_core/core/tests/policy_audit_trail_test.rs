@@ -108,7 +108,7 @@ async fn denied_decision_is_audited_even_though_the_action_never_ran() {
         ai_ops_core::policy::ActionTypeEntry {
             risk_level: ai_ops_core::policy::RiskLevel::Prohibited,
             validate_parameters: |_| Ok(()),
-            construct: |_| unreachable!("a Prohibited action is never constructed"),
+            construct: |_, _| unreachable!("a Prohibited action is never constructed"),
         },
     );
     let repo = TestRepo::open();

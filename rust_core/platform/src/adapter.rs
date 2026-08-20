@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::time::Duration;
 
 use crate::error::CapabilityError;
@@ -12,6 +13,29 @@ pub struct ProcessSelfMetrics {
     pub cpu_time: Duration,
 }
 
+/// A process scheduling priority (unit U8). Shaped after Windows' priority
+/// *classes* (TRS §38 names `SetPriorityClass` as one of "the two U8
+/// actions") rather than a raw numeric value, so the same enum has one
+/// meaning across platforms even though only Linux has a real
+/// implementation this unit. Deliberately excludes a Realtime tier — a
+/// documented, flagged safety scope-down (see docs/adr/0013), not an
+/// oversight.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessPriority {
+    Idle,
+    BelowNormal,
+    Normal,
+    AboveNormal,
+    High,
+}
+
+/// A process's allowed-CPU set. `cpus` holds logical CPU indices (matching
+/// `CpuSnapshot.per_core_utilization_percent`'s own indexing, unit U1).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CpuAffinityMask {
+    pub cpus: BTreeSet<usize>,
+}
+
 /// One implementation per OS, selected at compile time. A method not
 /// supported on a given platform returns `CapabilityError::Unsupported` — it
 /// must compile and return this rather than being `#[cfg]`'d out, so the
@@ -24,4 +48,26 @@ pub trait PlatformAdapter: Send + Sync {
     }
 
     fn self_process_metrics(&self) -> Result<ProcessSelfMetrics, CapabilityError>;
+
+    /// Unit U8. `pid` need not be a child of this process — any process
+    /// this OS user has permission to inspect.
+    fn get_process_priority(&self, pid: u32) -> Result<ProcessPriority, CapabilityError>;
+
+    /// Raising priority (e.g. to `AboveNormal`/`High`) typically needs a
+    /// privilege this process may not have — a real, expected
+    /// `CapabilityError::PermissionRequired`, not something this method
+    /// hides or works around.
+    fn set_process_priority(
+        &self,
+        pid: u32,
+        priority: ProcessPriority,
+    ) -> Result<(), CapabilityError>;
+
+    fn get_process_cpu_affinity(&self, pid: u32) -> Result<CpuAffinityMask, CapabilityError>;
+
+    fn set_process_cpu_affinity(
+        &self,
+        pid: u32,
+        mask: &CpuAffinityMask,
+    ) -> Result<(), CapabilityError>;
 }
