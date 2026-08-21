@@ -147,6 +147,16 @@ final class ApiClient {
     (json) => (json as List<dynamic>).map((e) => IndexStat.fromJson(e)).toList(),
   );
 
+  /// Unlike every other `/dbms/*` endpoint, the envelope's `data` is a
+  /// single object, not a list (unit U37).
+  Future<ApiResult<ReplicationStatus>> getDbmsReplication() =>
+      _get('/api/v1/dbms/replication', ReplicationStatus.fromJson);
+
+  Future<ApiResult<List<GucValue>>> getDbmsGucs() => _get(
+    '/api/v1/dbms/gucs',
+    (json) => (json as List<dynamic>).map((e) => GucValue.fromJson(e)).toList(),
+  );
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.

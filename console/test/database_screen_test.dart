@@ -57,6 +57,30 @@ IndexStat fakeIndexStat() => const IndexStat(
   sizeBytes: 8192,
 );
 
+ReplicationStatus fakeReplicationStatus({List<StandbyInfo> standbys = const []}) =>
+    ReplicationStatus(
+      isPrimary: true,
+      inRecovery: false,
+      standbys: standbys,
+    );
+
+StandbyInfo fakeStandby() => const StandbyInfo(
+  clientAddr: '10.0.0.9',
+  flushLsn: '0/1A2B3C4',
+  replayLagSeconds: 0.85,
+  replayLsn: '0/1A2B3C0',
+  sentLsn: '0/1A2B3C4',
+  state: 'streaming',
+  writeLsn: '0/1A2B3C4',
+);
+
+GucValue fakeGucValue() => const GucValue(
+  name: 'max_connections',
+  setting: '100',
+  unit: null,
+  source: 'configuration file',
+);
+
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
   const Scaffold(body: DatabaseScreen()),
@@ -241,6 +265,64 @@ void main() {
       expect(find.text('idx_widgets_name'), findsOneWidget);
       expect(find.textContaining('table: widgets'), findsOneWidget);
       expect(find.textContaining('idx scan: 300'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted replication status renders its real primary/standby summary '
+    'and standby row',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/replication',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              fakeReplicationStatus(standbys: [fakeStandby()]).toJson(),
+            ),
+          ),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('Primary'), findsOneWidget);
+      expect(find.text('10.0.0.9'), findsOneWidget);
+      expect(find.textContaining('streaming'), findsOneWidget);
+      expect(find.textContaining('0.85'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted GUC renders its real name/setting/source',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/gucs',
+        ApiOk(jsonEncode(okEnvelopeJson([fakeGucValue().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('max_connections'), findsOneWidget);
+      expect(find.textContaining('100'), findsOneWidget);
+      expect(find.textContaining('configuration file'), findsOneWidget);
     },
   );
 }

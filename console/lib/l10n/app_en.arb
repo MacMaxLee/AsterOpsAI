@@ -222,6 +222,24 @@
       "idxScan": { "type": "int" }
     }
   },
+  "dbmsSectionReplication": "Replication",
+  "dbmsSectionGucs": "Settings",
+  "dbmsReplicationPrimary": "Primary",
+  "dbmsReplicationStandby": "Standby (in recovery)",
+  "dbmsStandbyRowSubtitle": "state: {state}  •  lag: {lagSeconds}s",
+  "@dbmsStandbyRowSubtitle": {
+    "placeholders": {
+      "state": { "type": "String" },
+      "lagSeconds": { "type": "String" }
+    }
+  },
+  "dbmsGucRowSubtitle": "{setting}  •  source: {source}",
+  "@dbmsGucRowSubtitle": {
+    "placeholders": {
+      "setting": { "type": "String" },
+      "source": { "type": "String" }
+    }
+  },
 
   "securityColumnEvents": "{count} event(s)",
   "@securityColumnEvents": {

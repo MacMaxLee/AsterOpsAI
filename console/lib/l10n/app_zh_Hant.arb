@@ -221,6 +221,24 @@
       "idxScan": { "type": "int" }
     }
   },
+  "dbmsSectionReplication": "複寫",
+  "dbmsSectionGucs": "設定",
+  "dbmsReplicationPrimary": "主要伺服器",
+  "dbmsReplicationStandby": "備用伺服器（復原中）",
+  "dbmsStandbyRowSubtitle": "狀態：{state}  •  延遲：{lagSeconds}秒",
+  "@dbmsStandbyRowSubtitle": {
+    "placeholders": {
+      "state": { "type": "String" },
+      "lagSeconds": { "type": "String" }
+    }
+  },
+  "dbmsGucRowSubtitle": "{setting}  •  來源：{source}",
+  "@dbmsGucRowSubtitle": {
+    "placeholders": {
+      "setting": { "type": "String" },
+      "source": { "type": "String" }
+    }
+  },
 
   "securityColumnEvents": "{count} 個事件",
   "@securityColumnEvents": {

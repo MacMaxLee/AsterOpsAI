@@ -68,3 +68,27 @@ final dbmsIndexStatsProvider =
       ref.onDispose(repo.dispose);
       return repo.stream;
     });
+
+/// Unit U38's own console surface for unit U37's own real endpoints.
+final dbmsReplicationProvider =
+    StreamProvider.autoDispose<ApiResult<ReplicationStatus>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<ReplicationStatus>(
+        fetch: client.getDbmsReplication,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });
+
+final dbmsGucsProvider = StreamProvider.autoDispose<ApiResult<List<GucValue>>>((
+  ref,
+) {
+  final client = ref.watch(apiClientProvider);
+  final repo = PolledRepository<List<GucValue>>(
+    fetch: client.getDbmsGucs,
+    interval: ref.watch(refreshIntervalProvider),
+  );
+  ref.onDispose(repo.dispose);
+  return repo.stream;
+});
