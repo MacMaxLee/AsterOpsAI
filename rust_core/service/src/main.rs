@@ -7,8 +7,8 @@ use ai_ops_core::policy::ProtectedResourceRegistry;
 use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
 use service::{
-    actions::build_action_registry, api, config, dbms_config, retention, self_metrics,
-    state::AppState, telemetry,
+    actions::build_action_registry, api, config, dbms_config, policy_config, retention,
+    self_metrics, state::AppState, telemetry,
 };
 
 #[derive(Parser)]
@@ -94,6 +94,7 @@ async fn serve() -> anyhow::Result<()> {
 
     let action_registry = Arc::new(build_action_registry());
     let protected_resources = Arc::new(ProtectedResourceRegistry::new());
+    let policy_environment = policy_config::resolve_policy_environment();
 
     let state = AppState::new(
         platform,
@@ -103,6 +104,7 @@ async fn serve() -> anyhow::Result<()> {
         dbms_adapter,
         action_registry,
         protected_resources,
+        policy_environment,
     );
     let app = api::router(state);
 

@@ -16,7 +16,7 @@ mod support;
 
 use std::sync::Arc;
 
-use ai_ops_core::policy::ProtectedResourceRegistry;
+use ai_ops_core::policy::{Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::{self, NewTuningPlan, RepositoryConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -27,6 +27,18 @@ use support::SpawnedTarget;
 use tower::ServiceExt;
 
 async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Router {
+    build_app_with_environment(repository, Environment::Development).await
+}
+
+/// Unit U25: lets a test configure the exact `policy_environment`
+/// `AppState` was actually started with, rather than always the
+/// no-behavior-change `Development` default `build_app` uses — needed
+/// to prove the propose -> inbox -> grant -> execute loop is genuinely
+/// reachable once a deployment is really configured for `Production`.
+async fn build_app_with_environment(
+    repository: Option<repository::RepositoryHandle>,
+    policy_environment: Environment,
+) -> axum::Router {
     let platform: Arc<dyn platform::PlatformAdapter> =
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
@@ -39,6 +51,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         None,
         Arc::new(build_action_registry()),
         Arc::new(ProtectedResourceRegistry::new()),
+        policy_environment,
     );
     api::router(state)
 }
@@ -313,6 +326,78 @@ async fn ask_before_changes_creates_a_real_row_the_existing_inbox_cannot_yet_rea
         affinity.cpus,
         std::collections::BTreeSet::from([0]),
         "an AUTO_ALLOWED_PENDING row must never have touched live state"
+    );
+}
+
+/// Unit U25: the exact loop ADR 0028 documented as unreachable, proven
+/// reachable, live over real HTTP, once the deployment is genuinely
+/// configured for `Environment::Production` — `core::policy::risk::
+/// decide(Low, Production)` requires approval (confirmed by direct read
+/// of `core/src/policy/risk.rs`), so the same `ASK_BEFORE_CHANGES` plan
+/// that lands on `AUTO_ALLOWED_PENDING` under the `Development` default
+/// (see the test above) now genuinely produces a real `PENDING_APPROVAL`
+/// row instead — visible in the inbox, grantable, and really executed.
+#[tokio::test]
+async fn environment_production_makes_ask_before_changes_really_reach_the_inbox_and_grantable() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+
+    let app = build_app_with_environment(Some(repo.clone()), Environment::Production).await;
+    let (status, body) = post_json(
+        app,
+        "/api/v1/tuning/start",
+        start_request(&target, "BATTERY_SAVER", "ASK_BEFORE_CHANGES"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let candidates = body["data"]["candidates"].as_array().expect("candidates");
+    assert_eq!(candidates.len(), 2);
+    for candidate in candidates {
+        assert_eq!(candidate["outcome"], "PENDING_APPROVAL");
+        assert!(!candidate["row_id"].is_null());
+    }
+    let affinity_row_id = candidates
+        .iter()
+        .find(|c| c["action_type"] == "host.set_process_cpu_affinity")
+        .expect("an affinity candidate was proposed")["row_id"]
+        .as_i64()
+        .expect("row_id is an integer");
+
+    // Genuinely visible in the real Policy inbox this time.
+    let app = build_app_with_environment(Some(repo.clone()), Environment::Production).await;
+    let (_, body) = get_json(app, "/api/v1/policy/pending").await;
+    let pending_ids: Vec<i64> = body["data"]
+        .as_array()
+        .expect("data is an array")
+        .iter()
+        .map(|item| item["id"].as_i64().expect("id is an integer"))
+        .collect();
+    assert!(
+        pending_ids.contains(&affinity_row_id),
+        "the proposed affinity candidate must be visible in the real inbox: {pending_ids:?}"
+    );
+
+    // Grant it for real (unit U22's own authorize -> execute path) —
+    // this genuinely succeeds now, unlike the Development-default test.
+    let app = build_app_with_environment(Some(repo), Environment::Production).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{affinity_row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
+
+    // Real proof: the target's actual CPU affinity changed.
+    let platform = platform::current_platform_adapter();
+    let affinity = platform
+        .get_process_cpu_affinity(target.pid as u32)
+        .expect("get_process_cpu_affinity");
+    assert_eq!(
+        affinity.cpus,
+        std::collections::BTreeSet::from([0]),
+        "the real process affinity must now be exactly {{0}}, proving the full \
+         propose -> inbox -> grant -> execute loop ran for real"
     );
 }
 

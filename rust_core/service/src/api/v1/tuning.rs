@@ -3,13 +3,16 @@
 //! start_plan` (already fully built and tested at the `core` level, unit
 //! U10) wired for real. Starting a plan here genuinely runs the same
 //! propose/evaluate pipeline unit U22's grant endpoint sits downstream
-//! of — but with only Low-risk action types registered today and
-//! `Environment::Development` hardcoded below, every real candidate
-//! resolves to `AUTO_ALLOWED_PENDING`, not `PENDING_APPROVAL`, so it
-//! never actually reaches U22's inbox/grant surface over HTTP yet (a
-//! real, documented gap — see docs/adr/0028).
+//! of. With only Low-risk action types registered and the real,
+//! configurable `state.policy_environment` (unit U25) left at its
+//! default `Development`, every candidate still resolves to
+//! `AUTO_ALLOWED_PENDING`, not `PENDING_APPROVAL` — but with
+//! `$ASTEROPS_POLICY_ENVIRONMENT=production` configured, `core::policy::
+//! risk::decide(Low, Production)` genuinely requires approval, and the
+//! full propose -> inbox -> grant -> execute loop ADR 0028 documented as
+//! unreachable becomes real. See docs/adr/0028 and docs/adr/0030.
 
-use ai_ops_core::policy::{Environment, ResourceDescriptor, ResourceKind, TargetIdentity};
+use ai_ops_core::policy::{ResourceDescriptor, ResourceKind, TargetIdentity};
 use ai_ops_core::repository::{self, TuningPlanRow};
 use ai_ops_core::tuning::{start_plan, AutomationMode, TuningPipeline, TuningProfile};
 use axum::extract::{Extension, State};
@@ -141,12 +144,10 @@ pub async fn start(
             context: &state.action_context,
             verifier: &target_verifier(),
             protected: &state.protected_resources,
-            // No config surface for "what environment is this
-            // deployment" exists anywhere in this project yet (unit
-            // U20's dbms_config made the identical judgment call for
-            // the same reason) — a real, flagged simplification, not a
-            // silent one.
-            environment: Environment::Development,
+            // Real config as of unit U25 (`policy_config::
+            // resolve_policy_environment`, `$ASTEROPS_POLICY_
+            // ENVIRONMENT`) — defaults to `Development` when unset.
+            environment: state.policy_environment,
         };
 
         let outcome = start_plan(

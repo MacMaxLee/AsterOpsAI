@@ -4,7 +4,7 @@
 
 use std::sync::Arc;
 
-use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
+use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use contracts::Envelope;
@@ -25,6 +25,7 @@ async fn health_returns_a_valid_envelope() {
         None,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
     );
     let app = api::router(state);
 

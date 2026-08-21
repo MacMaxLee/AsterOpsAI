@@ -7,6 +7,7 @@ pub mod api;
 pub mod config;
 pub mod dbms_config;
 pub mod middleware;
+pub mod policy_config;
 pub mod response;
 pub mod retention;
 pub mod self_metrics;

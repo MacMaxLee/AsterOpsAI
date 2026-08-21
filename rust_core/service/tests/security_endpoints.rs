@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use ai_ops_core::policy::{
-    ActionTypeRegistry, ProtectedResourceRegistry, ResourceDescriptor, ResourceKind,
+    ActionTypeRegistry, Environment, ProtectedResourceRegistry, ResourceDescriptor, ResourceKind,
 };
 use ai_ops_core::repository::{self, RepositoryConfig};
 use ai_ops_core::security::{incident, DetectedEvent, Severity};
@@ -36,6 +36,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         None,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
     );
     api::router(state)
 }

@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
+use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::{self, RepositoryConfig, TelemetrySnapshotRow, WriteCommand};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -32,6 +32,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         None,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
     );
     api::router(state)
 }
@@ -61,6 +62,7 @@ async fn build_app_with_empty_repository(repository: repository::RepositoryHandl
         None,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
     );
     api::router(state)
 }

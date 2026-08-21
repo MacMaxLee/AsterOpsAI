@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use ai_ops_core::policy::hash::compute_parameters_hash;
 use ai_ops_core::policy::{
-    ActionStatus, ProtectedResourceRegistry, ResourceDescriptor, ResourceKind,
+    ActionStatus, Environment, ProtectedResourceRegistry, ResourceDescriptor, ResourceKind,
 };
 use ai_ops_core::repository::{self, NewProposedAction, RepositoryConfig};
 use axum::body::Body;
@@ -41,6 +41,12 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         None,
         Arc::new(build_action_registry()),
         Arc::new(ProtectedResourceRegistry::new()),
+        // Grant/reject never call `evaluate()` again (confirmed by
+        // direct read, unit U25) — this file's own tests never touch
+        // `policy_environment`, so `Development` (the same
+        // no-behavior-change default `tuning_endpoints.rs` uses) is
+        // fine here unconditionally.
+        Environment::Development,
     );
     api::router(state)
 }

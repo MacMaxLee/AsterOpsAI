@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use ai_ops_core::actions::ActionContext;
 use ai_ops_core::dbms::DbmsAdapter;
-use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
+use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::RepositoryHandle;
 use platform::PlatformAdapter;
 use tokio::sync::RwLock;
@@ -39,6 +39,12 @@ pub struct AppState {
     /// this ships genuinely empty (unit U22) — no config surface for
     /// protecting specific resources exists anywhere in this project yet.
     pub protected_resources: Arc<ProtectedResourceRegistry>,
+    /// Which real deployment environment this is, for `core::policy::
+    /// risk::decide`'s own risk decision (unit U25:
+    /// `policy_config::resolve_policy_environment`, `$ASTEROPS_POLICY_
+    /// ENVIRONMENT`, defaulting to `Development`). Consumed today only
+    /// by `api/v1/tuning.rs`'s `start` handler.
+    pub policy_environment: Environment,
 }
 
 impl AppState {
@@ -51,6 +57,7 @@ impl AppState {
         dbms_adapter: Option<Arc<dyn DbmsAdapter>>,
         action_registry: Arc<ActionTypeRegistry>,
         protected_resources: Arc<ProtectedResourceRegistry>,
+        policy_environment: Environment,
     ) -> Self {
         let action_context = ActionContext {
             platform: platform.clone(),
@@ -65,6 +72,7 @@ impl AppState {
             action_context,
             action_registry,
             protected_resources,
+            policy_environment,
         }
     }
 }

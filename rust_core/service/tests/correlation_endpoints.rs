@@ -16,7 +16,7 @@ use std::time::Duration as StdDuration;
 
 use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
 use ai_ops_core::dbms::{pool, DbmsAdapter};
-use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
+use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::{self, RepositoryConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -40,6 +40,7 @@ async fn build_app(
         dbms_adapter,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
     );
     api::router(state)
 }
