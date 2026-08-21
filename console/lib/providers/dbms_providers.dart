@@ -115,3 +115,29 @@ final dbmsDeadlockHistoryProvider =
       ref.onDispose(repo.dispose);
       return repo.stream;
     });
+
+/// Unit U42's own console surface for unit U41's own real endpoints —
+/// the last pair in the whole DBMS wiring vein (ADR 0046).
+final dbmsLongTransactionsProvider =
+    StreamProvider.autoDispose<ApiResult<List<LongTransaction>>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<List<LongTransaction>>(
+        fetch: client.getDbmsLongTransactions,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });
+
+final dbmsIdleInTransactionSessionsProvider =
+    StreamProvider.autoDispose<ApiResult<List<IdleInTransactionSession>>>((
+      ref,
+    ) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<List<IdleInTransactionSession>>(
+        fetch: client.getDbmsIdleInTransactionSessions,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });

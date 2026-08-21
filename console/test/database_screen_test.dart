@@ -91,6 +91,21 @@ TempFileActivity fakeTempFileActivity({DateTime? statsReset}) =>
 DeadlockInfo fakeDeadlockInfo({DateTime? statsReset}) =>
     DeadlockInfo(deadlocks: 2, statsReset: statsReset);
 
+LongTransaction fakeLongTransaction() => const LongTransaction(
+  pid: 7001,
+  username: 'app',
+  durationSeconds: 125.4,
+  state: SessionState.active,
+  query: 'UPDATE t SET x = 1',
+);
+
+IdleInTransactionSession fakeIdleInTransactionSession() =>
+    const IdleInTransactionSession(
+      pid: 7002,
+      username: 'app',
+      idleDurationSeconds: 90.2,
+    );
+
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
   const Scaffold(body: DatabaseScreen()),
@@ -394,6 +409,64 @@ void main() {
 
       expect(find.textContaining('2 deadlock(s)'), findsOneWidget);
       expect(find.textContaining('stats reset:'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'a scripted long transaction renders its real pid/username/state/'
+    'duration/query',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/long-transactions',
+        ApiOk(jsonEncode(okEnvelopeJson([fakeLongTransaction().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.textContaining('7001'), findsOneWidget);
+      expect(find.textContaining('app'), findsWidgets);
+      expect(find.textContaining('ACTIVE'), findsOneWidget);
+      expect(find.textContaining('125.4'), findsOneWidget);
+      expect(find.textContaining('UPDATE t SET x = 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted idle-in-transaction session renders its real pid/username/'
+    'idle duration',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/idle-in-transaction-sessions',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson([fakeIdleInTransactionSession().toJson()]),
+          ),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.textContaining('7002'), findsOneWidget);
+      expect(find.textContaining('app'), findsWidgets);
+      expect(find.textContaining('90.2'), findsOneWidget);
     },
   );
 }

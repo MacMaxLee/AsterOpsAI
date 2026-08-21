@@ -261,6 +261,23 @@
       "resetTime": { "type": "String" }
     }
   },
+  "dbmsSectionLongTransactions": "Long transactions",
+  "dbmsSectionIdleInTransactionSessions": "Idle in transaction",
+  "dbmsLongTransactionRowSubtitle": "{username}  •  state: {state}  •  duration: {durationSeconds}s",
+  "@dbmsLongTransactionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "state": { "type": "String" },
+      "durationSeconds": { "type": "String" }
+    }
+  },
+  "dbmsIdleInTransactionSessionRowSubtitle": "{username}  •  idle: {durationSeconds}s",
+  "@dbmsIdleInTransactionSessionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "durationSeconds": { "type": "String" }
+    }
+  },
 
   "securityColumnEvents": "{count} event(s)",
   "@securityColumnEvents": {

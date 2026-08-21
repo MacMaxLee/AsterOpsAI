@@ -5,8 +5,10 @@ import 'package:intl/intl.dart';
 import '../generated/models/deadlock_info.dart';
 import '../generated/models/gated_value_for_array_of_query_stat.dart';
 import '../generated/models/guc_value.dart';
+import '../generated/models/idle_in_transaction_session.dart';
 import '../generated/models/index_stat.dart';
 import '../generated/models/lock_edge.dart';
+import '../generated/models/long_transaction.dart';
 import '../generated/models/query_stat.dart';
 import '../generated/models/replication_status.dart';
 import '../generated/models/session_info.dart';
@@ -18,11 +20,11 @@ import '../providers/dbms_providers.dart';
 import '../widgets/async_result_view.dart';
 import '../widgets/formatters.dart';
 
-/// Unit U32/U34/U36/U38/U40: the console surface for unit
-/// U31/U33/U35/U37/U39's own direct DBMS endpoints. Independent
-/// sections (`Sessions`, `Locks`, `Query stats`, `Table stats`, `Index
-/// stats`, `Replication`, `Settings`, `Temp file activity`, `Deadlock
-/// history`), each watching its own provider, so a slow/failed poll on
+/// Unit U32/U34/U36/U38/U40/U42: the console surface for unit
+/// U31/U33/U35/U37/U39/U41's own direct DBMS endpoints — the last pair
+/// (`Long transactions`, `Idle in transaction`) completes the console
+/// side of the whole DBMS wiring vein (ADR 0046/0047). Independent
+/// sections, each watching its own provider, so a slow/failed poll on
 /// one never blocks the others — the same shape `DashboardScreen`'s
 /// own multiple independently-polled `AsyncResultView` sections already
 /// use. Every endpoint here is read-only; there is no mutation UI.
@@ -41,126 +43,174 @@ class DatabaseScreen extends ConsumerWidget {
     final gucs = ref.watch(dbmsGucsProvider);
     final tempFileActivity = ref.watch(dbmsTempFileActivityProvider);
     final deadlockHistory = ref.watch(dbmsDeadlockHistoryProvider);
+    final longTransactions = ref.watch(dbmsLongTransactionsProvider);
+    final idleInTransactionSessions = ref.watch(
+      dbmsIdleInTransactionSessionsProvider,
+    );
 
-    return Column(
-      children: [
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionSessions,
-                  child: AsyncResultView<List<SessionInfo>>(
-                    asyncValue: sessions,
-                    builder: (context, list) => _SessionsList(sessions: list),
+    // A scrollable `Column` (not a fixed-height `Expanded` split) — six
+    // zones no longer reliably fit a typical window without scrolling.
+    // `SingleChildScrollView` (unlike `ListView`'s lazy sliver children)
+    // still fully builds every zone eagerly, so every section stays
+    // immediately findable in tests without a scroll gesture first. Each
+    // zone gets a fixed height so its own `ListView.builder` has the
+    // bounded height it needs.
+    const zoneHeight = 240.0;
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          SizedBox(
+            height: zoneHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionSessions,
+                    child: AsyncResultView<List<SessionInfo>>(
+                      asyncValue: sessions,
+                      builder: (context, list) => _SessionsList(sessions: list),
+                    ),
                   ),
                 ),
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionLocks,
-                  child: AsyncResultView<List<LockEdge>>(
-                    asyncValue: locks,
-                    builder: (context, list) => _LocksList(locks: list),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionLocks,
+                    child: AsyncResultView<List<LockEdge>>(
+                      asyncValue: locks,
+                      builder: (context, list) => _LocksList(locks: list),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: _Section(
-            title: l10n.dbmsSectionQueryStats,
-            child: AsyncResultView<GatedValueForArrayOfQueryStat>(
-              asyncValue: queryStats,
-              builder: (context, gated) => _QueryStatsSection(gated: gated),
+              ],
             ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionTableStats,
-                  child: AsyncResultView<List<TableStat>>(
-                    asyncValue: tableStats,
-                    builder: (context, list) => _TableStatsList(stats: list),
-                  ),
-                ),
+          const Divider(height: 1),
+          SizedBox(
+            height: zoneHeight,
+            child: _Section(
+              title: l10n.dbmsSectionQueryStats,
+              child: AsyncResultView<GatedValueForArrayOfQueryStat>(
+                asyncValue: queryStats,
+                builder: (context, gated) => _QueryStatsSection(gated: gated),
               ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionIndexStats,
-                  child: AsyncResultView<List<IndexStat>>(
-                    asyncValue: indexStats,
-                    builder: (context, list) => _IndexStatsList(stats: list),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionReplication,
-                  child: AsyncResultView<ReplicationStatus>(
-                    asyncValue: replication,
-                    builder: (context, status) =>
-                        _ReplicationSection(status: status),
+          const Divider(height: 1),
+          SizedBox(
+            height: zoneHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionTableStats,
+                    child: AsyncResultView<List<TableStat>>(
+                      asyncValue: tableStats,
+                      builder: (context, list) => _TableStatsList(stats: list),
+                    ),
                   ),
                 ),
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionGucs,
-                  child: AsyncResultView<List<GucValue>>(
-                    asyncValue: gucs,
-                    builder: (context, list) => _GucsList(gucs: list),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionIndexStats,
+                    child: AsyncResultView<List<IndexStat>>(
+                      asyncValue: indexStats,
+                      builder: (context, list) => _IndexStatsList(stats: list),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionTempFileActivity,
-                  child: AsyncResultView<TempFileActivity>(
-                    asyncValue: tempFileActivity,
-                    builder: (context, activity) =>
-                        _TempFileActivitySection(activity: activity),
+          const Divider(height: 1),
+          SizedBox(
+            height: zoneHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionReplication,
+                    child: AsyncResultView<ReplicationStatus>(
+                      asyncValue: replication,
+                      builder: (context, status) =>
+                          _ReplicationSection(status: status),
+                    ),
                   ),
                 ),
-              ),
-              const VerticalDivider(width: 1),
-              Expanded(
-                child: _Section(
-                  title: l10n.dbmsSectionDeadlockHistory,
-                  child: AsyncResultView<DeadlockInfo>(
-                    asyncValue: deadlockHistory,
-                    builder: (context, info) =>
-                        _DeadlockHistorySection(info: info),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionGucs,
+                    child: AsyncResultView<List<GucValue>>(
+                      asyncValue: gucs,
+                      builder: (context, list) => _GucsList(gucs: list),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          const Divider(height: 1),
+          SizedBox(
+            height: zoneHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionTempFileActivity,
+                    child: AsyncResultView<TempFileActivity>(
+                      asyncValue: tempFileActivity,
+                      builder: (context, activity) =>
+                          _TempFileActivitySection(activity: activity),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionDeadlockHistory,
+                    child: AsyncResultView<DeadlockInfo>(
+                      asyncValue: deadlockHistory,
+                      builder: (context, info) =>
+                          _DeadlockHistorySection(info: info),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          SizedBox(
+            height: zoneHeight,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionLongTransactions,
+                    child: AsyncResultView<List<LongTransaction>>(
+                      asyncValue: longTransactions,
+                      builder: (context, list) =>
+                          _LongTransactionsList(transactions: list),
+                    ),
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(
+                  child: _Section(
+                    title: l10n.dbmsSectionIdleInTransactionSessions,
+                    child: AsyncResultView<List<IdleInTransactionSession>>(
+                      asyncValue: idleInTransactionSessions,
+                      builder: (context, list) =>
+                          _IdleInTransactionSessionsList(sessions: list),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -605,6 +655,86 @@ class _DeadlockHistorySection extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _LongTransactionsList extends StatelessWidget {
+  final List<LongTransaction> transactions;
+  const _LongTransactionsList({required this.transactions});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (transactions.isEmpty) {
+      return Center(child: Text(l10n.genericEmpty));
+    }
+    return ListView.builder(
+      itemCount: transactions.length,
+      itemBuilder: (context, index) =>
+          _LongTransactionRow(transaction: transactions[index]),
+    );
+  }
+}
+
+class _LongTransactionRow extends StatelessWidget {
+  final LongTransaction transaction;
+  const _LongTransactionRow({required this.transaction});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text('${l10n.dbmsColumnPid}: ${transaction.pid}'),
+      subtitle: Text(
+        [
+          l10n.dbmsLongTransactionRowSubtitle(
+            transaction.username ?? '?',
+            transaction.state.wireValue,
+            transaction.durationSeconds.toStringAsFixed(1),
+          ),
+          if (transaction.query != null) transaction.query!,
+        ].join('  •  '),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _IdleInTransactionSessionsList extends StatelessWidget {
+  final List<IdleInTransactionSession> sessions;
+  const _IdleInTransactionSessionsList({required this.sessions});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (sessions.isEmpty) {
+      return Center(child: Text(l10n.genericEmpty));
+    }
+    return ListView.builder(
+      itemCount: sessions.length,
+      itemBuilder: (context, index) =>
+          _IdleInTransactionSessionRow(session: sessions[index]),
+    );
+  }
+}
+
+class _IdleInTransactionSessionRow extends StatelessWidget {
+  final IdleInTransactionSession session;
+  const _IdleInTransactionSessionRow({required this.session});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text('${l10n.dbmsColumnPid}: ${session.pid}'),
+      subtitle: Text(
+        l10n.dbmsIdleInTransactionSessionRowSubtitle(
+          session.username ?? '?',
+          session.idleDurationSeconds.toStringAsFixed(1),
+        ),
       ),
     );
   }

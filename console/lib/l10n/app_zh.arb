@@ -257,6 +257,23 @@
       "resetTime": { "type": "String" }
     }
   },
+  "dbmsSectionLongTransactions": "長時間交易",
+  "dbmsSectionIdleInTransactionSessions": "交易中閒置",
+  "dbmsLongTransactionRowSubtitle": "{username}  •  狀態：{state}  •  持續：{durationSeconds}秒",
+  "@dbmsLongTransactionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "state": { "type": "String" },
+      "durationSeconds": { "type": "String" }
+    }
+  },
+  "dbmsIdleInTransactionSessionRowSubtitle": "{username}  •  閒置：{durationSeconds}秒",
+  "@dbmsIdleInTransactionSessionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "durationSeconds": { "type": "String" }
+    }
+  },
   "securityColumnEvents": "{count} 個事件",
   "@securityColumnEvents": {
     "placeholders": {

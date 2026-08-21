@@ -163,6 +163,20 @@ final class ApiClient {
   Future<ApiResult<DeadlockInfo>> getDbmsDeadlockHistory() =>
       _get('/api/v1/dbms/deadlock-history', DeadlockInfo.fromJson);
 
+  Future<ApiResult<List<LongTransaction>>> getDbmsLongTransactions() => _get(
+    '/api/v1/dbms/long-transactions',
+    (json) =>
+        (json as List<dynamic>).map((e) => LongTransaction.fromJson(e)).toList(),
+  );
+
+  Future<ApiResult<List<IdleInTransactionSession>>>
+  getDbmsIdleInTransactionSessions() => _get(
+    '/api/v1/dbms/idle-in-transaction-sessions',
+    (json) => (json as List<dynamic>)
+        .map((e) => IdleInTransactionSession.fromJson(e))
+        .toList(),
+  );
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.
