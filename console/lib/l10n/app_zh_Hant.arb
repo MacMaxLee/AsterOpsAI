@@ -203,6 +203,24 @@
       "blockingPid": { "type": "int" }
     }
   },
+  "dbmsSectionTableStats": "資料表統計",
+  "dbmsSectionIndexStats": "索引統計",
+  "dbmsTableStatRowSubtitle": "循序掃描：{seqScan}  •  索引掃描：{idxScan}  •  有效：{liveTup}  •  死亡：{deadTup}",
+  "@dbmsTableStatRowSubtitle": {
+    "placeholders": {
+      "seqScan": { "type": "int" },
+      "idxScan": { "type": "int" },
+      "liveTup": { "type": "int" },
+      "deadTup": { "type": "int" }
+    }
+  },
+  "dbmsIndexStatRowSubtitle": "資料表：{table}  •  索引掃描：{idxScan}",
+  "@dbmsIndexStatRowSubtitle": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "idxScan": { "type": "int" }
+    }
+  },
 
   "securityColumnEvents": "{count} 個事件",
   "@securityColumnEvents": {

@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../generated/models/gated_value_for_array_of_query_stat.dart';
+import '../generated/models/index_stat.dart';
 import '../generated/models/lock_edge.dart';
 import '../generated/models/query_stat.dart';
 import '../generated/models/session_info.dart';
+import '../generated/models/table_stat.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/dbms_providers.dart';
 import '../widgets/async_result_view.dart';
 
-/// Unit U32/U34: the console surface for unit U31/U33's own direct DBMS
-/// endpoints. Independent sections (`Sessions`, `Locks`, `Query
-/// stats`), each watching its own provider, so a slow/failed poll on
-/// one never blocks the others — the same shape `DashboardScreen`'s own
-/// multiple independently-polled `AsyncResultView` sections already
-/// use. Every endpoint here is read-only; there is no mutation UI.
+/// Unit U32/U34/U36: the console surface for unit U31/U33/U35's own
+/// direct DBMS endpoints. Independent sections (`Sessions`, `Locks`,
+/// `Query stats`, `Table stats`, `Index stats`), each watching its own
+/// provider, so a slow/failed poll on one never blocks the others —
+/// the same shape `DashboardScreen`'s own multiple independently-polled
+/// `AsyncResultView` sections already use. Every endpoint here is
+/// read-only; there is no mutation UI.
 class DatabaseScreen extends ConsumerWidget {
   const DatabaseScreen({super.key});
 
@@ -24,6 +27,8 @@ class DatabaseScreen extends ConsumerWidget {
     final sessions = ref.watch(dbmsSessionsProvider);
     final locks = ref.watch(dbmsLocksProvider);
     final queryStats = ref.watch(dbmsQueryStatsProvider);
+    final tableStats = ref.watch(dbmsTableStatsProvider);
+    final indexStats = ref.watch(dbmsIndexStatsProvider);
 
     return Column(
       children: [
@@ -60,6 +65,32 @@ class DatabaseScreen extends ConsumerWidget {
               asyncValue: queryStats,
               builder: (context, gated) => _QueryStatsSection(gated: gated),
             ),
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _Section(
+                  title: l10n.dbmsSectionTableStats,
+                  child: AsyncResultView<List<TableStat>>(
+                    asyncValue: tableStats,
+                    builder: (context, list) => _TableStatsList(stats: list),
+                  ),
+                ),
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: _Section(
+                  title: l10n.dbmsSectionIndexStats,
+                  child: AsyncResultView<List<IndexStat>>(
+                    asyncValue: indexStats,
+                    builder: (context, list) => _IndexStatsList(stats: list),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -276,6 +307,75 @@ class _QueryStatRow extends StatelessWidget {
           stat.rows,
         ),
       ),
+    );
+  }
+}
+
+class _TableStatsList extends StatelessWidget {
+  final List<TableStat> stats;
+  const _TableStatsList({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (stats.isEmpty) {
+      return Center(child: Text(l10n.genericEmpty));
+    }
+    return ListView.builder(
+      itemCount: stats.length,
+      itemBuilder: (context, index) => _TableStatRow(stat: stats[index]),
+    );
+  }
+}
+
+class _TableStatRow extends StatelessWidget {
+  final TableStat stat;
+  const _TableStatRow({required this.stat});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text('${stat.schema}.${stat.table}'),
+      subtitle: Text(
+        l10n.dbmsTableStatRowSubtitle(
+          stat.seqScan,
+          stat.idxScan,
+          stat.nLiveTup,
+          stat.nDeadTup,
+        ),
+      ),
+    );
+  }
+}
+
+class _IndexStatsList extends StatelessWidget {
+  final List<IndexStat> stats;
+  const _IndexStatsList({required this.stats});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    if (stats.isEmpty) {
+      return Center(child: Text(l10n.genericEmpty));
+    }
+    return ListView.builder(
+      itemCount: stats.length,
+      itemBuilder: (context, index) => _IndexStatRow(stat: stats[index]),
+    );
+  }
+}
+
+class _IndexStatRow extends StatelessWidget {
+  final IndexStat stat;
+  const _IndexStatRow({required this.stat});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return ListTile(
+      title: Text(stat.index),
+      subtitle: Text(l10n.dbmsIndexStatRowSubtitle(stat.table, stat.idxScan)),
     );
   }
 }

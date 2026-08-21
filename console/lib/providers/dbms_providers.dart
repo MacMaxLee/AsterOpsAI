@@ -45,3 +45,26 @@ final dbmsQueryStatsProvider =
       ref.onDispose(repo.dispose);
       return repo.stream;
     });
+
+/// Unit U36's own console surface for unit U35's own real endpoints.
+final dbmsTableStatsProvider =
+    StreamProvider.autoDispose<ApiResult<List<TableStat>>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<List<TableStat>>(
+        fetch: client.getDbmsTableStats,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });
+
+final dbmsIndexStatsProvider =
+    StreamProvider.autoDispose<ApiResult<List<IndexStat>>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<List<IndexStat>>(
+        fetch: client.getDbmsIndexStats,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });

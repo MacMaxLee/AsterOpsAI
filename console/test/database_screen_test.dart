@@ -37,6 +37,26 @@ QueryStat fakeQueryStat() => const QueryStat(
   rows: 42,
 );
 
+TableStat fakeTableStat() => TableStat(
+  schema: 'public',
+  table: 'widgets',
+  seqScan: 7,
+  idxScan: 300,
+  nLiveTup: 1500,
+  nDeadTup: 12,
+  lastVacuum: DateTime.utc(2026, 1, 1, 3),
+  lastAutovacuum: null,
+  totalSizeBytes: 65536,
+);
+
+IndexStat fakeIndexStat() => const IndexStat(
+  schema: 'public',
+  table: 'widgets',
+  index: 'idx_widgets_name',
+  idxScan: 300,
+  sizeBytes: 8192,
+);
+
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
   const Scaffold(body: DatabaseScreen()),
@@ -168,6 +188,59 @@ void main() {
         find.text('pg_stat_statements extension is not installed'),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'a scripted table stat renders its real schema/table/seq_scan/idx_scan/'
+    'live/dead tuple fields',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/table-stats',
+        ApiOk(jsonEncode(okEnvelopeJson([fakeTableStat().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('public.widgets'), findsOneWidget);
+      expect(find.textContaining('seq scan: 7'), findsOneWidget);
+      expect(find.textContaining('idx scan: 300'), findsOneWidget);
+      expect(find.textContaining('live: 1500'), findsOneWidget);
+      expect(find.textContaining('dead: 12'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted index stat renders its real index/table/idx_scan fields',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/index-stats',
+        ApiOk(jsonEncode(okEnvelopeJson([fakeIndexStat().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('idx_widgets_name'), findsOneWidget);
+      expect(find.textContaining('table: widgets'), findsOneWidget);
+      expect(find.textContaining('idx scan: 300'), findsOneWidget);
     },
   );
 }

@@ -137,6 +137,16 @@ final class ApiClient {
   Future<ApiResult<GatedValueForArrayOfQueryStat>> getDbmsQueryStats() =>
       _get('/api/v1/dbms/query-stats', GatedValueForArrayOfQueryStat.fromJson);
 
+  Future<ApiResult<List<TableStat>>> getDbmsTableStats() => _get(
+    '/api/v1/dbms/table-stats',
+    (json) => (json as List<dynamic>).map((e) => TableStat.fromJson(e)).toList(),
+  );
+
+  Future<ApiResult<List<IndexStat>>> getDbmsIndexStats() => _get(
+    '/api/v1/dbms/index-stats',
+    (json) => (json as List<dynamic>).map((e) => IndexStat.fromJson(e)).toList(),
+  );
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.

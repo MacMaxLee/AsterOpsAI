@@ -204,6 +204,24 @@
       "blockingPid": { "type": "int" }
     }
   },
+  "dbmsSectionTableStats": "Table stats",
+  "dbmsSectionIndexStats": "Index stats",
+  "dbmsTableStatRowSubtitle": "seq scan: {seqScan}  •  idx scan: {idxScan}  •  live: {liveTup}  •  dead: {deadTup}",
+  "@dbmsTableStatRowSubtitle": {
+    "placeholders": {
+      "seqScan": { "type": "int" },
+      "idxScan": { "type": "int" },
+      "liveTup": { "type": "int" },
+      "deadTup": { "type": "int" }
+    }
+  },
+  "dbmsIndexStatRowSubtitle": "table: {table}  •  idx scan: {idxScan}",
+  "@dbmsIndexStatRowSubtitle": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "idxScan": { "type": "int" }
+    }
+  },
 
   "securityColumnEvents": "{count} event(s)",
   "@securityColumnEvents": {
