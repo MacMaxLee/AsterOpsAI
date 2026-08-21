@@ -7,7 +7,8 @@ use super::time::{format_ts, parse_ts};
 
 const SELECT_COLUMNS: &str = "id, created_at, action_type, target_identity_json, target_start_time, \
      risk_classification, status, approved_by, executed_at, rollback_of, evidence_json, result_json, \
-     requested_by, parameters_json, parameters_hash, resource_descriptor_json, approval_expires_at";
+     requested_by, parameters_json, parameters_hash, resource_descriptor_json, approval_expires_at, \
+     previous_state_json";
 
 fn row_from_sqlite(row: &rusqlite::Row) -> rusqlite::Result<PolicyActionRow> {
     Ok(PolicyActionRow {
@@ -28,6 +29,7 @@ fn row_from_sqlite(row: &rusqlite::Row) -> rusqlite::Result<PolicyActionRow> {
         parameters_hash: row.get(14)?,
         resource_descriptor_json: row.get(15)?,
         approval_expires_at: row.get::<_, Option<String>>(16)?.map(|s| parse_ts(&s)),
+        previous_state_json: row.get(17)?,
     })
 }
 
@@ -155,14 +157,16 @@ pub fn transition(
             "UPDATE actions SET status = ?1, \
              approved_by = COALESCE(?2, approved_by), \
              executed_at = COALESCE(?3, executed_at), \
-             result_json = COALESCE(?4, result_json) \
-             WHERE id = ?5 AND status = ?6 \
-             AND (approval_expires_at IS NULL OR approval_expires_at > ?7)",
+             result_json = COALESCE(?4, result_json), \
+             previous_state_json = COALESCE(?5, previous_state_json) \
+             WHERE id = ?6 AND status = ?7 \
+             AND (approval_expires_at IS NULL OR approval_expires_at > ?8)",
             params![
                 new_status,
                 patch.approved_by,
                 patch.executed_at.map(format_ts),
                 patch.result_json,
+                patch.previous_state_json,
                 id,
                 expected_status,
                 format_ts(now),
@@ -173,13 +177,15 @@ pub fn transition(
             "UPDATE actions SET status = ?1, \
              approved_by = COALESCE(?2, approved_by), \
              executed_at = COALESCE(?3, executed_at), \
-             result_json = COALESCE(?4, result_json) \
-             WHERE id = ?5 AND status = ?6",
+             result_json = COALESCE(?4, result_json), \
+             previous_state_json = COALESCE(?5, previous_state_json) \
+             WHERE id = ?6 AND status = ?7",
             params![
                 new_status,
                 patch.approved_by,
                 patch.executed_at.map(format_ts),
                 patch.result_json,
+                patch.previous_state_json,
                 id,
                 expected_status,
             ],

@@ -115,6 +115,13 @@ pub struct PolicyActionRow {
     pub parameters_hash: String,
     pub resource_descriptor_json: String,
     pub approval_expires_at: Option<DateTime<Utc>>,
+    /// Unit U30 (migrations/V13), closing ADR 0033's own named gap: the
+    /// real state `execute()`'s `capture_previous_state()` stage
+    /// captured, persisted so a later, separately-reconstructed
+    /// rollback (`rollback_by_row_id`) can restore the real historical
+    /// value instead of a synthetic `Value::Null`. `None` for any row
+    /// that predates this migration, or that was never executed.
+    pub previous_state_json: Option<String>,
 }
 
 /// What a caller supplies to propose a new action (or a rollback of one —
@@ -148,6 +155,7 @@ pub struct TransitionPatch {
     pub approved_by: Option<String>,
     pub executed_at: Option<DateTime<Utc>>,
     pub result_json: Option<String>,
+    pub previous_state_json: Option<String>,
 }
 
 /// One row of the `benchmark_runs` table (migrations/V10, unit U9).

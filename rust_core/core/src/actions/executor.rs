@@ -196,9 +196,22 @@ pub async fn execute(
         return Err(err);
     }
 
-    // Stage 9: audit — record success.
+    // Stage 9: audit — record success. Unit U30 (ADR 0033/0035):
+    // `previous_state` (already captured at Stage 6) is persisted here
+    // too, not just returned in-memory via `Executed` — the only way a
+    // later, separately-reconstructed rollback (`rollback_by_row_id`)
+    // can ever recover the real historical value instead of a
+    // synthetic `Value::Null`.
     let now = Utc::now();
     let result_json = serde_json::json!({ "status": "ok" }).to_string();
+    let previous_state_json = match serde_json::to_string(&previous_state) {
+        Ok(json) => json,
+        Err(err) => {
+            let err = ActionError::Serde(err);
+            fail(handle, row_id, &err).await;
+            return Err(err);
+        }
+    };
     transition_action(
         handle,
         row_id,
@@ -208,6 +221,7 @@ pub async fn execute(
         false,
         TransitionPatch {
             executed_at: Some(now),
+            previous_state_json: Some(previous_state_json),
             result_json: Some(result_json),
             ..Default::default()
         },

@@ -174,6 +174,16 @@ pub async fn rollback_by_row_id(
         (entry.construct)(&request, context).map_err(PolicyError::ConstructionFailed)?;
     let action: Arc<dyn ActionKind> = Arc::from(constructed);
 
-    let executed = Executed::reconstruct(row_id, target, resource, Value::Null, action);
+    // Unit U30 (ADR 0033/0035): the real, persisted value when this row
+    // was executed after migrations/V13 landed; `Value::Null` only for
+    // a row that predates it (or was somehow never executed with one
+    // captured) — the one real, narrower edge case that still gets
+    // today's pre-U30 safe-failure behavior, not an error.
+    let previous_state = match row.previous_state_json.as_deref() {
+        Some(json) => serde_json::from_str(json)?,
+        None => Value::Null,
+    };
+
+    let executed = Executed::reconstruct(row_id, target, resource, previous_state, action);
     rollback(&executed, verifier, rolled_back_by, handle).await
 }

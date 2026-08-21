@@ -170,17 +170,22 @@ async fn rollback_by_row_id_really_resumes_a_really_suspended_process() {
     target.ensure_reaped();
 }
 
-/// `host.set_process_cpu_affinity` is `reversible: true` (unit U10's
-/// own flag), so this reaches `rollback()` itself — but `previous_state`
-/// was never persisted, so it's reconstructed as `Value::Null`, and the
-/// action's own `rollback()` rejects that cleanly. Proves the "fails
-/// safely, never silently wrong" claim for real, not from reading code.
+/// `host.set_process_cpu_affinity` is `reversible: true` (unit U10's own
+/// flag). Unit U30 (ADR 0033/0035) persists the real `previous_state`
+/// `execute()` captures (migrations/V13), so `rollback_by_row_id` now
+/// genuinely restores it — real proof, not just "it fails safely" the
+/// way this test asserted before that migration existed.
 #[tokio::test]
-async fn rollback_by_row_id_of_an_affinity_change_fails_safely_without_the_real_previous_state() {
+async fn rollback_by_row_id_of_an_affinity_change_really_restores_the_real_previous_value() {
     let repo = TestRepo::open();
     let registry = registry();
     let target = SpawnedTarget::spawn();
     let context = test_action_context();
+
+    let original = context
+        .platform
+        .get_process_cpu_affinity(target.pid)
+        .expect("read original affinity");
 
     let row_id = execute_for_real(
         &repo,
@@ -191,7 +196,13 @@ async fn rollback_by_row_id_of_an_affinity_change_fails_safely_without_the_real_
     )
     .await;
 
-    let result = rollback_by_row_id(
+    let after_apply = context
+        .platform
+        .get_process_cpu_affinity(target.pid)
+        .expect("read affinity after apply");
+    assert_eq!(after_apply.cpus, std::collections::BTreeSet::from([0]));
+
+    rollback_by_row_id(
         row_id,
         &registry,
         &context,
@@ -199,26 +210,18 @@ async fn rollback_by_row_id_of_an_affinity_change_fails_safely_without_the_real_
         "tester",
         &repo.handle,
     )
-    .await;
+    .await
+    .expect("rollback_by_row_id");
 
-    match result {
-        Err(ActionError::Rollback(msg)) => {
-            assert!(
-                msg.contains("not a valid affinity mask"),
-                "expected the real validator's own rejection reason, got: {msg}"
-            );
-        }
-        other => panic!("expected a real Rollback error, got {other:?}"),
-    }
-
-    // The affinity change itself must still be exactly what apply() left
-    // it as — a failed rollback attempt must never partially mutate
-    // state.
-    let current = context
+    let after_rollback = context
         .platform
         .get_process_cpu_affinity(target.pid)
-        .expect("read affinity after the failed rollback");
-    assert_eq!(current.cpus, std::collections::BTreeSet::from([0]));
+        .expect("read affinity after rollback");
+    assert_eq!(
+        after_rollback, original,
+        "rollback_by_row_id must restore the real, historical previous \
+         value now that it's actually persisted (unit U30), not just fail safely"
+    );
 
     target.ensure_reaped();
 }

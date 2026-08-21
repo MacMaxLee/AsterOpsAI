@@ -388,6 +388,63 @@ async fn granting_a_suspend_then_rolling_it_back_over_http_really_resumes_the_ta
     );
 }
 
+/// Unit U30's own capstone at the service level: `previous_state` is now
+/// really persisted (migrations/V13), so a real `host.set_process_cpu_
+/// affinity` grant, rolled back in a genuinely separate HTTP call, now
+/// really restores the original mask — not just fails safely, closing
+/// ADR 0033's own named gap end-to-end over real HTTP.
+#[tokio::test]
+async fn granting_an_affinity_change_then_rolling_it_back_over_http_really_restores_it() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_pending_for(
+        &repo,
+        "tester",
+        "host.set_process_cpu_affinity",
+        &target,
+        json!({ "cpus": [0] }),
+    )
+    .await;
+
+    let platform = platform::current_platform_adapter();
+    let original = platform
+        .get_process_cpu_affinity(target.pid as u32)
+        .expect("read original affinity");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
+    assert_eq!(
+        platform
+            .get_process_cpu_affinity(target.pid as u32)
+            .expect("read affinity after grant")
+            .cpus,
+        std::collections::BTreeSet::from([0])
+    );
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/rollback"),
+        json!({ "rolled_back_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "rollback body: {body:?}");
+
+    let after_rollback = platform
+        .get_process_cpu_affinity(target.pid as u32)
+        .expect("read affinity after rollback");
+    assert_eq!(
+        after_rollback, original,
+        "the real affinity mask must be genuinely restored, not just fail safely"
+    );
+}
+
 #[tokio::test]
 async fn rolling_back_a_never_granted_action_is_a_real_bad_request() {
     let repo = open_repo().await;
