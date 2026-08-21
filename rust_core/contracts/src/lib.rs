@@ -24,7 +24,7 @@ pub use correlation::CorrelationResult;
 pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};
-pub use policy::{ActionProposalOutcome, PendingActionSummary};
+pub use policy::{ActionProposalOutcome, PendingActionSummary, ResumableActionSummary};
 pub use security::SecurityIncidentSummary;
 pub use tuning::{TuningCandidateOutcome, TuningPlanOutcome, TuningPlanSummary};
 

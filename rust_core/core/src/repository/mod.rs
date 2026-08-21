@@ -239,6 +239,15 @@ pub async fn list_pending_policy_actions(
     policy::list_pending_approval(&conn)
 }
 
+pub async fn find_resumable_action(
+    handle: &RepositoryHandle,
+    target_identity_json: &str,
+    target_start_time: i64,
+) -> Result<Option<PolicyActionRow>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    policy::find_resumable_action(&conn, target_identity_json, target_start_time)
+}
+
 pub async fn insert_tuning_plan(
     handle: &RepositoryHandle,
     new: NewTuningPlan,

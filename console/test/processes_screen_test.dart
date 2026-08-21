@@ -30,6 +30,12 @@ TuningPlanOutcome fakeOutcome() => const TuningPlanOutcome(
 ActionProposalOutcome fakeProposalOutcome() =>
     const ActionProposalOutcome(rowId: 9, status: 'PENDING_APPROVAL');
 
+ResumableActionSummary fakeResumable() => ResumableActionSummary(
+  actionType: 'security.suspend_process',
+  executedAt: DateTime.utc(2026, 1, 1, 9),
+  rowId: 11,
+);
+
 void main() {
   testWidgets('a scripted process renders comm/pid/category', (tester) async {
     final transport = createFakeTransport();
@@ -264,6 +270,127 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Suspend process?'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the resume dialog fires the lookup on open, using the row\'s real '
+    'pid/start_time_ticks, and shows the real not-found message when '
+    'nothing is resumable',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/processes',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+      );
+      transport.queue(
+        '/api/v1/actions/resumable',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.play_circle_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requestedPaths.last,
+        '/api/v1/actions/resumable?pid=4242&start_time_ticks=12345',
+      );
+      expect(
+        find.text('No resumable action found for this process.'),
+        findsOneWidget,
+      );
+      // No Resume button when there's nothing to resume.
+      expect(find.text('Resume'), findsNothing);
+    },
+  );
+
+  testWidgets('a found resumable action shows its real action_type and, on '
+      'confirm, posts the real rollback and shows a success snackbar', (
+    tester,
+  ) async {
+    final transport = createFakeTransport();
+    transport.queue(
+      '/api/v1/processes',
+      ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+    );
+    transport.queue(
+      '/api/v1/actions/resumable',
+      ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[fakeResumable().toJson()]))),
+    );
+    await pumpScreen(tester, transport);
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.play_circle_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('security.suspend_process'), findsOneWidget);
+
+    transport.queuePost(
+      '/api/v1/policy/11/rollback',
+      ApiOk(jsonEncode(okEnvelopeJson(null))),
+    );
+
+    await tester.tap(find.text('Resume'));
+    await tester.pumpAndSettle();
+
+    final posted = transport.postedRequests.single;
+    expect(posted.requestedPath, '/api/v1/policy/11/rollback');
+    final body = jsonDecode(posted.body) as Map<String, dynamic>;
+    expect(body['rolled_back_by'], 'console-operator');
+
+    expect(
+      find.text('Resumed security.suspend_process (row 11)'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'a real error resuming shows an inline message and keeps the dialog '
+    'open, not a crash or a silent dismiss',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/processes',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+      );
+      transport.queue(
+        '/api/v1/actions/resumable',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[fakeResumable().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.play_circle_outlined));
+      await tester.pumpAndSettle();
+
+      transport.queuePost(
+        '/api/v1/policy/11/rollback',
+        ApiOk(
+          jsonEncode(
+            errEnvelopeJson(
+              const ApiErrorBadRequest(
+                message:
+                    'action 11 is not in the expected status: '
+                    'expected EXECUTED, actual ROLLED_BACK',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Resume'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'action 11 is not in the expected status: '
+          'expected EXECUTED, actual ROLLED_BACK',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Resume process'), findsOneWidget);
     },
   );
 }

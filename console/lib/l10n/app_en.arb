@@ -157,6 +157,24 @@
       "rowId": { "type": "int" }
     }
   },
+  "processResumeProcess": "Resume process",
+  "resumeProcessDialogTitle": "Resume process",
+  "resumeProcessNotFound": "No resumable action found for this process.",
+  "resumeProcessFound": "{actionType} was executed {executedAt} and can be resumed.",
+  "@resumeProcessFound": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "executedAt": { "type": "String" }
+    }
+  },
+  "resumeProcessSubmit": "Resume",
+  "resumeProcessSuccessSnackbar": "Resumed {actionType} (row {rowId})",
+  "@resumeProcessSuccessSnackbar": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "rowId": { "type": "int" }
+    }
+  },
 
   "securityColumnEvents": "{count} event(s)",
   "@securityColumnEvents": {

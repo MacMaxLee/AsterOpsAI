@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../api/api_failure.dart';
 import '../api/api_result.dart';
 import '../generated/models/action_proposal_outcome.dart';
 import '../generated/models/process_info.dart';
 import '../generated/models/process_snapshot.dart';
+import '../generated/models/resumable_action_summary.dart';
 import '../generated/models/tuning_candidate_outcome.dart';
 import '../generated/models/tuning_plan_outcome.dart';
 import '../l10n/app_localizations.dart';
@@ -94,6 +96,14 @@ class _ProcessRow extends StatelessWidget {
             onPressed: () => showDialog<void>(
               context: context,
               builder: (_) => _SuspendProcessDialog(process: process),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.play_circle_outlined),
+            tooltip: l10n.processResumeProcess,
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => _ResumeProcessDialog(process: process),
             ),
           ),
         ],
@@ -424,6 +434,171 @@ class _ActionProposalResultDialog extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l10n.genericClose),
         ),
+      ],
+    );
+  }
+}
+
+/// Unit U29: the discovery lookup (`GET /actions/resumable`) fires once,
+/// on this dialog's own first frame — never a background poll on every
+/// `ProcessesScreen` row, which would be a real, avoidable cost since
+/// the screen already polls `/processes` continuously. Not a `Form`:
+/// there's nothing to configure, same reasoning as `_SuspendProcessDialog`.
+class _ResumeProcessDialog extends ConsumerStatefulWidget {
+  final ProcessInfo process;
+  const _ResumeProcessDialog({required this.process});
+
+  @override
+  ConsumerState<_ResumeProcessDialog> createState() =>
+      _ResumeProcessDialogState();
+}
+
+enum _ResumeStage { checking, found, notFound, submitting }
+
+class _ResumeProcessDialogState extends ConsumerState<_ResumeProcessDialog> {
+  _ResumeStage _stage = _ResumeStage.checking;
+  ResumableActionSummary? _resumable;
+  String? _error;
+  bool _checkStarted = false;
+
+  // No auth/session system exists yet (ADR 0018/0021/0027's own flagged
+  // limitation) — same plain operator name every console mutation uses.
+  static const _operator = 'console-operator';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Not `initState`: `AppLocalizations.of(context)` depends on an
+    // `InheritedWidget`, which isn't available yet at `initState` time.
+    // `didChangeDependencies` can fire more than once, so `_checkStarted`
+    // guards this to a genuine one-shot lookup on the dialog's first
+    // frame — never a repeated or background poll.
+    if (!_checkStarted) {
+      _checkStarted = true;
+      _check();
+    }
+  }
+
+  Future<void> _check() async {
+    final l10n = AppLocalizations.of(context)!;
+    final client = ref.read(apiClientProvider);
+    final result = await client.getResumableActions(
+      pid: widget.process.pid,
+      startTimeTicks: widget.process.startTimeTicks,
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case ApiOk(:final value):
+        setState(() {
+          _resumable = value.isEmpty ? null : value.first;
+          _stage = value.isEmpty ? _ResumeStage.notFound : _ResumeStage.found;
+        });
+      case ApiErr(:final failure):
+        setState(() {
+          _error = _failureMessage(failure, l10n);
+          _stage = _ResumeStage.notFound;
+        });
+    }
+  }
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
+    final resumable = _resumable;
+    if (resumable == null) return;
+
+    setState(() {
+      _error = null;
+      _stage = _ResumeStage.submitting;
+    });
+
+    final client = ref.read(apiClientProvider);
+    final result = await client.rollbackAction(resumable.rowId, _operator);
+    if (!mounted) return;
+
+    switch (result) {
+      case ApiOk():
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              l10n.resumeProcessSuccessSnackbar(
+                resumable.actionType,
+                resumable.rowId,
+              ),
+            ),
+          ),
+        );
+      case ApiErr(:final failure):
+        setState(() {
+          _error = _failureMessage(failure, l10n);
+          _stage = _ResumeStage.found;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final dateFormat = DateFormat.yMd().add_Hm();
+    final resumable = _resumable;
+
+    return AlertDialog(
+      title: Text(l10n.resumeProcessDialogTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_stage == _ResumeStage.checking)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (resumable != null)
+            Text(
+              l10n.resumeProcessFound(
+                resumable.actionType,
+                dateFormat.format(resumable.executedAt.toLocal()),
+              ),
+            )
+          else
+            Text(l10n.resumeProcessNotFound),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _stage == _ResumeStage.submitting
+              ? null
+              : () => Navigator.of(context).pop(),
+          child: Text(
+            resumable == null ? l10n.genericClose : l10n.genericCancel,
+          ),
+        ),
+        if (resumable != null)
+          FilledButton(
+            onPressed: _stage == _ResumeStage.submitting ? null : _submit,
+            child: _stage == _ResumeStage.submitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(l10n.resumeProcessSubmit),
+          ),
       ],
     );
   }

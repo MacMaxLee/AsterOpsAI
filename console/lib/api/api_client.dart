@@ -85,6 +85,27 @@ final class ApiClient {
         jsonEncode({'rejected_by': rejectedBy}),
       );
 
+  /// Unit U28's own rollback endpoint — returns `()`, same shape as
+  /// grant/reject.
+  Future<ApiResult<void>> rollbackAction(int id, String rolledBackBy) =>
+      _postForSuccess(
+        '/api/v1/policy/$id/rollback',
+        jsonEncode({'rolled_back_by': rolledBackBy}),
+      );
+
+  /// Unit U29: the discovery step a real "Resume" affordance needs —
+  /// 0 or 1 items, never sent as `null` (see `ActionProposalOutcome`'s
+  /// own reasoning), so this is a plain list `_get`, not a special case.
+  Future<ApiResult<List<ResumableActionSummary>>> getResumableActions({
+    required int pid,
+    required int startTimeTicks,
+  }) => _get(
+    '/api/v1/actions/resumable?pid=$pid&start_time_ticks=$startTimeTicks',
+    (json) => (json as List<dynamic>)
+        .map((e) => ResumableActionSummary.fromJson(e))
+        .toList(),
+  );
+
   Future<ApiResult<List<TuningPlanSummary>>> getTuningPlans() => _get(
     '/api/v1/tuning/plans',
     (json) => (json as List<dynamic>)

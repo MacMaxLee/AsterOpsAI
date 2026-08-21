@@ -150,6 +150,83 @@ async fn proposing_suspend_process_reaches_the_inbox_and_grant_really_stops_the_
     target.kill_and_reap();
 }
 
+/// Unit U29's own capstone: the real, correctness-critical claim that a
+/// resumable action must genuinely stop appearing once it's actually
+/// been resumed — `rollback()` never mutates the original row, so this
+/// proves `find_resumable_action`'s `NOT IN (... ROLLED_BACK)` exclusion
+/// for real, not from reading the SQL alone.
+#[tokio::test]
+async fn a_resumable_action_appears_after_grant_and_disappears_after_rollback() {
+    let repo = open_repo().await;
+    let mut target = SpawnedTarget::spawn();
+    let resumable_path = format!(
+        "/api/v1/actions/resumable?pid={}&start_time_ticks={}",
+        target.pid, target.start_time_ticks
+    );
+
+    let app = build_app(Some(repo.clone())).await;
+    let (_, body) = get_json(app, &resumable_path).await;
+    assert_eq!(
+        body["data"],
+        json!([]),
+        "nothing has been executed against this target yet"
+    );
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        "/api/v1/actions/propose",
+        json!({
+            "action_type": "security.suspend_process",
+            "pid": target.pid,
+            "start_time_ticks": target.start_time_ticks,
+            "resource_name": "sleep-test-target",
+            "requested_by": "tester",
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "propose body: {body:?}");
+    let row_id = body["data"]["row_id"]
+        .as_i64()
+        .expect("row_id is an integer");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (_, body) = get_json(app, &resumable_path).await;
+    let items = body["data"].as_array().expect("data is an array");
+    assert_eq!(items.len(), 1, "the granted suspend must now be resumable");
+    assert_eq!(items[0]["row_id"], row_id);
+    assert_eq!(items[0]["action_type"], "security.suspend_process");
+    assert!(!items[0]["executed_at"].is_null());
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/rollback"),
+        json!({ "rolled_back_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "rollback body: {body:?}");
+
+    let app = build_app(Some(repo)).await;
+    let (_, body) = get_json(app, &resumable_path).await;
+    assert_eq!(
+        body["data"],
+        json!([]),
+        "a successfully rolled-back action must stop appearing as resumable"
+    );
+
+    target.kill_and_reap();
+}
+
 #[tokio::test]
 async fn proposing_an_unknown_action_type_is_a_real_unsupported() {
     let repo = open_repo().await;

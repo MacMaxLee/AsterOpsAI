@@ -11,10 +11,11 @@ use ai_ops_core::policy::{
     evaluate, validate, ActionRequest, PolicyOutcome, ResourceDescriptor, ResourceKind,
     TargetIdentity,
 };
-use axum::extract::{Extension, State};
+use ai_ops_core::repository;
+use axum::extract::{Extension, Query, State};
 use axum::Json;
 use chrono::Utc;
-use contracts::{ActionProposalOutcome, ApiError};
+use contracts::{ActionProposalOutcome, ApiError, ResumableActionSummary};
 use serde::Deserialize;
 use serde_json::Value;
 
@@ -96,6 +97,65 @@ pub async fn propose(
                 reason: Some(reason),
             },
         })
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResumableActionsQuery {
+    pub pid: u32,
+    pub start_time_ticks: u64,
+}
+
+/// Unit U29: the discovery step a real "Resume" affordance needs —
+/// `POST /policy/{id}/rollback` (unit U28) requires a row id, and
+/// nothing else finds one for a given process (the Policy inbox only
+/// ever lists `PENDING_APPROVAL` rows; a granted suspend moves to
+/// `EXECUTED` and disappears from it). A list of 0 or 1 items, not
+/// `Option<T>` — see `contracts::ResumableActionSummary`'s own doc
+/// comment for why. See docs/adr/0034.
+pub async fn resumable(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+    Query(query): Query<ResumableActionsQuery>,
+) -> ApiResponse<Vec<ResumableActionSummary>> {
+    let result = async {
+        let repo = state.repository.clone().ok_or_else(|| {
+            ApiError::Unavailable(
+                "action proposals are not available: repository layer did not start".to_string(),
+            )
+        })?;
+
+        let target = TargetIdentity::Process {
+            pid: query.pid,
+            start_time_ticks: query.start_time_ticks,
+        };
+        let target_identity_json = serde_json::to_string(&target).map_err(|err| {
+            tracing::error!(error = %err, "failed to serialize target identity");
+            ApiError::Internal
+        })?;
+
+        let row = repository::find_resumable_action(
+            &repo,
+            &target_identity_json,
+            query.start_time_ticks as i64,
+        )
+        .await
+        .map_err(|err| {
+            tracing::error!(error = %err, "find_resumable_action failed");
+            ApiError::Internal
+        })?;
+
+        Ok(row
+            .into_iter()
+            .map(|row| ResumableActionSummary {
+                row_id: row.id,
+                action_type: row.action_type,
+                executed_at: row.executed_at.unwrap_or(row.created_at),
+            })
+            .collect())
     }
     .await;
 

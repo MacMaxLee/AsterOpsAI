@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ResumableActionSummary",
+  "description": "Unit U29: what `GET /api/v1/actions/resumable` returns — the one `EXECUTED`, not-yet-rolled-back action against a given target, if any. A list of 0 or 1 items, not `Option<T>`: the envelope treats \"success with null data\" as malformed, so \"nothing to resume\" is expressed as an empty list, the same convention `PendingActionSummary`'s own listing already uses.",
+  "type": "object",
+  "required": [
+    "action_type",
+    "executed_at",
+    "row_id"
+  ],
+  "properties": {
+    "action_type": {
+      "type": "string"
+    },
+    "executed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "row_id": {
+      "type": "integer",
+      "format": "int64"
+    }
+  }
+}

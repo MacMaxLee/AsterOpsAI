@@ -57,6 +57,42 @@ pub fn list_pending_approval(conn: &Connection) -> Result<Vec<PolicyActionRow>, 
     Ok(rows)
 }
 
+/// Unit U29: the one `EXECUTED` action against this exact target that
+/// hasn't already been successfully rolled back, if any — what a real
+/// "Resume" affordance needs to find. `rollback()` never mutates the
+/// original row (a successful rollback inserts a *new* row with
+/// `rollback_of` set instead), so a plain `status = 'EXECUTED'` filter
+/// alone would keep offering "Resume" forever even after a process was
+/// already resumed — the `NOT IN` subquery excludes any row that
+/// already has a `ROLLED_BACK` child. A `FAILED` rollback attempt does
+/// *not* exclude the original: a failed attempt means the target is
+/// presumably still in its executed (e.g. suspended) state, so it must
+/// stay resumable. Most recent first, one row: nothing prevents the
+/// same target being suspended twice before either is resolved (no
+/// concurrency guard exists for proposing actions, unlike tuning plans'
+/// own partial `UNIQUE` index) — "most recent wins" is the same
+/// current-state semantics used elsewhere, not a new guard.
+pub fn find_resumable_action(
+    conn: &Connection,
+    target_identity_json: &str,
+    target_start_time: i64,
+) -> Result<Option<PolicyActionRow>, RepositoryError> {
+    let sql = format!(
+        "SELECT {SELECT_COLUMNS} FROM actions \
+         WHERE status = 'EXECUTED' AND target_identity_json = ?1 AND target_start_time = ?2 \
+         AND id NOT IN (SELECT rollback_of FROM actions \
+             WHERE rollback_of IS NOT NULL AND status = 'ROLLED_BACK') \
+         ORDER BY created_at DESC LIMIT 1"
+    );
+    conn.query_row(
+        &sql,
+        params![target_identity_json, target_start_time],
+        row_from_sqlite,
+    )
+    .optional()
+    .map_err(Into::into)
+}
+
 /// Inserts a new action-lifecycle row — either a fresh proposal
 /// (`new.rollback_of` is `None`) or a rollback attempt of a previously
 /// executed action (`Some(original_id)`), both going through the same row

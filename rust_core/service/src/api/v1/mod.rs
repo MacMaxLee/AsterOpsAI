@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/history/storage", get(history::storage_history))
         .route("/history/network", get(history::network_history))
         .route("/actions/propose", post(actions::propose))
+        .route("/actions/resumable", get(actions::resumable))
         .route("/policy/pending", get(policy::pending))
         .route("/policy/:id/grant", post(policy::grant))
         .route("/policy/:id/reject", post(policy::reject))

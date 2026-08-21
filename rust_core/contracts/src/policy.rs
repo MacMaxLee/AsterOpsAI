@@ -37,3 +37,16 @@ pub struct ActionProposalOutcome {
     pub approval_expires_at: Option<DateTime<Utc>>,
     pub reason: Option<String>,
 }
+
+/// Unit U29: what `GET /api/v1/actions/resumable` returns — the one
+/// `EXECUTED`, not-yet-rolled-back action against a given target, if
+/// any. A list of 0 or 1 items, not `Option<T>`: the envelope treats
+/// "success with null data" as malformed, so "nothing to resume" is
+/// expressed as an empty list, the same convention
+/// `PendingActionSummary`'s own listing already uses.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ResumableActionSummary {
+    pub row_id: i64,
+    pub action_type: String,
+    pub executed_at: DateTime<Utc>,
+}

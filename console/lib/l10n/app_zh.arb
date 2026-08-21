@@ -154,6 +154,24 @@
       "rowId": { "type": "int" }
     }
   },
+  "processResumeProcess": "恢復處理程序",
+  "resumeProcessDialogTitle": "恢復處理程序",
+  "resumeProcessNotFound": "找不到此處理程序的可恢復動作。",
+  "resumeProcessFound": "{actionType} 已於 {executedAt} 執行，可以恢復。",
+  "@resumeProcessFound": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "executedAt": { "type": "String" }
+    }
+  },
+  "resumeProcessSubmit": "恢復",
+  "resumeProcessSuccessSnackbar": "已恢復 {actionType}（第 {rowId} 筆）",
+  "@resumeProcessSuccessSnackbar": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "rowId": { "type": "int" }
+    }
+  },
   "securityColumnEvents": "{count} 個事件",
   "@securityColumnEvents": {
     "placeholders": {

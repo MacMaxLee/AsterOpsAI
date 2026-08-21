@@ -39,6 +39,7 @@ export 'pending_action_summary.dart';
 export 'process_category.dart';
 export 'process_info.dart';
 export 'process_snapshot.dart';
+export 'resumable_action_summary.dart';
 export 'root_cause.dart';
 export 'ruled_out.dart';
 export 'security_incident_summary.dart';
