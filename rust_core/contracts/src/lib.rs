@@ -7,6 +7,7 @@
 //! console actually exchange. See docs/adr/0002-contract-first-schema-codegen.md.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod ai;
 pub mod analysis;
 pub mod capability;
 pub mod correlation;
@@ -19,6 +20,7 @@ pub mod security;
 pub mod telemetry;
 pub mod tuning;
 
+pub use ai::AiExplanation;
 pub use analysis::HostVerdict;
 pub use capability::{default_capability_registry, Capability, CapabilityFamily, GatedValue};
 pub use correlation::CorrelationResult;

@@ -39,6 +39,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         Arc::new(build_action_registry()),
         Arc::new(ProtectedResourceRegistry::new()),
         Environment::Development,
+        None,
     );
     api::router(state)
 }

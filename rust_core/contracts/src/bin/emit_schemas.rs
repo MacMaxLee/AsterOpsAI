@@ -11,9 +11,9 @@ use contracts::telemetry::{
     StorageHistoryPoint, StorageSnapshot, SystemStatusResponse,
 };
 use contracts::{
-    ActionProposalOutcome, ApiError, Capability, CorrelationResult, DeadlockInfo, Envelope,
-    GatedValue, GucValue, HealthResponse, HostVerdict, IdleInTransactionSession, IndexStat,
-    LockEdge, LongTransaction, PendingActionSummary, QueryStat, ReplicationStatus,
+    ActionProposalOutcome, AiExplanation, ApiError, Capability, CorrelationResult, DeadlockInfo,
+    Envelope, GatedValue, GucValue, HealthResponse, HostVerdict, IdleInTransactionSession,
+    IndexStat, LockEdge, LongTransaction, PendingActionSummary, QueryStat, ReplicationStatus,
     ResumableActionSummary, SecurityIncidentSummary, SessionInfo, TableStat, TempFileActivity,
     TuningPlanOutcome, TuningPlanSummary,
 };
@@ -104,6 +104,9 @@ fn main() -> anyhow::Result<()> {
     write_schema::<Envelope<Vec<IdleInTransactionSession>>>(
         "envelope_idle_in_transaction_session_list",
     )?;
+    write_schema::<AiExplanation>("ai_explanation")?;
+    write_schema::<GatedValue<AiExplanation>>("gated_value_ai_explanation")?;
+    write_schema::<Envelope<GatedValue<AiExplanation>>>("envelope_gated_value_ai_explanation")?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;

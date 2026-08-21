@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use ai_ops_core::actions::ActionContext;
+use ai_ops_core::ai::AiProvider;
 use ai_ops_core::dbms::DbmsAdapter;
 use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::RepositoryHandle;
@@ -45,6 +46,11 @@ pub struct AppState {
     /// ENVIRONMENT`, defaulting to `Development`). Consumed today only
     /// by `api/v1/tuning.rs`'s `start` handler.
     pub policy_environment: Environment,
+    /// `None` when no AI provider is configured (`ai_config::
+    /// resolve_ai_config`, unit U44) — `/analysis/host/explain` degrades
+    /// to a real `503 Unavailable` rather than guessing a model name.
+    /// Same shape as `dbms_adapter`.
+    pub ai_provider: Option<Arc<dyn AiProvider>>,
 }
 
 impl AppState {
@@ -58,6 +64,7 @@ impl AppState {
         action_registry: Arc<ActionTypeRegistry>,
         protected_resources: Arc<ProtectedResourceRegistry>,
         policy_environment: Environment,
+        ai_provider: Option<Arc<dyn AiProvider>>,
     ) -> Self {
         let action_context = ActionContext {
             platform: platform.clone(),
@@ -73,6 +80,7 @@ impl AppState {
             action_registry,
             protected_resources,
             policy_environment,
+            ai_provider,
         }
     }
 }

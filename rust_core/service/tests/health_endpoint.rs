@@ -26,6 +26,7 @@ async fn health_returns_a_valid_envelope() {
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
         Environment::Development,
+        None,
     );
     let app = api::router(state);
 

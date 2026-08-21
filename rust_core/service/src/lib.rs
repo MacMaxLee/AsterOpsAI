@@ -3,6 +3,7 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 pub mod actions;
+pub mod ai_config;
 pub mod api;
 pub mod config;
 pub mod dbms_config;

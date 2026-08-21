@@ -47,6 +47,7 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         // no-behavior-change default `tuning_endpoints.rs` uses) is
         // fine here unconditionally.
         Environment::Development,
+        None,
     );
     api::router(state)
 }

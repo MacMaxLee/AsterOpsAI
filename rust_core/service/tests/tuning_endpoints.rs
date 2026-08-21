@@ -52,6 +52,7 @@ async fn build_app_with_environment(
         Arc::new(build_action_registry()),
         Arc::new(ProtectedResourceRegistry::new()),
         policy_environment,
+        None,
     );
     api::router(state)
 }

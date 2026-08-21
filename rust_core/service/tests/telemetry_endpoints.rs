@@ -25,6 +25,7 @@ async fn build_app() -> axum::Router {
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
         Environment::Development,
+        None,
     );
     api::router(state)
 }

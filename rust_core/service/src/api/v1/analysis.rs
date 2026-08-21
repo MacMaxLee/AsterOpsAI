@@ -5,6 +5,11 @@
 //! (plain-env-var password, all-or-nothing poll failure, "no DB
 //! configured is not an error").
 
+use ai_ops_core::ai::{
+    build_host_bundle, try_explain, AiExplanation as CoreAiExplanation,
+    MetricClaim as CoreMetricClaim, Observation as CoreObservation,
+    Recommendation as CoreRecommendation, RiskLevel as CoreAiRiskLevel,
+};
 use ai_ops_core::analysis::thresholds::Tier as CoreTier;
 use ai_ops_core::analysis::{
     self, DbEvidenceBundle, DbHealthVerdict, HostBottleneck as CoreHostBottleneck, HostDomain,
@@ -14,13 +19,17 @@ use ai_ops_core::correlation::{self, RootCause as CoreRootCause};
 use ai_ops_core::repository;
 use axum::extract::{Extension, State};
 use chrono::{DateTime, Duration, Utc};
+use contracts::ai::{
+    AiExplanation as WireAiExplanation, MetricClaim, Observation, Recommendation,
+    RiskLevel as WireAiRiskLevel,
+};
 use contracts::analysis::{
     DomainSignal, Evidence, HostBottleneck, HostVerdict as WireHostVerdict, Tier,
 };
 use contracts::correlation::{
     CorrelationResult as WireCorrelationResult, Hypothesis, RootCause, RuledOut,
 };
-use contracts::ApiError;
+use contracts::{ApiError, GatedValue};
 
 use crate::middleware::RequestId;
 use crate::response::ApiResponse;
@@ -233,6 +242,105 @@ pub async fn host(
 ) -> ApiResponse<WireHostVerdict> {
     let now = Utc::now();
     let result = compute_host_verdict(&state, now).await.map(to_wire);
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_ai_risk(risk: CoreAiRiskLevel) -> WireAiRiskLevel {
+    match risk {
+        CoreAiRiskLevel::Low => WireAiRiskLevel::Low,
+        CoreAiRiskLevel::Medium => WireAiRiskLevel::Medium,
+        CoreAiRiskLevel::High => WireAiRiskLevel::High,
+        CoreAiRiskLevel::Critical => WireAiRiskLevel::Critical,
+    }
+}
+
+fn to_wire_metric_claim(claim: CoreMetricClaim) -> MetricClaim {
+    MetricClaim {
+        value: claim.value,
+        evidence_ref: claim.evidence_ref,
+    }
+}
+
+fn to_wire_observation(observation: CoreObservation) -> Observation {
+    Observation {
+        text: observation.text,
+        metrics: observation
+            .metrics
+            .into_iter()
+            .map(to_wire_metric_claim)
+            .collect(),
+    }
+}
+
+fn to_wire_recommendation(recommendation: CoreRecommendation) -> Recommendation {
+    Recommendation {
+        text: recommendation.text,
+        metrics: recommendation
+            .metrics
+            .into_iter()
+            .map(to_wire_metric_claim)
+            .collect(),
+        candidate_ref: recommendation.candidate_ref,
+    }
+}
+
+fn to_wire_ai_explanation(explanation: CoreAiExplanation) -> WireAiExplanation {
+    WireAiExplanation {
+        summary: explanation.summary,
+        observations: explanation
+            .observations
+            .into_iter()
+            .map(to_wire_observation)
+            .collect(),
+        recommendations: explanation
+            .recommendations
+            .into_iter()
+            .map(to_wire_recommendation)
+            .collect(),
+        risk: to_wire_ai_risk(explanation.risk),
+        confidence: explanation.confidence,
+    }
+}
+
+/// Unit U44's first direct wire surface for `core::ai` — fully built
+/// since unit U6, but until now consumed by nothing in `service` at
+/// all. Reuses `compute_host_verdict` unchanged; degrades to a real
+/// `503` when no provider is configured, or a real `200` +
+/// `GatedValue::Unavailable` when a configured provider's own
+/// `try_explain` degrades (absent/unreachable/timeout/garbage/an
+/// unresolved citation — `try_explain`'s own contract deliberately
+/// discards which one, SRS FR-AI-001, so this can't be more specific
+/// without being dishonest). See docs/adr/0049.
+pub async fn explain_host(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<GatedValue<WireAiExplanation>> {
+    let now = Utc::now();
+    let result = async {
+        let provider = state
+            .ai_provider
+            .clone()
+            .ok_or_else(|| ApiError::Unavailable("no AI provider configured".to_string()))?;
+        let verdict = compute_host_verdict(&state, now).await?;
+        let processes = state
+            .host_telemetry
+            .read()
+            .await
+            .processes
+            .processes
+            .clone();
+        let bundle = build_host_bundle(&verdict, "HOST", Some(&processes));
+        Ok(match try_explain(provider.as_ref(), &bundle).await {
+            Some(explanation) => GatedValue::Supported {
+                value: to_wire_ai_explanation(explanation),
+            },
+            None => GatedValue::Unavailable {
+                reason: "AI explanation unavailable".to_string(),
+            },
+        })
+    }
+    .await;
+
     ApiResponse::new(request_id, result)
 }
 

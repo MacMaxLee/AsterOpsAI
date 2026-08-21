@@ -1,0 +1,335 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Envelope_for_GatedValue_for_AiExplanation",
+  "description": "Every API response is wrapped in this envelope: `{success, timestamp, request_id, data, error}`. Exactly one of `data`/`error` is populated, matching `success`.",
+  "type": "object",
+  "required": [
+    "request_id",
+    "success",
+    "timestamp"
+  ],
+  "properties": {
+    "data": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/GatedValue_for_AiExplanation"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/ApiError"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "AiExplanation": {
+      "description": "Only ever produced server-side by `core::ai::validator::validate` — its existence on the wire is the proof a value already passed citation checking (SRS FR-AI-005) before this endpoint ever saw it.",
+      "type": "object",
+      "required": [
+        "confidence",
+        "observations",
+        "recommendations",
+        "risk",
+        "summary"
+      ],
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Observation"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Recommendation"
+          }
+        },
+        "risk": {
+          "$ref": "#/definitions/RiskLevel"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "ApiError": {
+      "description": "Closed, wire-facing error type. Every API error response carries exactly one of these variants — never a bare string — so clients can branch on `code` exhaustively instead of pattern-matching on message text.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "BAD_REQUEST"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "NOT_FOUND"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNSUPPORTED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "string",
+              "enum": [
+                "INTERNAL"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "GatedValue_for_AiExplanation": {
+      "description": "Unit U33: the same four states `Capability` already has, with a payload added to `Supported` — mirrors `core::dbms::capability:: Gated<T>` (`query_stats()`'s own return shape), the same \"parametric, tagged, payload-only-on-the-success-variant\" pattern `contracts::telemetry::MetricValue<T>` already establishes for telemetry's own gated metrics, applied here to `Capability`'s set instead.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "state",
+            "value"
+          ],
+          "properties": {
+            "state": {
+              "type": "string",
+              "enum": [
+                "SUPPORTED"
+              ]
+            },
+            "value": {
+              "$ref": "#/definitions/AiExplanation"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "LIMITED"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "UNAVAILABLE"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "reason",
+            "state"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "PERMISSION_REQUIRED"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "MetricClaim": {
+      "type": "object",
+      "required": [
+        "evidence_ref",
+        "value"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "value": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "Observation": {
+      "type": "object",
+      "required": [
+        "metrics",
+        "text"
+      ],
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricClaim"
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "Recommendation": {
+      "description": "The one response shape allowed to reference a `Candidate` id — never a free-form identifier the model invented (SRS FR-AI-004).",
+      "type": "object",
+      "required": [
+        "metrics",
+        "text"
+      ],
+      "properties": {
+        "candidate_ref": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricClaim"
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "RiskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}

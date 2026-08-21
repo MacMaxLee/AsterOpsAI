@@ -1,0 +1,188 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GatedValue_for_AiExplanation",
+  "description": "Unit U33: the same four states `Capability` already has, with a payload added to `Supported` — mirrors `core::dbms::capability:: Gated<T>` (`query_stats()`'s own return shape), the same \"parametric, tagged, payload-only-on-the-success-variant\" pattern `contracts::telemetry::MetricValue<T>` already establishes for telemetry's own gated metrics, applied here to `Capability`'s set instead.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "state",
+        "value"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "SUPPORTED"
+          ]
+        },
+        "value": {
+          "$ref": "#/definitions/AiExplanation"
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "LIMITED"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "UNAVAILABLE"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "PERMISSION_REQUIRED"
+          ]
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "AiExplanation": {
+      "description": "Only ever produced server-side by `core::ai::validator::validate` — its existence on the wire is the proof a value already passed citation checking (SRS FR-AI-005) before this endpoint ever saw it.",
+      "type": "object",
+      "required": [
+        "confidence",
+        "observations",
+        "recommendations",
+        "risk",
+        "summary"
+      ],
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "observations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Observation"
+          }
+        },
+        "recommendations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Recommendation"
+          }
+        },
+        "risk": {
+          "$ref": "#/definitions/RiskLevel"
+        },
+        "summary": {
+          "type": "string"
+        }
+      }
+    },
+    "MetricClaim": {
+      "type": "object",
+      "required": [
+        "evidence_ref",
+        "value"
+      ],
+      "properties": {
+        "evidence_ref": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "value": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "Observation": {
+      "type": "object",
+      "required": [
+        "metrics",
+        "text"
+      ],
+      "properties": {
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricClaim"
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "Recommendation": {
+      "description": "The one response shape allowed to reference a `Candidate` id — never a free-form identifier the model invented (SRS FR-AI-004).",
+      "type": "object",
+      "required": [
+        "metrics",
+        "text"
+      ],
+      "properties": {
+        "candidate_ref": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "metrics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/MetricClaim"
+          }
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "RiskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    }
+  }
+}
