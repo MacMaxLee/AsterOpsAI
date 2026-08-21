@@ -63,4 +63,19 @@ pub enum RepositoryError {
 
     #[error("no security incident row with id {0}")]
     SecurityIncidentNotFound(i64),
+
+    /// Unit U43 (ADR 0034's own named gap, closed): a second fresh
+    /// proposal for a target that already has an unresolved action of
+    /// the same `action_type` (`AUTO_ALLOWED`/`PENDING_APPROVAL`/
+    /// `APPROVED`/`EXECUTING`, or `EXECUTED` with no `ROLLED_BACK`
+    /// child). Unlike `TuningPlanAlreadyInFlight`, this can't be a
+    /// partial `UNIQUE` index — the "no `ROLLED_BACK` child" half needs
+    /// a correlated subquery SQLite's partial-index predicates can't
+    /// express — so `insert_proposed_action` checks this explicitly on
+    /// the same connection, immediately before the `INSERT`. Race-free
+    /// for the same reason the `UNIQUE` index is: both run synchronously
+    /// inside the single writer thread (ADR 0007), so no other propose
+    /// can interleave between the check and the insert.
+    #[error("a conflicting action is already in flight for this target")]
+    ConflictingActionInFlight,
 }

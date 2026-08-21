@@ -109,6 +109,14 @@ pub fn policy_error_to_api(err: PolicyError) -> ApiError {
         } => ApiError::BadRequest(format!(
             "invalid parameters for action type {action_type}: {reason}"
         )),
+        // Unit U43 (ADR 0034/0048): the same target already has an
+        // unresolved action of the same type — a real, client-
+        // correctable condition (resolve or roll back the existing one
+        // first), same category as `TuningError::PlanAlreadyInFlight`'s
+        // own 400 (ADR 0028), not a server fault.
+        PolicyError::ConflictingActionInFlight => ApiError::BadRequest(
+            "a conflicting action is already in flight for this target".to_string(),
+        ),
         other => {
             tracing::error!(error = %other, "unexpected policy error");
             ApiError::Internal

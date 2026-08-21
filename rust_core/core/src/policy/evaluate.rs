@@ -9,7 +9,7 @@ use crate::repository::{
     propose_action, record_audit_event, NewAuditEvent, NewProposedAction, RepositoryHandle,
 };
 
-use super::error::PolicyError;
+use super::error::{map_propose_err, PolicyError};
 use super::hash::compute_parameters_hash;
 use super::registry::ActionTypeRegistry;
 use super::request::ActionRequest;
@@ -78,7 +78,7 @@ pub async fn evaluate(
         approval_expires_at,
         rollback_of: None,
     };
-    let row = propose_action(handle, new).await?;
+    let row = propose_action(handle, new).await.map_err(map_propose_err)?;
 
     // FR-POL-005: every policy decision — including denials — is audited.
     record_audit_event(

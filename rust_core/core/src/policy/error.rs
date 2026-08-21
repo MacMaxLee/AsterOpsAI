@@ -38,6 +38,13 @@ pub enum PolicyError {
 
     #[error("failed to serialize/deserialize: {0}")]
     Serde(#[from] serde_json::Error),
+
+    /// Unit U43: a fresh proposal for a target that already has an
+    /// unresolved action of the same `action_type` — closes ADR 0034's
+    /// own named "double-suspend" gap. See `RepositoryError::
+    /// ConflictingActionInFlight`'s own doc comment for the full guard.
+    #[error("a conflicting action is already in flight for this target")]
+    ConflictingActionInFlight,
 }
 
 /// Preserves `RepositoryError`'s specific lifecycle-transition variants
@@ -58,6 +65,17 @@ pub(super) fn map_transition_err(err: RepositoryError) -> PolicyError {
             actual,
         },
         RepositoryError::PolicyActionExpired(id) => PolicyError::Expired(id),
+        other => PolicyError::Repository(other),
+    }
+}
+
+/// Unit U43: same discrimination discipline as `map_transition_err`,
+/// for `propose_action`'s own call site (`evaluate()`) — preserves
+/// `ConflictingActionInFlight` as its own distinguishable variant
+/// rather than flattening it into the generic `Repository` case.
+pub(super) fn map_propose_err(err: RepositoryError) -> PolicyError {
+    match err {
+        RepositoryError::ConflictingActionInFlight => PolicyError::ConflictingActionInFlight,
         other => PolicyError::Repository(other),
     }
 }

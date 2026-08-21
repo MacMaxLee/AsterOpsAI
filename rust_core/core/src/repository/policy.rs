@@ -69,11 +69,17 @@ pub fn list_pending_approval(conn: &Connection) -> Result<Vec<PolicyActionRow>, 
 /// already has a `ROLLED_BACK` child. A `FAILED` rollback attempt does
 /// *not* exclude the original: a failed attempt means the target is
 /// presumably still in its executed (e.g. suspended) state, so it must
-/// stay resumable. Most recent first, one row: nothing prevents the
-/// same target being suspended twice before either is resolved (no
-/// concurrency guard exists for proposing actions, unlike tuning plans'
-/// own partial `UNIQUE` index) — "most recent wins" is the same
-/// current-state semantics used elsewhere, not a new guard.
+/// stay resumable. Most recent first, one row: as of unit U43,
+/// `insert_proposed_action` below refuses a second fresh proposal of
+/// the *same `action_type`* against the same target while an
+/// unresolved one already exists, so double-suspending the same target
+/// can no longer happen. This query still stays "most recent wins"
+/// rather than "assert exactly one", though: it has no `action_type`
+/// filter, so two different action types both `EXECUTED`-and-not-yet-
+/// rolled-back against the same target (e.g. a suspend and a separate
+/// priority change) can legitimately coexist — the guard only prevents
+/// duplicates of the *same* action type, matching ADR 0034/0048's own
+/// scoping.
 pub fn find_resumable_action(
     conn: &Connection,
     target_identity_json: &str,
@@ -95,14 +101,66 @@ pub fn find_resumable_action(
     .map_err(Into::into)
 }
 
+/// Unit U43 (ADR 0034/0048): true if this exact `(action_type,
+/// target_identity_json, target_start_time)` already has an unresolved
+/// action — either a genuinely in-flight status, or an `EXECUTED` row
+/// with no `ROLLED_BACK` child yet (`find_resumable_action`'s own
+/// predicate, inlined rather than reused directly, since it doesn't
+/// filter by `action_type`).
+fn has_unresolved_action(
+    conn: &Connection,
+    action_type: &str,
+    target_identity_json: &str,
+    target_start_time: i64,
+) -> Result<bool, RepositoryError> {
+    let sql = "SELECT EXISTS (\
+        SELECT 1 FROM actions \
+        WHERE action_type = ?1 AND target_identity_json = ?2 AND target_start_time = ?3 \
+        AND ( \
+            status IN ('AUTO_ALLOWED', 'PENDING_APPROVAL', 'APPROVED', 'EXECUTING') \
+            OR (status = 'EXECUTED' AND id NOT IN ( \
+                SELECT rollback_of FROM actions \
+                WHERE rollback_of IS NOT NULL AND status = 'ROLLED_BACK' \
+            )) \
+        ) \
+    )";
+    conn.query_row(
+        sql,
+        params![action_type, target_identity_json, target_start_time],
+        |row| row.get(0),
+    )
+    .map_err(Into::into)
+}
+
 /// Inserts a new action-lifecycle row — either a fresh proposal
 /// (`new.rollback_of` is `None`) or a rollback attempt of a previously
 /// executed action (`Some(original_id)`), both going through the same row
 /// shape per this unit's "one row is one lifecycle instance" design.
+///
+/// A fresh proposal (never a rollback attempt — that row's whole point
+/// is to resolve an existing unresolved one) is rejected outright if
+/// this target already has an unresolved action of the same
+/// `action_type` (unit U43, closing ADR 0034's own named gap). Checked
+/// on this same connection immediately before the `INSERT`, with no
+/// `.await` in between — race-free because both run synchronously
+/// inside the single writer thread (ADR 0007), the same guarantee
+/// `tuning_plans`' own partial `UNIQUE` index relies on, just enforced
+/// in application code since this predicate (a correlated subquery)
+/// can't be expressed as a SQLite partial-index predicate.
 pub fn insert_proposed_action(
     conn: &Connection,
     new: &NewProposedAction,
 ) -> Result<PolicyActionRow, RepositoryError> {
+    if new.rollback_of.is_none()
+        && has_unresolved_action(
+            conn,
+            &new.action_type,
+            &new.target_identity_json,
+            new.target_start_time,
+        )?
+    {
+        return Err(RepositoryError::ConflictingActionInFlight);
+    }
     conn.execute(
         "INSERT INTO actions (
             created_at, action_type, target_identity_json, target_start_time,

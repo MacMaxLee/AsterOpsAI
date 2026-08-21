@@ -279,3 +279,35 @@ async fn proposing_malformed_parameters_is_a_real_bad_request_not_an_internal_er
         "expected the real validator's own message naming the missing field, got {body:?}"
     );
 }
+
+/// Unit U43 (ADR 0034's own named "double-suspend" gap, closed;
+/// ADR 0048): proposing `security.suspend_process` twice against the
+/// same real spawned target — the first genuinely reaches
+/// `PENDING_APPROVAL`, the second is a real `400`, not a second
+/// `PENDING_APPROVAL` row silently coexisting with the first.
+#[tokio::test]
+async fn proposing_the_same_suspend_twice_against_the_same_target_is_a_real_bad_request() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let body = json!({
+        "action_type": "security.suspend_process",
+        "pid": target.pid,
+        "start_time_ticks": target.start_time_ticks,
+        "resource_name": "sleep-test-target",
+        "requested_by": "tester",
+    });
+
+    let app = build_app(Some(repo.clone())).await;
+    let (first_status, first_body) = post_json(app, "/api/v1/actions/propose", body.clone()).await;
+    assert_eq!(first_status, StatusCode::OK, "first body: {first_body:?}");
+    assert_eq!(first_body["data"]["status"], "PENDING_APPROVAL");
+
+    let app = build_app(Some(repo)).await;
+    let (second_status, second_body) = post_json(app, "/api/v1/actions/propose", body).await;
+    assert_eq!(
+        second_status,
+        StatusCode::BAD_REQUEST,
+        "second body: {second_body:?}"
+    );
+    assert_eq!(second_body["error"]["code"], "BAD_REQUEST");
+}
