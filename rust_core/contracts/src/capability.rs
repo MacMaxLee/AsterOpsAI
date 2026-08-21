@@ -14,6 +14,22 @@ pub enum Capability {
     PermissionRequired { reason: String },
 }
 
+/// Unit U33: the same four states `Capability` already has, with a
+/// payload added to `Supported` — mirrors `core::dbms::capability::
+/// Gated<T>` (`query_stats()`'s own return shape), the same
+/// "parametric, tagged, payload-only-on-the-success-variant" pattern
+/// `contracts::telemetry::MetricValue<T>` already establishes for
+/// telemetry's own gated metrics, applied here to `Capability`'s set
+/// instead.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "state", rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum GatedValue<T> {
+    Supported { value: T },
+    Limited { reason: String },
+    Unavailable { reason: String },
+    PermissionRequired { reason: String },
+}
+
 /// The families of capability this product can report on. Adding a family is
 /// additive; removing or renaming one is a wire-breaking change.
 #[derive(

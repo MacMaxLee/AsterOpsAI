@@ -20,9 +20,9 @@ pub mod telemetry;
 pub mod tuning;
 
 pub use analysis::HostVerdict;
-pub use capability::{default_capability_registry, Capability, CapabilityFamily};
+pub use capability::{default_capability_registry, Capability, CapabilityFamily, GatedValue};
 pub use correlation::CorrelationResult;
-pub use dbms::{LockEdge, SessionInfo, SessionState};
+pub use dbms::{LockEdge, QueryStat, SessionInfo, SessionState};
 pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};

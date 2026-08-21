@@ -1,0 +1,120 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GatedValue_for_Array_of_QueryStat",
+  "description": "Unit U33: the same four states `Capability` already has, with a payload added to `Supported` — mirrors `core::dbms::capability:: Gated<T>` (`query_stats()`'s own return shape), the same \"parametric, tagged, payload-only-on-the-success-variant\" pattern `contracts::telemetry::MetricValue<T>` already establishes for telemetry's own gated metrics, applied here to `Capability`'s set instead.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "state",
+        "value"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "SUPPORTED"
+          ]
+        },
+        "value": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/QueryStat"
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "LIMITED"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "UNAVAILABLE"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "reason",
+        "state"
+      ],
+      "properties": {
+        "reason": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "PERMISSION_REQUIRED"
+          ]
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "QueryStat": {
+      "description": "Unit U33: mirrors `core::dbms::QueryStat` field-for-field. Always carried inside `GatedValue<Vec<QueryStat>>` (`contracts:: capability`), never returned bare — `pg_stat_statements` may genuinely not be installed.",
+      "type": "object",
+      "required": [
+        "calls",
+        "mean_exec_time_ms",
+        "normalized_query",
+        "query_fingerprint",
+        "rows",
+        "total_exec_time_ms"
+      ],
+      "properties": {
+        "calls": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "mean_exec_time_ms": {
+          "type": "number",
+          "format": "double"
+        },
+        "normalized_query": {
+          "type": "string"
+        },
+        "query_fingerprint": {
+          "type": "string"
+        },
+        "rows": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "total_exec_time_ms": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    }
+  }
+}

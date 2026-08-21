@@ -85,6 +85,39 @@ async fn locks_is_unavailable_without_a_database() {
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
 }
 
+#[tokio::test]
+async fn query_stats_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/query-stats").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+/// Unit U33: `support::TestPostgres` doesn't configure `shared_preload_
+/// libraries`, so `pg_stat_statements` is never actually loadable here
+/// — confirmed by direct read of `core/tests/dbms_adapter_smoke_test.rs`
+/// and `core/tests/dbms_no_pg_stat_statements_test.rs`, neither of
+/// which proves the real `Supported` happy path either, only this same
+/// honest degraded one. A real, DB-backed proof this endpoint reports
+/// that real degradation as a genuine `200 OK` (not folded into a
+/// `503`), not asserted from reading code alone.
+#[tokio::test]
+async fn query_stats_reports_a_real_unavailable_state_as_200_ok() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/query-stats").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["state"], "UNAVAILABLE");
+    let reason = body["data"]["reason"].as_str().expect("reason is a string");
+    assert!(
+        reason.to_lowercase().contains("pg_stat_statements"),
+        "expected the real adapter's own reason naming pg_stat_statements, got: {reason}"
+    );
+}
+
 /// A real discovery while writing this test, not the assumption it
 /// started with: `classify_session_state` (`core/src/dbms/adapters/
 /// postgresql/queries.rs`) treats *any* non-null `wait_event_type` as

@@ -8,9 +8,12 @@
 //! for why this is a deliberately small first slice, not all 12
 //! `DbmsAdapter` methods.
 
-use ai_ops_core::dbms::{LockEdge as CoreLockEdge, SessionInfo as CoreSessionInfo, SessionState};
+use ai_ops_core::dbms::{
+    Gated, LockEdge as CoreLockEdge, QueryStat as CoreQueryStat, SessionInfo as CoreSessionInfo,
+    SessionState,
+};
 use axum::extract::{Extension, State};
-use contracts::{ApiError, LockEdge, SessionInfo};
+use contracts::{ApiError, GatedValue, LockEdge, QueryStat, SessionInfo};
 
 use crate::middleware::RequestId;
 use crate::response::ApiResponse;
@@ -66,6 +69,52 @@ pub async fn sessions(
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
         Ok(sessions.into_iter().map(to_wire_session).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_query_stat(stat: CoreQueryStat) -> QueryStat {
+    QueryStat {
+        query_fingerprint: stat.query_fingerprint,
+        normalized_query: stat.normalized_query,
+        calls: stat.calls,
+        total_exec_time_ms: stat.total_exec_time_ms,
+        mean_exec_time_ms: stat.mean_exec_time_ms,
+        rows: stat.rows,
+    }
+}
+
+fn to_wire_gated_query_stats(gated: Gated<Vec<CoreQueryStat>>) -> GatedValue<Vec<QueryStat>> {
+    match gated {
+        Gated::Supported(stats) => GatedValue::Supported {
+            value: stats.into_iter().map(to_wire_query_stat).collect(),
+        },
+        Gated::Limited { reason } => GatedValue::Limited { reason },
+        Gated::Unavailable { reason } => GatedValue::Unavailable { reason },
+        Gated::PermissionRequired { reason } => GatedValue::PermissionRequired { reason },
+    }
+}
+
+/// Unlike `sessions`/`locks`, a successful poll's own real `Gated<T>`
+/// result (e.g. `pg_stat_statements` genuinely not installed) is
+/// returned as real `200 OK` data, not folded into `Unavailable` —
+/// only "the DBMS feature is unreachable at all" (no DB configured, or
+/// the poll itself failed) stays a `503`. See docs/adr/0038.
+pub async fn query_stats(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<GatedValue<Vec<QueryStat>>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let gated = adapter.query_stats().await.map_err(|err| {
+            tracing::warn!(error = %err, "query_stats failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(to_wire_gated_query_stats(gated))
     }
     .await;
 

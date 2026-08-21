@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QueryStat",
+  "description": "Unit U33: mirrors `core::dbms::QueryStat` field-for-field. Always carried inside `GatedValue<Vec<QueryStat>>` (`contracts:: capability`), never returned bare — `pg_stat_statements` may genuinely not be installed.",
+  "type": "object",
+  "required": [
+    "calls",
+    "mean_exec_time_ms",
+    "normalized_query",
+    "query_fingerprint",
+    "rows",
+    "total_exec_time_ms"
+  ],
+  "properties": {
+    "calls": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "mean_exec_time_ms": {
+      "type": "number",
+      "format": "double"
+    },
+    "normalized_query": {
+      "type": "string"
+    },
+    "query_fingerprint": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "total_exec_time_ms": {
+      "type": "number",
+      "format": "double"
+    }
+  }
+}

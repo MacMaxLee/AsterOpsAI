@@ -41,3 +41,17 @@ pub struct LockEdge {
     pub blocking_query: Option<String>,
     pub lock_type: String,
 }
+
+/// Unit U33: mirrors `core::dbms::QueryStat` field-for-field. Always
+/// carried inside `GatedValue<Vec<QueryStat>>` (`contracts::
+/// capability`), never returned bare — `pg_stat_statements` may
+/// genuinely not be installed.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct QueryStat {
+    pub query_fingerprint: String,
+    pub normalized_query: String,
+    pub calls: i64,
+    pub total_exec_time_ms: f64,
+    pub mean_exec_time_ms: f64,
+    pub rows: i64,
+}
