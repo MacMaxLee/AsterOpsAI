@@ -30,6 +30,29 @@ pub struct Executed {
 }
 
 impl Executed {
+    /// Unit U28's only other way to obtain an `Executed`, alongside
+    /// `execute()` itself: `rollback::rollback_by_row_id` reconstructs
+    /// one from a *previously* executed row looked up later, rather than
+    /// the same in-memory chain `execute()` -> `rollback()` every prior
+    /// caller used. `pub(super)`, not `pub`: only `core::actions`'s own
+    /// `rollback` module needs this — no outside caller should ever
+    /// fabricate an `Executed` directly.
+    pub(super) fn reconstruct(
+        row_id: i64,
+        target: TargetIdentity,
+        resource: ResourceDescriptor,
+        previous_state: Value,
+        action: Arc<dyn ActionKind>,
+    ) -> Self {
+        Self {
+            row_id,
+            target,
+            resource,
+            previous_state,
+            action,
+        }
+    }
+
     pub fn row_id(&self) -> i64 {
         self.row_id
     }

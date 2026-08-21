@@ -77,6 +77,11 @@ pub struct RejectRequest {
     pub rejected_by: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct RollbackRequest {
+    pub rolled_back_by: String,
+}
+
 pub async fn grant(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -140,6 +145,40 @@ pub async fn grant(
         )
         .await
         .map(|_executed| ())
+        .map_err(action_error_to_api)
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+/// Unit U28: the first way to reach `core::actions::rollback_by_row_id`
+/// over HTTP — the only way anything in the running product can undo a
+/// real, already-executed action (e.g. resume a process unit U27's
+/// suspend proposal really froze). Pure wiring at this layer; the real
+/// reconstruction logic lives entirely in `core` (see docs/adr/0033).
+pub async fn rollback(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+    Path(id): Path<i64>,
+    Json(body): Json<RollbackRequest>,
+) -> ApiResponse<()> {
+    let result = async {
+        let repo = state.repository.clone().ok_or_else(|| {
+            ApiError::Unavailable(
+                "policy inbox not available: repository layer did not start".to_string(),
+            )
+        })?;
+        actions::rollback_by_row_id(
+            id,
+            &state.action_registry,
+            &state.action_context,
+            &target_verifier(),
+            body.rolled_back_by,
+            &repo,
+        )
+        .await
+        .map(|_rollback_row_id| ())
         .map_err(action_error_to_api)
     }
     .await;

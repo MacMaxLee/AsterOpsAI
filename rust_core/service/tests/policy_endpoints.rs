@@ -326,6 +326,106 @@ async fn granting_an_already_granted_action_is_a_bad_request_not_a_panic() {
     assert_eq!(body["error"]["code"], "BAD_REQUEST");
 }
 
+/// Unit U28's own capstone at the service level: a real
+/// `security.suspend_process` grant really stops the target (unit
+/// U27's own real path), then a genuinely *separate* HTTP rollback call
+/// — knowing only the row id, nothing else — really resumes it. Before
+/// this unit, nothing in the running product could do this at all.
+#[tokio::test]
+async fn granting_a_suspend_then_rolling_it_back_over_http_really_resumes_the_target() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_pending_for(
+        &repo,
+        "tester",
+        "security.suspend_process",
+        &target,
+        json!({}),
+    )
+    .await;
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
+
+    let platform = platform::current_platform_adapter();
+    assert!(
+        platform
+            .is_process_stopped(target.pid as u32)
+            .expect("is_process_stopped after grant"),
+        "the real process must be stopped after granting the suspend"
+    );
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/rollback"),
+        json!({ "rolled_back_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "rollback body: {body:?}");
+
+    assert!(
+        !platform
+            .is_process_stopped(target.pid as u32)
+            .expect("is_process_stopped after rollback"),
+        "the real process must be resumed after the rollback — the exact \
+         capability that was missing before this unit"
+    );
+
+    let row = repository::get_action(&repo, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(
+        row.status, "EXECUTED",
+        "the original row's own status must stay exactly as execute() left it"
+    );
+}
+
+#[tokio::test]
+async fn rolling_back_a_never_granted_action_is_a_real_bad_request() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_pending_for(
+        &repo,
+        "tester",
+        "security.suspend_process",
+        &target,
+        json!({}),
+    )
+    .await;
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/rollback"),
+        json!({ "rolled_back_by": "tester" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {body:?}");
+    assert_eq!(body["error"]["code"], "BAD_REQUEST");
+}
+
+#[tokio::test]
+async fn rolling_back_a_nonexistent_action_is_not_found() {
+    let repo = open_repo().await;
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        "/api/v1/policy/999999/rollback",
+        json!({ "rolled_back_by": "tester" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body["error"]["code"], "NOT_FOUND");
+}
+
 #[tokio::test]
 async fn granting_a_nonexistent_action_is_not_found() {
     let repo = open_repo().await;

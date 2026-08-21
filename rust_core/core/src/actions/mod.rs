@@ -27,5 +27,5 @@ pub use context::ActionContext;
 pub use error::ActionError;
 pub use executor::{execute, Executed};
 pub use kind::ActionKind;
-pub use rollback::rollback;
+pub use rollback::{rollback, rollback_by_row_id};
 pub use target_verifier::TargetVerifier;
