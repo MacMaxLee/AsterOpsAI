@@ -21,3 +21,19 @@ pub struct PendingActionSummary {
     pub requested_by: String,
     pub approval_expires_at: Option<DateTime<Utc>>,
 }
+
+/// Unit U26's real, immediate result of proposing an action outside the
+/// tuning pipeline (`POST /api/v1/actions/propose`) — mirrors
+/// `core::policy::PolicyOutcome`'s three variants (`AutoAllowed`,
+/// `PendingApproval`, `Denied`) field-for-field, the same way
+/// `TuningPlanOutcome` mirrors `TuningOutcome`. `status` is one of
+/// `"AUTO_ALLOWED"`, `"PENDING_APPROVAL"`, `"DENIED"`;
+/// `approval_expires_at` is set only for `PENDING_APPROVAL`, `reason`
+/// only for `DENIED`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ActionProposalOutcome {
+    pub row_id: i64,
+    pub status: String,
+    pub approval_expires_at: Option<DateTime<Utc>>,
+    pub reason: Option<String>,
+}

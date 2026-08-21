@@ -23,6 +23,7 @@ pub fn build_action_registry() -> ActionTypeRegistry {
     #[cfg(target_os = "linux")]
     {
         use ai_ops_core::actions::host;
+        use ai_ops_core::security::response;
         registry.register(
             "host.set_process_priority",
             host::set_process_priority_entry(),
@@ -30,6 +31,14 @@ pub fn build_action_registry() -> ActionTypeRegistry {
         registry.register(
             "host.set_process_cpu_affinity",
             host::set_process_cpu_affinity_entry(),
+        );
+        // Unit U26: fully built and core-tested since unit U11
+        // (TRS §37 / SRS FR-SEC-004), but never previously registered —
+        // real SIGSTOP/SIGCONT, RiskLevel::High, so `decide` requires
+        // approval in every environment, not just Production.
+        registry.register(
+            "security.suspend_process",
+            response::suspend_process_entry(),
         );
     }
     registry
@@ -87,6 +96,19 @@ pub fn policy_error_to_api(err: PolicyError) -> ApiError {
         PolicyError::UnknownActionType(action_type) => {
             ApiError::Unsupported(format!("no registered action type: {action_type}"))
         }
+        // Unit U26: `/actions/propose` is the first caller anywhere in
+        // `service` to hand raw, client-supplied JSON `parameters`
+        // straight to `core::policy::validate()` — every earlier caller
+        // (tuning's own candidate-building) only ever validates
+        // internally-constructed, pre-vetted parameters, so this arm was
+        // unreachable (and absent) until now. A genuine client mistake,
+        // not a server fault.
+        PolicyError::InvalidParameters {
+            action_type,
+            reason,
+        } => ApiError::BadRequest(format!(
+            "invalid parameters for action type {action_type}: {reason}"
+        )),
         other => {
             tracing::error!(error = %other, "unexpected policy error");
             ApiError::Internal
