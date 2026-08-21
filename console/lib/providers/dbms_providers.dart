@@ -1,0 +1,35 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../api/api_result.dart';
+import '../generated/models/models.dart';
+import '../repositories/polled_repository.dart';
+import 'settings_provider.dart';
+import 'transport_provider.dart';
+
+/// Unit U32's console surface for unit U31's own real endpoints — two
+/// independent providers, same `PolledRepository` + `StreamProvider.
+/// autoDispose` pattern every other polled provider already uses, so a
+/// slow/failed poll on one (e.g. `dbmsLocksProvider`) never blocks the
+/// other (`database_screen.dart` watches both independently).
+final dbmsSessionsProvider =
+    StreamProvider.autoDispose<ApiResult<List<SessionInfo>>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<List<SessionInfo>>(
+        fetch: client.getDbmsSessions,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });
+
+final dbmsLocksProvider = StreamProvider.autoDispose<ApiResult<List<LockEdge>>>(
+  (ref) {
+    final client = ref.watch(apiClientProvider);
+    final repo = PolledRepository<List<LockEdge>>(
+      fetch: client.getDbmsLocks,
+      interval: ref.watch(refreshIntervalProvider),
+    );
+    ref.onDispose(repo.dispose);
+    return repo.stream;
+  },
+);

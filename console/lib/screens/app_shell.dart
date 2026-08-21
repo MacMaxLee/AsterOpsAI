@@ -5,6 +5,7 @@ import '../widgets/connection_banner.dart';
 import 'correlation_screen.dart';
 import 'cpu_screen.dart';
 import 'dashboard_screen.dart';
+import 'database_screen.dart';
 import 'devices_screen.dart';
 import 'host_analysis_screen.dart';
 import 'memory_screen.dart';
@@ -48,6 +49,7 @@ class _AppShellState extends State<AppShell> {
       ),
       (l10n.navAnalysis, Icons.speed_outlined, const HostAnalysisScreen()),
       (l10n.navCorrelation, Icons.hub_outlined, const CorrelationScreen()),
+      (l10n.navDatabase, Icons.dns_outlined, const DatabaseScreen()),
       (l10n.navSettings, Icons.settings_outlined, const SettingsScreen()),
     ];
 

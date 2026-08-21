@@ -15,6 +15,7 @@
   "navSecurity": "Security",
   "navAnalysis": "Analysis",
   "navCorrelation": "Correlation",
+  "navDatabase": "Database",
   "navSettings": "Settings",
 
   "connectionConnecting": "Connecting to core...",
@@ -173,6 +174,25 @@
     "placeholders": {
       "actionType": { "type": "String" },
       "rowId": { "type": "int" }
+    }
+  },
+
+  "dbmsSectionSessions": "Sessions",
+  "dbmsSectionLocks": "Locks",
+  "dbmsColumnPid": "PID",
+  "dbmsColumnState": "State",
+  "dbmsSessionRowSubtitle": "{username} @ {database}",
+  "@dbmsSessionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "database": { "type": "String" }
+    }
+  },
+  "dbmsLockRowTitle": "PID {blockedPid} blocked by {blockingPid}",
+  "@dbmsLockRowTitle": {
+    "placeholders": {
+      "blockedPid": { "type": "int" },
+      "blockingPid": { "type": "int" }
     }
   },
 

@@ -120,6 +120,17 @@ final class ApiClient {
         .toList(),
   );
 
+  Future<ApiResult<List<SessionInfo>>> getDbmsSessions() => _get(
+    '/api/v1/dbms/sessions',
+    (json) =>
+        (json as List<dynamic>).map((e) => SessionInfo.fromJson(e)).toList(),
+  );
+
+  Future<ApiResult<List<LockEdge>>> getDbmsLocks() => _get(
+    '/api/v1/dbms/locks',
+    (json) => (json as List<dynamic>).map((e) => LockEdge.fromJson(e)).toList(),
+  );
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.

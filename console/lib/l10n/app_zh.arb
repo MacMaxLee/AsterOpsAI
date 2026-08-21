@@ -13,6 +13,7 @@
   "navSecurity": "安全性",
   "navAnalysis": "分析",
   "navCorrelation": "關聯分析",
+  "navDatabase": "資料庫",
   "navSettings": "設定",
   "connectionConnecting": "正在連線至核心服務...",
   "connectionReconnecting": "正在重新連線至核心服務...",
@@ -170,6 +171,24 @@
     "placeholders": {
       "actionType": { "type": "String" },
       "rowId": { "type": "int" }
+    }
+  },
+  "dbmsSectionSessions": "工作階段",
+  "dbmsSectionLocks": "鎖定",
+  "dbmsColumnPid": "PID",
+  "dbmsColumnState": "狀態",
+  "dbmsSessionRowSubtitle": "{username} @ {database}",
+  "@dbmsSessionRowSubtitle": {
+    "placeholders": {
+      "username": { "type": "String" },
+      "database": { "type": "String" }
+    }
+  },
+  "dbmsLockRowTitle": "PID {blockedPid} 被 {blockingPid} 阻擋",
+  "@dbmsLockRowTitle": {
+    "placeholders": {
+      "blockedPid": { "type": "int" },
+      "blockingPid": { "type": "int" }
     }
   },
   "securityColumnEvents": "{count} 個事件",
