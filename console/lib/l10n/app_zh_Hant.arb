@@ -107,6 +107,7 @@
   "processColumnCategory": "類別",
   "processColumnCpu": "CPU %",
   "processColumnRss": "RSS",
+  "processStartTuningPlan": "啟動調校計畫",
 
   "deviceColumnName": "名稱",
   "deviceColumnKind": "類型",
@@ -123,6 +124,19 @@
   "@tuningCompletedAt": {
     "placeholders": {
       "completedAt": { "type": "String" }
+    }
+  },
+  "tuningStartDialogTitle": "啟動調校計畫",
+  "tuningStartResourceName": "資源名稱",
+  "tuningStartProfile": "設定檔",
+  "tuningStartMode": "自動化模式",
+  "tuningStartSubmit": "啟動計畫",
+  "tuningStartResultTitle": "計畫已啟動",
+  "tuningStartResultCandidate": "{actionType} — {outcome}",
+  "@tuningStartResultCandidate": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "outcome": { "type": "String" }
     }
   },
 
@@ -142,6 +156,7 @@
   "securitySuppressSubmit": "抑制",
   "securitySuppressSuccess": "偵測器已抑制",
   "genericCancel": "取消",
+  "genericClose": "關閉",
 
   "analysisScore": "分數 {score}（{scoreVersion}）",
   "@analysisScore": {

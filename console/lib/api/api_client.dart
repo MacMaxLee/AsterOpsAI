@@ -126,11 +126,50 @@ final class ApiClient {
   Future<ApiResult<CorrelationResult>> getCorrelation() =>
       _get('/api/v1/analysis/correlation', CorrelationResult.fromJson);
 
+  /// Unlike grant/reject/suppress, starting a plan returns real,
+  /// meaningful data (unit U24) — each candidate's real outcome, which
+  /// per ADR 0028 is often not what a caller might assume (e.g.
+  /// `AUTO_ALLOWED_PENDING` rather than `PENDING_APPROVAL`) — so this
+  /// goes through `_post<T>`, not `_postForSuccess`.
+  Future<ApiResult<TuningPlanOutcome>> startTuningPlan({
+    required int pid,
+    required int startTimeTicks,
+    required String resourceName,
+    required String profile,
+    required String mode,
+    required String requestedBy,
+  }) => _post(
+    '/api/v1/tuning/start',
+    jsonEncode({
+      'pid': pid,
+      'start_time_ticks': startTimeTicks,
+      'resource_name': resourceName,
+      'profile': profile,
+      'mode': mode,
+      'requested_by': requestedBy,
+    }),
+    TuningPlanOutcome.fromJson,
+  );
+
   Future<ApiResult<T>> _get<T>(
     String path,
     T Function(dynamic) dataFromJson,
   ) async {
     final raw = await _transport.getRaw(path);
+    return switch (raw) {
+      ApiErr(:final failure) => ApiErr(failure),
+      ApiOk(:final value) => _decodeEnvelope(value, dataFromJson),
+    };
+  }
+
+  /// For endpoints whose envelope carries real `data` on success (unlike
+  /// `_postForSuccess`'s grant/reject/suppress, which return `()`).
+  Future<ApiResult<T>> _post<T>(
+    String path,
+    String body,
+    T Function(dynamic) dataFromJson,
+  ) async {
+    final raw = await _transport.postRaw(path, body: body);
     return switch (raw) {
       ApiErr(:final failure) => ApiErr(failure),
       ApiOk(:final value) => _decodeEnvelope(value, dataFromJson),

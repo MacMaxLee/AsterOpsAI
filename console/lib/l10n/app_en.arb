@@ -107,6 +107,7 @@
   "processColumnCategory": "Category",
   "processColumnCpu": "CPU %",
   "processColumnRss": "RSS",
+  "processStartTuningPlan": "Start tuning plan",
 
   "deviceColumnName": "Name",
   "deviceColumnKind": "Kind",
@@ -123,6 +124,19 @@
   "@tuningCompletedAt": {
     "placeholders": {
       "completedAt": { "type": "String" }
+    }
+  },
+  "tuningStartDialogTitle": "Start tuning plan",
+  "tuningStartResourceName": "Resource name",
+  "tuningStartProfile": "Profile",
+  "tuningStartMode": "Automation mode",
+  "tuningStartSubmit": "Start plan",
+  "tuningStartResultTitle": "Plan started",
+  "tuningStartResultCandidate": "{actionType} — {outcome}",
+  "@tuningStartResultCandidate": {
+    "placeholders": {
+      "actionType": { "type": "String" },
+      "outcome": { "type": "String" }
     }
   },
 
@@ -142,6 +156,7 @@
   "securitySuppressSubmit": "Suppress",
   "securitySuppressSuccess": "Detector suppressed",
   "genericCancel": "Cancel",
+  "genericClose": "Close",
 
   "analysisScore": "Score {score} ({scoreVersion})",
   "@analysisScore": {

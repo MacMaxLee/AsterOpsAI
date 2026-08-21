@@ -47,5 +47,7 @@ export 'storage_history_point.dart';
 export 'storage_snapshot.dart';
 export 'system_status_response.dart';
 export 'tier.dart';
+export 'tuning_candidate_outcome.dart';
+export 'tuning_plan_outcome.dart';
 export 'tuning_plan_summary.dart';
 export 'volume_info.dart';
