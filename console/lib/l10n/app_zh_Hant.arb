@@ -178,6 +178,15 @@
   },
   "dbmsSectionSessions": "工作階段",
   "dbmsSectionLocks": "鎖定",
+  "dbmsSectionQueryStats": "查詢統計",
+  "dbmsQueryStatRowSubtitle": "呼叫次數：{calls}  •  平均：{meanMs}ms  •  影響列數：{rows}",
+  "@dbmsQueryStatRowSubtitle": {
+    "placeholders": {
+      "calls": { "type": "int" },
+      "meanMs": { "type": "String" },
+      "rows": { "type": "int" }
+    }
+  },
   "dbmsColumnPid": "PID",
   "dbmsColumnState": "狀態",
   "dbmsSessionRowSubtitle": "{username} @ {database}",

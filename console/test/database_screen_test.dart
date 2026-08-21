@@ -28,6 +28,15 @@ LockEdge fakeLock() => const LockEdge(
   lockType: 'transactionid',
 );
 
+QueryStat fakeQueryStat() => const QueryStat(
+  queryFingerprint: 'abc123',
+  normalizedQuery: 'SELECT * FROM t WHERE id = \$1',
+  calls: 42,
+  totalExecTimeMs: 100.5,
+  meanExecTimeMs: 2.39,
+  rows: 42,
+);
+
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
   const Scaffold(body: DatabaseScreen()),
@@ -93,4 +102,72 @@ void main() {
 
     expect(find.text('Nothing to show'), findsNWidgets(2));
   });
+
+  testWidgets(
+    'a scripted Supported query-stats response renders the real row',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/query-stats',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              GatedValueForArrayOfQueryStatSupported(value: [fakeQueryStat()])
+                  .toJson(),
+            ),
+          ),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.textContaining('SELECT * FROM t'), findsOneWidget);
+      expect(find.textContaining('42'), findsWidgets);
+      expect(find.textContaining('2.39'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted Unavailable query-stats response shows the real reason, '
+    'not a fabricated generic message',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/query-stats',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              const GatedValueForArrayOfQueryStatUnavailable(
+                reason: 'pg_stat_statements extension is not installed',
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('Not available'), findsOneWidget);
+      expect(
+        find.text('pg_stat_statements extension is not installed'),
+        findsOneWidget,
+      );
+    },
+  );
 }

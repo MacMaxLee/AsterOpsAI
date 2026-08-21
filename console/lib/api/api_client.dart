@@ -131,6 +131,12 @@ final class ApiClient {
     (json) => (json as List<dynamic>).map((e) => LockEdge.fromJson(e)).toList(),
   );
 
+  /// Unlike `getDbmsSessions`/`getDbmsLocks`, the envelope's `data` is
+  /// the gated value itself, not a bare list — `pg_stat_statements` may
+  /// genuinely not be installed (unit U33).
+  Future<ApiResult<GatedValueForArrayOfQueryStat>> getDbmsQueryStats() =>
+      _get('/api/v1/dbms/query-stats', GatedValueForArrayOfQueryStat.fromJson);
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.

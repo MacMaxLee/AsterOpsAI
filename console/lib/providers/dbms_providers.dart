@@ -33,3 +33,15 @@ final dbmsLocksProvider = StreamProvider.autoDispose<ApiResult<List<LockEdge>>>(
     return repo.stream;
   },
 );
+
+/// Unit U34's own console surface for unit U33's own real endpoint.
+final dbmsQueryStatsProvider =
+    StreamProvider.autoDispose<ApiResult<GatedValueForArrayOfQueryStat>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<GatedValueForArrayOfQueryStat>(
+        fetch: client.getDbmsQueryStats,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });

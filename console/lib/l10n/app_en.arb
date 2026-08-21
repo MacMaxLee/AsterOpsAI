@@ -179,6 +179,15 @@
 
   "dbmsSectionSessions": "Sessions",
   "dbmsSectionLocks": "Locks",
+  "dbmsSectionQueryStats": "Query stats",
+  "dbmsQueryStatRowSubtitle": "calls: {calls}  •  mean: {meanMs}ms  •  rows: {rows}",
+  "@dbmsQueryStatRowSubtitle": {
+    "placeholders": {
+      "calls": { "type": "int" },
+      "meanMs": { "type": "String" },
+      "rows": { "type": "int" }
+    }
+  },
   "dbmsColumnPid": "PID",
   "dbmsColumnState": "State",
   "dbmsSessionRowSubtitle": "{username} @ {database}",
