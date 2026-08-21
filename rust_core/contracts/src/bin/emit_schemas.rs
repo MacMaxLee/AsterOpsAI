@@ -12,9 +12,10 @@ use contracts::telemetry::{
 };
 use contracts::{
     ActionProposalOutcome, ApiError, Capability, CorrelationResult, DeadlockInfo, Envelope,
-    GatedValue, GucValue, HealthResponse, HostVerdict, IndexStat, LockEdge, PendingActionSummary,
-    QueryStat, ReplicationStatus, ResumableActionSummary, SecurityIncidentSummary, SessionInfo,
-    TableStat, TempFileActivity, TuningPlanOutcome, TuningPlanSummary,
+    GatedValue, GucValue, HealthResponse, HostVerdict, IdleInTransactionSession, IndexStat,
+    LockEdge, LongTransaction, PendingActionSummary, QueryStat, ReplicationStatus,
+    ResumableActionSummary, SecurityIncidentSummary, SessionInfo, TableStat, TempFileActivity,
+    TuningPlanOutcome, TuningPlanSummary,
 };
 use schemars::schema_for;
 use std::path::PathBuf;
@@ -97,6 +98,12 @@ fn main() -> anyhow::Result<()> {
     write_schema::<Envelope<TempFileActivity>>("envelope_temp_file_activity")?;
     write_schema::<DeadlockInfo>("deadlock_info")?;
     write_schema::<Envelope<DeadlockInfo>>("envelope_deadlock_info")?;
+    write_schema::<LongTransaction>("long_transaction")?;
+    write_schema::<Envelope<Vec<LongTransaction>>>("envelope_long_transaction_list")?;
+    write_schema::<IdleInTransactionSession>("idle_in_transaction_session")?;
+    write_schema::<Envelope<Vec<IdleInTransactionSession>>>(
+        "envelope_idle_in_transaction_session_list",
+    )?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;

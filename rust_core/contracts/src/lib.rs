@@ -23,8 +23,9 @@ pub use analysis::HostVerdict;
 pub use capability::{default_capability_registry, Capability, CapabilityFamily, GatedValue};
 pub use correlation::CorrelationResult;
 pub use dbms::{
-    DeadlockInfo, GucValue, IndexStat, LockEdge, QueryStat, ReplicationStatus, SessionInfo,
-    SessionState, StandbyInfo, TableStat, TempFileActivity,
+    DeadlockInfo, GucValue, IdleInTransactionSession, IndexStat, LockEdge, LongTransaction,
+    QueryStat, ReplicationStatus, SessionInfo, SessionState, StandbyInfo, TableStat,
+    TempFileActivity,
 };
 pub use envelope::Envelope;
 pub use error::ApiError;

@@ -141,6 +141,22 @@ async fn deadlock_history_is_unavailable_without_a_database() {
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
 }
 
+#[tokio::test]
+async fn long_transactions_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/long-transactions").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+#[tokio::test]
+async fn idle_in_transaction_sessions_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/idle-in-transaction-sessions").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
 /// Unit U33: `support::TestPostgres` doesn't configure `shared_preload_
 /// libraries`, so `pg_stat_statements` is never actually loadable here
 /// — confirmed by direct read of `core/tests/dbms_adapter_smoke_test.rs`
@@ -609,5 +625,48 @@ async fn deadlock_history_reports_a_real_induced_deadlock() {
     assert!(
         deadlocks >= 1,
         "expected a real induced deadlock, got deadlocks={deadlocks}"
+    );
+}
+
+/// Unit U41: both `long_transactions`/`idle_in_transaction_sessions`
+/// filter on a hardcoded 60-second threshold at the `core` level
+/// (`LONG_TRANSACTION_THRESHOLD_SECONDS`/`IDLE_IN_TRANSACTION_
+/// THRESHOLD_SECONDS`) — unlike U39's temp-file/deadlock pair, genuinely
+/// exceeding that threshold would mean this test suite waits a real 60+
+/// seconds on every single run, forever. `core/tests/dbms_adapter_
+/// smoke_test.rs` itself only proves the empty path for exactly this
+/// reason; this test matches that same honest scope, proven end-to-end
+/// over real HTTP rather than asserted from reading code alone. The
+/// threshold-crossing populated path remains a real, named, untested
+/// gap — see docs/adr/0046.
+#[tokio::test]
+async fn long_transactions_reports_a_real_empty_result() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/long-transactions").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let txns = body["data"].as_array().expect("data is an array");
+    assert!(
+        txns.is_empty(),
+        "expected no real long-running transaction in a fresh fixture, got: {txns:?}"
+    );
+}
+
+#[tokio::test]
+async fn idle_in_transaction_sessions_reports_a_real_empty_result() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/idle-in-transaction-sessions").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let sessions = body["data"].as_array().expect("data is an array");
+    assert!(
+        sessions.is_empty(),
+        "expected no real idle-in-transaction session in a fresh fixture, got: {sessions:?}"
     );
 }

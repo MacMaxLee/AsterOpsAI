@@ -125,3 +125,21 @@ pub struct DeadlockInfo {
     pub deadlocks: i64,
     pub stats_reset: Option<DateTime<Utc>>,
 }
+
+/// Unit U41: mirrors `core::dbms::LongTransaction` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct LongTransaction {
+    pub pid: i32,
+    pub username: Option<String>,
+    pub duration_seconds: f64,
+    pub state: SessionState,
+    pub query: Option<String>,
+}
+
+/// Unit U41: mirrors `core::dbms::IdleInTransactionSession` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct IdleInTransactionSession {
+    pub pid: i32,
+    pub username: Option<String>,
+    pub idle_duration_seconds: f64,
+}

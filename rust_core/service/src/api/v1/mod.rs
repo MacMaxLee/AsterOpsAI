@@ -54,4 +54,9 @@ pub fn router() -> Router<AppState> {
         .route("/dbms/gucs", get(dbms::gucs))
         .route("/dbms/temp-file-activity", get(dbms::temp_file_activity))
         .route("/dbms/deadlock-history", get(dbms::deadlock_history))
+        .route("/dbms/long-transactions", get(dbms::long_transactions))
+        .route(
+            "/dbms/idle-in-transaction-sessions",
+            get(dbms::idle_in_transaction_sessions),
+        )
 }

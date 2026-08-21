@@ -9,16 +9,18 @@
 //! `DbmsAdapter` methods.
 
 use ai_ops_core::dbms::{
-    DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue, IndexStat as CoreIndexStat,
-    LockEdge as CoreLockEdge, QueryStat as CoreQueryStat,
+    DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue,
+    IdleInTransactionSession as CoreIdleInTransactionSession, IndexStat as CoreIndexStat,
+    LockEdge as CoreLockEdge, LongTransaction as CoreLongTransaction, QueryStat as CoreQueryStat,
     ReplicationStatus as CoreReplicationStatus, SessionInfo as CoreSessionInfo, SessionState,
     StandbyInfo as CoreStandbyInfo, TableStat as CoreTableStat,
     TempFileActivity as CoreTempFileActivity,
 };
 use axum::extract::{Extension, State};
 use contracts::{
-    ApiError, DeadlockInfo, GatedValue, GucValue, IndexStat, LockEdge, QueryStat,
-    ReplicationStatus, SessionInfo, StandbyInfo, TableStat, TempFileActivity,
+    ApiError, DeadlockInfo, GatedValue, GucValue, IdleInTransactionSession, IndexStat, LockEdge,
+    LongTransaction, QueryStat, ReplicationStatus, SessionInfo, StandbyInfo, TableStat,
+    TempFileActivity,
 };
 
 use crate::middleware::RequestId;
@@ -325,6 +327,70 @@ pub async fn deadlock_history(
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
         Ok(to_wire_deadlock_info(info))
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_long_transaction(txn: CoreLongTransaction) -> LongTransaction {
+    LongTransaction {
+        pid: txn.pid,
+        username: txn.username,
+        duration_seconds: txn.duration_seconds,
+        state: to_wire_state(txn.state),
+        query: txn.query,
+    }
+}
+
+pub async fn long_transactions(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<LongTransaction>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let txns = adapter.long_transactions().await.map_err(|err| {
+            tracing::warn!(error = %err, "long_transactions failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(txns.into_iter().map(to_wire_long_transaction).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_idle_in_transaction_session(
+    session: CoreIdleInTransactionSession,
+) -> IdleInTransactionSession {
+    IdleInTransactionSession {
+        pid: session.pid,
+        username: session.username,
+        idle_duration_seconds: session.idle_duration_seconds,
+    }
+}
+
+pub async fn idle_in_transaction_sessions(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<IdleInTransactionSession>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let sessions = adapter
+            .idle_in_transaction_sessions()
+            .await
+            .map_err(|err| {
+                tracing::warn!(error = %err, "idle_in_transaction_sessions failed");
+                ApiError::Unavailable(format!("DB poll failed: {err}"))
+            })?;
+        Ok(sessions
+            .into_iter()
+            .map(to_wire_idle_in_transaction_session)
+            .collect())
     }
     .await;
 

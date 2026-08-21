@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IdleInTransactionSession",
+  "description": "Unit U41: mirrors `core::dbms::IdleInTransactionSession` field-for-field.",
+  "type": "object",
+  "required": [
+    "idle_duration_seconds",
+    "pid"
+  ],
+  "properties": {
+    "idle_duration_seconds": {
+      "type": "number",
+      "format": "double"
+    },
+    "pid": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "username": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  }
+}

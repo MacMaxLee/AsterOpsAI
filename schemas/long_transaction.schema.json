@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LongTransaction",
+  "description": "Unit U41: mirrors `core::dbms::LongTransaction` field-for-field.",
+  "type": "object",
+  "required": [
+    "duration_seconds",
+    "pid",
+    "state"
+  ],
+  "properties": {
+    "duration_seconds": {
+      "type": "number",
+      "format": "double"
+    },
+    "pid": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "state": {
+      "$ref": "#/definitions/SessionState"
+    },
+    "username": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "definitions": {
+    "SessionState": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "IDLE",
+        "IDLE_IN_TRANSACTION",
+        "WAITING"
+      ]
+    }
+  }
+}
