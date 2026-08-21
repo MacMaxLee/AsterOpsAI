@@ -108,6 +108,7 @@
   "processColumnCpu": "CPU %",
   "processColumnRss": "RSS",
   "processStartTuningPlan": "啟動調校計畫",
+  "processSuspendProcess": "暫停處理程序",
   "deviceColumnName": "名稱",
   "deviceColumnKind": "類型",
   "deviceColumnTrusted": "已信任",
@@ -134,6 +135,23 @@
     "placeholders": {
       "actionType": { "type": "String" },
       "outcome": { "type": "String" }
+    }
+  },
+  "suspendProcessConfirmTitle": "暫停處理程序？",
+  "suspendProcessConfirmBody": "{comm}（PID {pid}）在核准後將被凍結。",
+  "@suspendProcessConfirmBody": {
+    "placeholders": {
+      "comm": { "type": "String" },
+      "pid": { "type": "int" }
+    }
+  },
+  "suspendProcessConfirmSubmit": "暫停",
+  "actionProposalResultTitle": "動作已提出",
+  "actionProposalResultStatus": "{status}（第 {rowId} 筆）",
+  "@actionProposalResultStatus": {
+    "placeholders": {
+      "status": { "type": "String" },
+      "rowId": { "type": "int" }
     }
   },
   "securityColumnEvents": "{count} 個事件",

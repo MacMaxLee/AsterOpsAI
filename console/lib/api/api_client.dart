@@ -151,6 +151,31 @@ final class ApiClient {
     TuningPlanOutcome.fromJson,
   );
 
+  /// Unit U27: proposing a non-tuning action (e.g. `security.
+  /// suspend_process`) directly through the generic propose endpoint
+  /// (unit U26) — like `startTuningPlan`, the response carries real,
+  /// meaningful data, so this goes through `_post<T>` too. `parameters`
+  /// is never sent: no currently-registered non-tuning action type
+  /// takes any (`security.suspend_process`'s own validator accepts
+  /// only an empty object, which the server already defaults to).
+  Future<ApiResult<ActionProposalOutcome>> proposeAction({
+    required String actionType,
+    required int pid,
+    required int startTimeTicks,
+    required String resourceName,
+    required String requestedBy,
+  }) => _post(
+    '/api/v1/actions/propose',
+    jsonEncode({
+      'action_type': actionType,
+      'pid': pid,
+      'start_time_ticks': startTimeTicks,
+      'resource_name': resourceName,
+      'requested_by': requestedBy,
+    }),
+    ActionProposalOutcome.fromJson,
+  );
+
   Future<ApiResult<T>> _get<T>(
     String path,
     T Function(dynamic) dataFromJson,

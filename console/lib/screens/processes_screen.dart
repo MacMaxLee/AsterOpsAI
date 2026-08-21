@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_failure.dart';
 import '../api/api_result.dart';
+import '../generated/models/action_proposal_outcome.dart';
 import '../generated/models/process_info.dart';
 import '../generated/models/process_snapshot.dart';
 import '../generated/models/tuning_candidate_outcome.dart';
@@ -85,6 +86,14 @@ class _ProcessRow extends StatelessWidget {
             onPressed: () => showDialog<void>(
               context: context,
               builder: (_) => _StartTuningPlanDialog(process: process),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.pause_circle_outlined),
+            tooltip: l10n.processSuspendProcess,
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => _SuspendProcessDialog(process: process),
             ),
           ),
         ],
@@ -290,6 +299,132 @@ class _CandidateOutcomeRow extends StatelessWidget {
           candidate.outcome,
         ),
       ),
+    );
+  }
+}
+
+/// Unit U27: `security.suspend_process` (real `SIGSTOP`, wired in unit
+/// U26) takes no parameters — unlike `_StartTuningPlanDialog`, there is
+/// nothing to configure, so this is a plain confirmation, not a `Form`.
+/// A genuinely disruptive action (it freezes a real process, even
+/// though only once approved) deserves a real confirm step, not a
+/// bare one-tap button.
+class _SuspendProcessDialog extends ConsumerStatefulWidget {
+  final ProcessInfo process;
+  const _SuspendProcessDialog({required this.process});
+
+  @override
+  ConsumerState<_SuspendProcessDialog> createState() =>
+      _SuspendProcessDialogState();
+}
+
+class _SuspendProcessDialogState extends ConsumerState<_SuspendProcessDialog> {
+  bool _submitting = false;
+  String? _error;
+
+  // No auth/session system exists yet (ADR 0018/0021/0027's own flagged
+  // limitation) — same plain operator name every console mutation uses.
+  static const _operator = 'console-operator';
+
+  Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _error = null;
+      _submitting = true;
+    });
+
+    final client = ref.read(apiClientProvider);
+    final result = await client.proposeAction(
+      actionType: 'security.suspend_process',
+      pid: widget.process.pid,
+      startTimeTicks: widget.process.startTimeTicks,
+      resourceName: widget.process.comm,
+      requestedBy: _operator,
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case ApiOk(:final value):
+        Navigator.of(context).pop();
+        showDialog<void>(
+          context: context,
+          builder: (_) => _ActionProposalResultDialog(outcome: value),
+        );
+      case ApiErr(:final failure):
+        setState(() {
+          _submitting = false;
+          _error = _failureMessage(failure, l10n);
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l10n.suspendProcessConfirmTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.suspendProcessConfirmBody(
+              widget.process.comm,
+              widget.process.pid,
+            ),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l10n.genericCancel),
+        ),
+        FilledButton(
+          onPressed: _submitting ? null : _submit,
+          child: _submitting
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(l10n.suspendProcessConfirmSubmit),
+        ),
+      ],
+    );
+  }
+}
+
+/// Renders the real `status`/`row_id` verbatim (FR-CONSOLE-001) — no
+/// narrative added about what happens next; the status string itself
+/// already says `PENDING_APPROVAL`, and the existing Policy inbox
+/// screen (unit U16) is where an operator would look next regardless.
+class _ActionProposalResultDialog extends StatelessWidget {
+  final ActionProposalOutcome outcome;
+  const _ActionProposalResultDialog({required this.outcome});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return AlertDialog(
+      title: Text(l10n.actionProposalResultTitle),
+      content: Text(
+        l10n.actionProposalResultStatus(outcome.status, outcome.rowId),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.genericClose),
+        ),
+      ],
     );
   }
 }

@@ -108,6 +108,7 @@
   "processColumnCpu": "CPU %",
   "processColumnRss": "RSS",
   "processStartTuningPlan": "Start tuning plan",
+  "processSuspendProcess": "Suspend process",
 
   "deviceColumnName": "Name",
   "deviceColumnKind": "Kind",
@@ -137,6 +138,23 @@
     "placeholders": {
       "actionType": { "type": "String" },
       "outcome": { "type": "String" }
+    }
+  },
+  "suspendProcessConfirmTitle": "Suspend process?",
+  "suspendProcessConfirmBody": "{comm} (PID {pid}) will be frozen once this is approved.",
+  "@suspendProcessConfirmBody": {
+    "placeholders": {
+      "comm": { "type": "String" },
+      "pid": { "type": "int" }
+    }
+  },
+  "suspendProcessConfirmSubmit": "Suspend",
+  "actionProposalResultTitle": "Action proposed",
+  "actionProposalResultStatus": "{status} (row {rowId})",
+  "@actionProposalResultStatus": {
+    "placeholders": {
+      "status": { "type": "String" },
+      "rowId": { "type": "int" }
     }
   },
 

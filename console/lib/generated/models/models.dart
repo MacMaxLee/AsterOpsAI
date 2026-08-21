@@ -1,6 +1,7 @@
 // GENERATED CODE - DO NOT EDIT BY HAND.
 // Regenerate: dart run tool/generate_models.dart
 
+export 'action_proposal_outcome.dart';
 export 'api_error.dart';
 export 'capability.dart';
 export 'correlation_result.dart';

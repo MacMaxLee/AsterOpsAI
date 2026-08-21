@@ -27,6 +27,9 @@ TuningPlanOutcome fakeOutcome() => const TuningPlanOutcome(
   status: 'COMPLETED',
 );
 
+ActionProposalOutcome fakeProposalOutcome() =>
+    const ActionProposalOutcome(rowId: 9, status: 'PENDING_APPROVAL');
+
 void main() {
   testWidgets('a scripted process renders comm/pid/category', (tester) async {
     final transport = createFakeTransport();
@@ -158,6 +161,109 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Start tuning plan'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'the suspend confirmation dialog shows the row\'s real comm and pid',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/processes',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.pause_circle_outlined));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('example (PID 4242) will be frozen once this is approved.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'confirming suspend posts the real security.suspend_process proposal '
+    'and renders the real status/row_id verbatim',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/processes',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.pause_circle_outlined));
+      await tester.pumpAndSettle();
+
+      transport.queuePost(
+        '/api/v1/actions/propose',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProposalOutcome().toJson()))),
+      );
+
+      await tester.tap(find.text('Suspend'));
+      await tester.pumpAndSettle();
+
+      final posted = transport.postedRequests.single;
+      expect(posted.requestedPath, '/api/v1/actions/propose');
+      final body = jsonDecode(posted.body) as Map<String, dynamic>;
+      expect(body['action_type'], 'security.suspend_process');
+      expect(body['pid'], 4242);
+      expect(body['start_time_ticks'], 12345);
+      expect(body['resource_name'], 'example');
+      expect(body['requested_by'], 'console-operator');
+      expect(body.containsKey('parameters'), isFalse);
+
+      expect(find.text('Action proposed'), findsOneWidget);
+      expect(find.text('PENDING_APPROVAL (row 9)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a real error suspending shows an inline message and keeps the dialog '
+    'open, not a crash or a silent dismiss',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/processes',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeProcessSnapshot().toJson()))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.pause_circle_outlined));
+      await tester.pumpAndSettle();
+
+      transport.queuePost(
+        '/api/v1/actions/propose',
+        ApiOk(
+          jsonEncode(
+            errEnvelopeJson(
+              const ApiErrorBadRequest(
+                message:
+                    'invalid parameters for action type '
+                    'security.suspend_process: unexpected extra fields',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Suspend'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'invalid parameters for action type security.suspend_process: '
+          'unexpected extra fields',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Suspend process?'), findsOneWidget);
     },
   );
 }
