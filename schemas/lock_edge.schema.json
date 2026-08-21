@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LockEdge",
+  "type": "object",
+  "required": [
+    "blocked_pid",
+    "blocking_pid",
+    "lock_type"
+  ],
+  "properties": {
+    "blocked_pid": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "blocked_query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "blocking_pid": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "blocking_query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lock_type": {
+      "type": "string"
+    }
+  }
+}

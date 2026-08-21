@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod analysis;
 pub mod cpu;
+pub mod dbms;
 pub mod devices;
 pub mod health;
 pub mod history;
@@ -44,4 +45,6 @@ pub fn router() -> Router<AppState> {
         .route("/security/suppress", post(security::suppress))
         .route("/analysis/host", get(analysis::host))
         .route("/analysis/correlation", get(analysis::correlation))
+        .route("/dbms/sessions", get(dbms::sessions))
+        .route("/dbms/locks", get(dbms::locks))
 }

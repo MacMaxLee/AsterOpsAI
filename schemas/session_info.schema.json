@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SessionInfo",
+  "description": "`query` is already sanitized (or capability-gated) by `core::dbms:: privacy::sanitize_query` before it ever reaches `core::dbms:: SessionInfo` — nothing about that policy is re-decided here.",
+  "type": "object",
+  "required": [
+    "pid",
+    "state"
+  ],
+  "properties": {
+    "client_addr": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "database": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "pid": {
+      "type": "integer",
+      "format": "int32"
+    },
+    "query": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "query_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "state": {
+      "$ref": "#/definitions/SessionState"
+    },
+    "username": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "xact_start": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "definitions": {
+    "SessionState": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "IDLE",
+        "IDLE_IN_TRANSACTION",
+        "WAITING"
+      ]
+    }
+  }
+}

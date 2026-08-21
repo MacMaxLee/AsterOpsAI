@@ -10,6 +10,7 @@
 pub mod analysis;
 pub mod capability;
 pub mod correlation;
+pub mod dbms;
 pub mod envelope;
 pub mod error;
 pub mod health;
@@ -21,6 +22,7 @@ pub mod tuning;
 pub use analysis::HostVerdict;
 pub use capability::{default_capability_registry, Capability, CapabilityFamily};
 pub use correlation::CorrelationResult;
+pub use dbms::{LockEdge, SessionInfo, SessionState};
 pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};

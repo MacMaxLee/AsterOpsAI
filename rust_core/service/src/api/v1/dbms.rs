@@ -1,0 +1,92 @@
+//! Unit U31's first direct wire surface for `core::dbms::DbmsAdapter`
+//! (fully built since unit U20, but until now consumed only internally
+//! by `analysis.rs`'s own correlation endpoint, folded into a ranked
+//! verdict — never exposed raw). `list_sessions`/`lock_graph` are the
+//! two most fundamental "what's happening right now" views, both
+//! already proven at the `core` level (correlation's own lock-storm
+//! detector already exercises `lock_graph` for real). See docs/adr/0036
+//! for why this is a deliberately small first slice, not all 12
+//! `DbmsAdapter` methods.
+
+use ai_ops_core::dbms::{LockEdge as CoreLockEdge, SessionInfo as CoreSessionInfo, SessionState};
+use axum::extract::{Extension, State};
+use contracts::{ApiError, LockEdge, SessionInfo};
+
+use crate::middleware::RequestId;
+use crate::response::ApiResponse;
+use crate::state::AppState;
+
+fn to_wire_state(state: SessionState) -> contracts::SessionState {
+    match state {
+        SessionState::Active => contracts::SessionState::Active,
+        SessionState::Idle => contracts::SessionState::Idle,
+        SessionState::IdleInTransaction => contracts::SessionState::IdleInTransaction,
+        SessionState::Waiting => contracts::SessionState::Waiting,
+    }
+}
+
+fn to_wire_session(session: CoreSessionInfo) -> SessionInfo {
+    SessionInfo {
+        pid: session.pid,
+        username: session.username,
+        database: session.database,
+        state: to_wire_state(session.state),
+        client_addr: session.client_addr,
+        xact_start: session.xact_start,
+        query_start: session.query_start,
+        query: session.query,
+    }
+}
+
+fn to_wire_lock(lock: CoreLockEdge) -> LockEdge {
+    LockEdge {
+        blocked_pid: lock.blocked_pid,
+        blocked_query: lock.blocked_query,
+        blocking_pid: lock.blocking_pid,
+        blocking_query: lock.blocking_query,
+        lock_type: lock.lock_type,
+    }
+}
+
+/// No DB configured, or a genuine live poll failure, both degrade to a
+/// real, honest `Unavailable` — the same category `analysis.rs`'s own
+/// `compute_db_verdict` already uses for "no DB evidence" (its own
+/// exact wording for the unconfigured case), not a `500` for a
+/// condition this endpoint has no business treating as a server bug.
+pub async fn sessions(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<SessionInfo>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let sessions = adapter.list_sessions().await.map_err(|err| {
+            tracing::warn!(error = %err, "list_sessions failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(sessions.into_iter().map(to_wire_session).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+pub async fn locks(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<LockEdge>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let locks = adapter.lock_graph().await.map_err(|err| {
+            tracing::warn!(error = %err, "lock_graph failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(locks.into_iter().map(to_wire_lock).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}

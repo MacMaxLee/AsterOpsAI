@@ -12,8 +12,8 @@ use contracts::telemetry::{
 };
 use contracts::{
     ActionProposalOutcome, ApiError, Capability, CorrelationResult, Envelope, HealthResponse,
-    HostVerdict, PendingActionSummary, ResumableActionSummary, SecurityIncidentSummary,
-    TuningPlanOutcome, TuningPlanSummary,
+    HostVerdict, LockEdge, PendingActionSummary, ResumableActionSummary, SecurityIncidentSummary,
+    SessionInfo, TuningPlanOutcome, TuningPlanSummary,
 };
 use schemars::schema_for;
 use std::path::PathBuf;
@@ -76,6 +76,11 @@ fn main() -> anyhow::Result<()> {
     write_schema::<Envelope<HostVerdict>>("envelope_host_verdict")?;
     write_schema::<CorrelationResult>("correlation_result")?;
     write_schema::<Envelope<CorrelationResult>>("envelope_correlation_result")?;
+
+    write_schema::<SessionInfo>("session_info")?;
+    write_schema::<Envelope<Vec<SessionInfo>>>("envelope_session_info_list")?;
+    write_schema::<LockEdge>("lock_edge")?;
+    write_schema::<Envelope<Vec<LockEdge>>>("envelope_lock_edge_list")?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;
