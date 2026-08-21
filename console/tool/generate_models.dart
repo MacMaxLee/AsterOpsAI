@@ -128,6 +128,17 @@ Map<String, dynamic> _withoutDescription(Map<String, dynamic> node) {
   copy.remove(
     '\$schema',
   ); // only ever present on a document root, not a nested definition
+  // A type with its own $ref'd sub-types (e.g. AiExplanation ->
+  // MetricClaim/Observation/Recommendation/RiskLevel) carries its own
+  // `definitions` bundle only when emitted as a standalone document —
+  // schemars hoists every $ref to that document's own root. The same
+  // type nested inside another file's `definitions` map never carries
+  // this, since its own referenced sub-types are hoisted to *that*
+  // file's root instead. Not a real structural difference in the type
+  // itself — each sub-type is independently registered and verified via
+  // this same function's own recursion, so comparing `definitions` here
+  // would be redundant even when present, and a false conflict when not.
+  copy.remove('definitions');
   return copy;
 }
 

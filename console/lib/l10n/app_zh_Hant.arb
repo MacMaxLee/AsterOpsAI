@@ -330,6 +330,15 @@
   "analysisTierElevated": "偏高",
   "analysisTierHigh": "高",
   "analysisTierCritical": "危急",
+  "analysisExplanationHeading": "AI 解釋",
+  "analysisExplainButton": "以 AI 解釋",
+  "analysisExplanationRiskAndConfidence": "{risk} 風險  •  信心度 {confidence}%",
+  "@analysisExplanationRiskAndConfidence": {
+    "placeholders": {
+      "risk": { "type": "String" },
+      "confidence": { "type": "int" }
+    }
+  },
 
   "correlationRankedHeading": "已排序的假設",
   "correlationRuledOutHeading": "已排除",

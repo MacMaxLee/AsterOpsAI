@@ -201,6 +201,12 @@ final class ApiClient {
   Future<ApiResult<HostVerdict>> getHostAnalysis() =>
       _get('/api/v1/analysis/host', HostVerdict.fromJson);
 
+  /// Unit U45: deliberately called on-demand (a button tap), never
+  /// polled — a real AI inference round-trip is expensive, unlike
+  /// every other endpoint this client polls on a 1-10s cadence.
+  Future<ApiResult<GatedValueForAiExplanation>> getHostExplanation() =>
+      _get('/api/v1/analysis/host/explain', GatedValueForAiExplanation.fromJson);
+
   Future<ApiResult<CorrelationResult>> getCorrelation() =>
       _get('/api/v1/analysis/correlation', CorrelationResult.fromJson);
 

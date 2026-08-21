@@ -331,6 +331,15 @@
   "analysisTierElevated": "Elevated",
   "analysisTierHigh": "High",
   "analysisTierCritical": "Critical",
+  "analysisExplanationHeading": "AI explanation",
+  "analysisExplainButton": "Explain with AI",
+  "analysisExplanationRiskAndConfidence": "{risk} risk  •  {confidence}% confidence",
+  "@analysisExplanationRiskAndConfidence": {
+    "placeholders": {
+      "risk": { "type": "String" },
+      "confidence": { "type": "int" }
+    }
+  },
 
   "correlationRankedHeading": "Ranked hypotheses",
   "correlationRuledOutHeading": "Ruled out",
