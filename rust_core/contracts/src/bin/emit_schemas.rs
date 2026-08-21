@@ -12,8 +12,9 @@ use contracts::telemetry::{
 };
 use contracts::{
     ActionProposalOutcome, ApiError, Capability, CorrelationResult, Envelope, GatedValue,
-    HealthResponse, HostVerdict, LockEdge, PendingActionSummary, QueryStat, ResumableActionSummary,
-    SecurityIncidentSummary, SessionInfo, TuningPlanOutcome, TuningPlanSummary,
+    HealthResponse, HostVerdict, IndexStat, LockEdge, PendingActionSummary, QueryStat,
+    ResumableActionSummary, SecurityIncidentSummary, SessionInfo, TableStat, TuningPlanOutcome,
+    TuningPlanSummary,
 };
 use schemars::schema_for;
 use std::path::PathBuf;
@@ -84,6 +85,10 @@ fn main() -> anyhow::Result<()> {
     write_schema::<QueryStat>("query_stat")?;
     write_schema::<GatedValue<Vec<QueryStat>>>("gated_value_query_stat_list")?;
     write_schema::<Envelope<GatedValue<Vec<QueryStat>>>>("envelope_gated_value_query_stat_list")?;
+    write_schema::<TableStat>("table_stat")?;
+    write_schema::<Envelope<Vec<TableStat>>>("envelope_table_stat_list")?;
+    write_schema::<IndexStat>("index_stat")?;
+    write_schema::<Envelope<Vec<IndexStat>>>("envelope_index_stat_list")?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;

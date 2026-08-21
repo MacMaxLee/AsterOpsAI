@@ -55,3 +55,27 @@ pub struct QueryStat {
     pub mean_exec_time_ms: f64,
     pub rows: i64,
 }
+
+/// Unit U35: mirrors `core::dbms::TableStat` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TableStat {
+    pub schema: String,
+    pub table: String,
+    pub seq_scan: i64,
+    pub idx_scan: i64,
+    pub n_live_tup: i64,
+    pub n_dead_tup: i64,
+    pub last_vacuum: Option<DateTime<Utc>>,
+    pub last_autovacuum: Option<DateTime<Utc>>,
+    pub total_size_bytes: i64,
+}
+
+/// Unit U35: mirrors `core::dbms::IndexStat` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct IndexStat {
+    pub schema: String,
+    pub table: String,
+    pub index: String,
+    pub idx_scan: i64,
+    pub size_bytes: i64,
+}

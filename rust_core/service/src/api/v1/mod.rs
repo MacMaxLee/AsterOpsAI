@@ -48,4 +48,6 @@ pub fn router() -> Router<AppState> {
         .route("/dbms/sessions", get(dbms::sessions))
         .route("/dbms/locks", get(dbms::locks))
         .route("/dbms/query-stats", get(dbms::query_stats))
+        .route("/dbms/table-stats", get(dbms::table_stats))
+        .route("/dbms/index-stats", get(dbms::index_stats))
 }

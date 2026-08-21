@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TableStat",
+  "description": "Unit U35: mirrors `core::dbms::TableStat` field-for-field.",
+  "type": "object",
+  "required": [
+    "idx_scan",
+    "n_dead_tup",
+    "n_live_tup",
+    "schema",
+    "seq_scan",
+    "table",
+    "total_size_bytes"
+  ],
+  "properties": {
+    "idx_scan": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "last_autovacuum": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "last_vacuum": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "n_dead_tup": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "n_live_tup": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "schema": {
+      "type": "string"
+    },
+    "seq_scan": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "table": {
+      "type": "string"
+    },
+    "total_size_bytes": {
+      "type": "integer",
+      "format": "int64"
+    }
+  }
+}

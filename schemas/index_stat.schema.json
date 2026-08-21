@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IndexStat",
+  "description": "Unit U35: mirrors `core::dbms::IndexStat` field-for-field.",
+  "type": "object",
+  "required": [
+    "idx_scan",
+    "index",
+    "schema",
+    "size_bytes",
+    "table"
+  ],
+  "properties": {
+    "idx_scan": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "index": {
+      "type": "string"
+    },
+    "schema": {
+      "type": "string"
+    },
+    "size_bytes": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "table": {
+      "type": "string"
+    }
+  }
+}

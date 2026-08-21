@@ -9,11 +9,11 @@
 //! `DbmsAdapter` methods.
 
 use ai_ops_core::dbms::{
-    Gated, LockEdge as CoreLockEdge, QueryStat as CoreQueryStat, SessionInfo as CoreSessionInfo,
-    SessionState,
+    Gated, IndexStat as CoreIndexStat, LockEdge as CoreLockEdge, QueryStat as CoreQueryStat,
+    SessionInfo as CoreSessionInfo, SessionState, TableStat as CoreTableStat,
 };
 use axum::extract::{Extension, State};
-use contracts::{ApiError, GatedValue, LockEdge, QueryStat, SessionInfo};
+use contracts::{ApiError, GatedValue, IndexStat, LockEdge, QueryStat, SessionInfo, TableStat};
 
 use crate::middleware::RequestId;
 use crate::response::ApiResponse;
@@ -134,6 +134,68 @@ pub async fn locks(
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
         Ok(locks.into_iter().map(to_wire_lock).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_table_stat(stat: CoreTableStat) -> TableStat {
+    TableStat {
+        schema: stat.schema,
+        table: stat.table,
+        seq_scan: stat.seq_scan,
+        idx_scan: stat.idx_scan,
+        n_live_tup: stat.n_live_tup,
+        n_dead_tup: stat.n_dead_tup,
+        last_vacuum: stat.last_vacuum,
+        last_autovacuum: stat.last_autovacuum,
+        total_size_bytes: stat.total_size_bytes,
+    }
+}
+
+pub async fn table_stats(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<TableStat>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let stats = adapter.table_stats().await.map_err(|err| {
+            tracing::warn!(error = %err, "table_stats failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(stats.into_iter().map(to_wire_table_stat).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_index_stat(stat: CoreIndexStat) -> IndexStat {
+    IndexStat {
+        schema: stat.schema,
+        table: stat.table,
+        index: stat.index,
+        idx_scan: stat.idx_scan,
+        size_bytes: stat.size_bytes,
+    }
+}
+
+pub async fn index_stats(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<IndexStat>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let stats = adapter.index_stats().await.map_err(|err| {
+            tracing::warn!(error = %err, "index_stats failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(stats.into_iter().map(to_wire_index_stat).collect())
     }
     .await;
 
