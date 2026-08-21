@@ -79,3 +79,34 @@ pub struct IndexStat {
     pub idx_scan: i64,
     pub size_bytes: i64,
 }
+
+/// Unit U37: mirrors `core::dbms::StandbyInfo` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StandbyInfo {
+    pub client_addr: Option<String>,
+    pub state: String,
+    pub sent_lsn: Option<String>,
+    pub write_lsn: Option<String>,
+    pub flush_lsn: Option<String>,
+    pub replay_lsn: Option<String>,
+    pub replay_lag_seconds: Option<f64>,
+}
+
+/// Unit U37: mirrors `core::dbms::ReplicationStatus` field-for-field.
+/// The first `/dbms/*` endpoint whose success payload is a single
+/// object, not a `Vec<T>`.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ReplicationStatus {
+    pub is_primary: bool,
+    pub in_recovery: bool,
+    pub standbys: Vec<StandbyInfo>,
+}
+
+/// Unit U37: mirrors `core::dbms::GucValue` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct GucValue {
+    pub name: String,
+    pub setting: String,
+    pub unit: Option<String>,
+    pub source: String,
+}

@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ReplicationStatus",
+  "description": "Unit U37: mirrors `core::dbms::ReplicationStatus` field-for-field. The first `/dbms/*` endpoint whose success payload is a single object, not a `Vec<T>`.",
+  "type": "object",
+  "required": [
+    "in_recovery",
+    "is_primary",
+    "standbys"
+  ],
+  "properties": {
+    "in_recovery": {
+      "type": "boolean"
+    },
+    "is_primary": {
+      "type": "boolean"
+    },
+    "standbys": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/StandbyInfo"
+      }
+    }
+  },
+  "definitions": {
+    "StandbyInfo": {
+      "description": "Unit U37: mirrors `core::dbms::StandbyInfo` field-for-field.",
+      "type": "object",
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "client_addr": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "flush_lsn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "replay_lag_seconds": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "format": "double"
+        },
+        "replay_lsn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sent_lsn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "type": "string"
+        },
+        "write_lsn": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

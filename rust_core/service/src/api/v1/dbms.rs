@@ -9,11 +9,16 @@
 //! `DbmsAdapter` methods.
 
 use ai_ops_core::dbms::{
-    Gated, IndexStat as CoreIndexStat, LockEdge as CoreLockEdge, QueryStat as CoreQueryStat,
-    SessionInfo as CoreSessionInfo, SessionState, TableStat as CoreTableStat,
+    Gated, GucValue as CoreGucValue, IndexStat as CoreIndexStat, LockEdge as CoreLockEdge,
+    QueryStat as CoreQueryStat, ReplicationStatus as CoreReplicationStatus,
+    SessionInfo as CoreSessionInfo, SessionState, StandbyInfo as CoreStandbyInfo,
+    TableStat as CoreTableStat,
 };
 use axum::extract::{Extension, State};
-use contracts::{ApiError, GatedValue, IndexStat, LockEdge, QueryStat, SessionInfo, TableStat};
+use contracts::{
+    ApiError, GatedValue, GucValue, IndexStat, LockEdge, QueryStat, ReplicationStatus, SessionInfo,
+    StandbyInfo, TableStat,
+};
 
 use crate::middleware::RequestId;
 use crate::response::ApiResponse;
@@ -196,6 +201,76 @@ pub async fn index_stats(
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
         Ok(stats.into_iter().map(to_wire_index_stat).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_standby(standby: CoreStandbyInfo) -> StandbyInfo {
+    StandbyInfo {
+        client_addr: standby.client_addr,
+        state: standby.state,
+        sent_lsn: standby.sent_lsn,
+        write_lsn: standby.write_lsn,
+        flush_lsn: standby.flush_lsn,
+        replay_lsn: standby.replay_lsn,
+        replay_lag_seconds: standby.replay_lag_seconds,
+    }
+}
+
+fn to_wire_replication_status(status: CoreReplicationStatus) -> ReplicationStatus {
+    ReplicationStatus {
+        is_primary: status.is_primary,
+        in_recovery: status.in_recovery,
+        standbys: status.standbys.into_iter().map(to_wire_standby).collect(),
+    }
+}
+
+/// Unlike every other `/dbms/*` endpoint so far, a successful poll's
+/// payload is a single object, not a `Vec<T>` — the 503-vs-200 split
+/// itself is otherwise identical. See docs/adr/0042.
+pub async fn replication(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<ReplicationStatus> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let status = adapter.replication_status().await.map_err(|err| {
+            tracing::warn!(error = %err, "replication_status failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(to_wire_replication_status(status))
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_guc(guc: CoreGucValue) -> GucValue {
+    GucValue {
+        name: guc.name,
+        setting: guc.setting,
+        unit: guc.unit,
+        source: guc.source,
+    }
+}
+
+pub async fn gucs(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<Vec<GucValue>> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let gucs = adapter.relevant_gucs().await.map_err(|err| {
+            tracing::warn!(error = %err, "relevant_gucs failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(gucs.into_iter().map(to_wire_guc).collect())
     }
     .await;
 

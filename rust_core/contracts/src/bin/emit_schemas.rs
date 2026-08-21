@@ -11,10 +11,10 @@ use contracts::telemetry::{
     StorageHistoryPoint, StorageSnapshot, SystemStatusResponse,
 };
 use contracts::{
-    ActionProposalOutcome, ApiError, Capability, CorrelationResult, Envelope, GatedValue,
+    ActionProposalOutcome, ApiError, Capability, CorrelationResult, Envelope, GatedValue, GucValue,
     HealthResponse, HostVerdict, IndexStat, LockEdge, PendingActionSummary, QueryStat,
-    ResumableActionSummary, SecurityIncidentSummary, SessionInfo, TableStat, TuningPlanOutcome,
-    TuningPlanSummary,
+    ReplicationStatus, ResumableActionSummary, SecurityIncidentSummary, SessionInfo, TableStat,
+    TuningPlanOutcome, TuningPlanSummary,
 };
 use schemars::schema_for;
 use std::path::PathBuf;
@@ -89,6 +89,10 @@ fn main() -> anyhow::Result<()> {
     write_schema::<Envelope<Vec<TableStat>>>("envelope_table_stat_list")?;
     write_schema::<IndexStat>("index_stat")?;
     write_schema::<Envelope<Vec<IndexStat>>>("envelope_index_stat_list")?;
+    write_schema::<ReplicationStatus>("replication_status")?;
+    write_schema::<Envelope<ReplicationStatus>>("envelope_replication_status")?;
+    write_schema::<GucValue>("guc_value")?;
+    write_schema::<Envelope<Vec<GucValue>>>("envelope_guc_value_list")?;
 
     write_schema::<HistoryResponse<CpuHistoryPoint>>("history_response_cpu")?;
     write_schema::<Envelope<HistoryResponse<CpuHistoryPoint>>>("envelope_history_response_cpu")?;

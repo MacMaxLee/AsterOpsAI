@@ -109,6 +109,22 @@ async fn index_stats_is_unavailable_without_a_database() {
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
 }
 
+#[tokio::test]
+async fn replication_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/replication").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+#[tokio::test]
+async fn gucs_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
 /// Unit U33: `support::TestPostgres` doesn't configure `shared_preload_
 /// libraries`, so `pg_stat_statements` is never actually loadable here
 /// — confirmed by direct read of `core/tests/dbms_adapter_smoke_test.rs`
@@ -193,6 +209,56 @@ async fn index_stats_returns_real_populated_data() {
         .unwrap_or_else(|| panic!("expected idx_widgets_name index stat, got: {indexes:?}"));
     assert_eq!(widgets_idx["table"], "widgets");
     assert_eq!(widgets_idx["schema"], "public");
+}
+
+/// Unit U37: reuses `core/tests/dbms_adapter_smoke_test.rs`'s own real
+/// assertion — an ordinary, non-replica `TestPostgres` instance
+/// genuinely reports `is_primary: true`, `in_recovery: false`, and an
+/// empty `standbys` list. No standby-pair fixture exists in this
+/// project's test harness (real, separate future capability), so the
+/// standby-populated path remains genuinely unverified — same honest
+/// gap-naming discipline as U33's `query_stats` `Unavailable`-only proof.
+#[tokio::test]
+async fn replication_status_reports_a_real_primary_state() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/replication").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["is_primary"], true);
+    assert_eq!(body["data"]["in_recovery"], false);
+    assert_eq!(
+        body["data"]["standbys"]
+            .as_array()
+            .expect("standbys is an array")
+            .len(),
+        0
+    );
+}
+
+#[tokio::test]
+async fn gucs_returns_real_settings_including_max_connections() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let gucs = body["data"].as_array().expect("data is an array");
+    let max_conn = gucs
+        .iter()
+        .find(|g| g["name"] == "max_connections")
+        .unwrap_or_else(|| panic!("expected a real max_connections guc, got: {gucs:?}"));
+    assert!(
+        !max_conn["setting"]
+            .as_str()
+            .expect("setting is a string")
+            .is_empty(),
+        "expected a real, non-empty setting value"
+    );
 }
 
 /// A real discovery while writing this test, not the assumption it

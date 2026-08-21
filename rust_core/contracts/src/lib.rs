@@ -22,7 +22,10 @@ pub mod tuning;
 pub use analysis::HostVerdict;
 pub use capability::{default_capability_registry, Capability, CapabilityFamily, GatedValue};
 pub use correlation::CorrelationResult;
-pub use dbms::{IndexStat, LockEdge, QueryStat, SessionInfo, SessionState, TableStat};
+pub use dbms::{
+    GucValue, IndexStat, LockEdge, QueryStat, ReplicationStatus, SessionInfo, SessionState,
+    StandbyInfo, TableStat,
+};
 pub use envelope::Envelope;
 pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};
