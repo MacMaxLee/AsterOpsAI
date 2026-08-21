@@ -26,7 +26,7 @@ pub use error::ApiError;
 pub use health::{HealthResponse, SelfMetricValue};
 pub use policy::PendingActionSummary;
 pub use security::SecurityIncidentSummary;
-pub use tuning::TuningPlanSummary;
+pub use tuning::{TuningCandidateOutcome, TuningPlanOutcome, TuningPlanSummary};
 
 /// The API's own version, distinct from the crate/package version. Bumped
 /// only on a breaking wire-format change.

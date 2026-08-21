@@ -11,7 +11,8 @@
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use std::process::{Child, Command as StdCommand};
+mod support;
+
 use std::sync::Arc;
 
 use ai_ops_core::policy::hash::compute_parameters_hash;
@@ -24,6 +25,7 @@ use axum::http::{Request, StatusCode};
 use chrono::Utc;
 use serde_json::{json, Value};
 use service::{actions::build_action_registry, api, self_metrics, state::AppState, telemetry};
+use support::SpawnedTarget;
 use tower::ServiceExt;
 
 async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Router {
@@ -87,69 +89,6 @@ fn resource() -> ResourceDescriptor {
         kind: ResourceKind::Process,
         name: "sleep-test-target".to_string(),
     }
-}
-
-/// A real, throwaway child process, plus its real `start_time_ticks`
-/// (`/proc/[pid]/stat` field 22 — the same field
-/// `core::actions::host::ProcessTargetVerifier` itself reads for real
-/// target-identity verification) — a real target `grant`'s new
-/// authorize -> execute path can genuinely act on.
-struct SpawnedTarget {
-    child: Child,
-    pid: i64,
-    start_time_ticks: i64,
-}
-
-impl SpawnedTarget {
-    fn spawn() -> Self {
-        let child = StdCommand::new("sleep")
-            .arg("300")
-            .spawn()
-            .expect("spawn sleep");
-        let pid = child.id() as i64;
-        let start_time_ticks = read_start_time_ticks(pid);
-        Self {
-            child,
-            pid,
-            start_time_ticks,
-        }
-    }
-
-    fn target_identity_json(&self) -> String {
-        json!({
-            "kind": "PROCESS",
-            "pid": self.pid,
-            "start_time_ticks": self.start_time_ticks,
-        })
-        .to_string()
-    }
-
-    fn kill_and_reap(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
-impl Drop for SpawnedTarget {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-    }
-}
-
-/// Field 22 of `/proc/[pid]/stat`, skipping past the `comm` field's own
-/// closing `)` (which can itself contain spaces/parens) before splitting
-/// the remainder on whitespace — the same real technique
-/// `core::telemetry::process::read_start_time_ticks` uses, reimplemented
-/// here since that function is `pub(crate)` to `core` and this is a
-/// different crate's test.
-fn read_start_time_ticks(pid: i64) -> i64 {
-    let raw = std::fs::read_to_string(format!("/proc/{pid}/stat")).expect("read /proc/[pid]/stat");
-    let after_comm = raw.rsplit_once(')').expect("stat has a comm field").1;
-    let fields: Vec<&str> = after_comm.split_whitespace().collect();
-    // fields[0] is `state` (overall field 3); `starttime` is overall
-    // field 22, i.e. fields[22 - 3] = fields[19].
-    fields[19].parse().expect("starttime is a valid integer")
 }
 
 async fn insert_pending_for(

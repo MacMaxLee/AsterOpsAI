@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TuningPlanOutcome",
+  "description": "Unit U23: the real, immediate result of starting a tuning plan — unlike `TuningPlanSummary` (a later, read-only listing), this is the *only* place a `RECOMMEND_ONLY` plan's candidates are ever visible at all (nothing else persists them anywhere a human could see later), so it mirrors `core::tuning::{TuningOutcome, CandidateOutcome}` field-for-field rather than passing anything through raw.",
+  "type": "object",
+  "required": [
+    "candidates",
+    "plan_id",
+    "status"
+  ],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TuningCandidateOutcome"
+      }
+    },
+    "plan_id": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "status": {
+      "type": "string"
+    }
+  },
+  "definitions": {
+    "TuningCandidateOutcome": {
+      "type": "object",
+      "required": [
+        "action_type",
+        "outcome"
+      ],
+      "properties": {
+        "action_type": {
+          "type": "string"
+        },
+        "detail": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outcome": {
+          "type": "string"
+        },
+        "row_id": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "int64"
+        }
+      }
+    }
+  }
+}

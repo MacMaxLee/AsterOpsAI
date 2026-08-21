@@ -12,7 +12,7 @@ use contracts::telemetry::{
 };
 use contracts::{
     ApiError, Capability, CorrelationResult, Envelope, HealthResponse, HostVerdict,
-    PendingActionSummary, SecurityIncidentSummary, TuningPlanSummary,
+    PendingActionSummary, SecurityIncidentSummary, TuningPlanOutcome, TuningPlanSummary,
 };
 use schemars::schema_for;
 use std::path::PathBuf;
@@ -59,6 +59,8 @@ fn main() -> anyhow::Result<()> {
     write_schema::<Envelope<Vec<PendingActionSummary>>>("envelope_pending_action_summary_list")?;
     write_schema::<TuningPlanSummary>("tuning_plan_summary")?;
     write_schema::<Envelope<Vec<TuningPlanSummary>>>("envelope_tuning_plan_summary_list")?;
+    write_schema::<TuningPlanOutcome>("tuning_plan_outcome")?;
+    write_schema::<Envelope<TuningPlanOutcome>>("envelope_tuning_plan_outcome")?;
     write_schema::<SecurityIncidentSummary>("security_incident_summary")?;
     write_schema::<Envelope<Vec<SecurityIncidentSummary>>>(
         "envelope_security_incident_summary_list",

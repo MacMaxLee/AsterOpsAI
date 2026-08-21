@@ -24,3 +24,24 @@ pub struct TuningPlanSummary {
     /// this module's own doc comment.
     pub candidates_json: String,
 }
+
+/// Unit U23: the real, immediate result of starting a tuning plan —
+/// unlike `TuningPlanSummary` (a later, read-only listing), this is the
+/// *only* place a `RECOMMEND_ONLY` plan's candidates are ever visible at
+/// all (nothing else persists them anywhere a human could see later), so
+/// it mirrors `core::tuning::{TuningOutcome, CandidateOutcome}`
+/// field-for-field rather than passing anything through raw.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TuningPlanOutcome {
+    pub plan_id: i64,
+    pub status: String,
+    pub candidates: Vec<TuningCandidateOutcome>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TuningCandidateOutcome {
+    pub action_type: String,
+    pub outcome: String,
+    pub row_id: Option<i64>,
+    pub detail: Option<String>,
+}
