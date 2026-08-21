@@ -3,9 +3,13 @@ use std::sync::Arc;
 
 use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
 use ai_ops_core::dbms::{pool, DbmsAdapter};
+use ai_ops_core::policy::ProtectedResourceRegistry;
 use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
-use service::{api, config, dbms_config, retention, self_metrics, state::AppState, telemetry};
+use service::{
+    actions::build_action_registry, api, config, dbms_config, retention, self_metrics,
+    state::AppState, telemetry,
+};
 
 #[derive(Parser)]
 #[command(name = "ai-ops-core", about = "AsterOpsAI core service")]
@@ -88,12 +92,17 @@ async fn serve() -> anyhow::Result<()> {
         None => None,
     };
 
+    let action_registry = Arc::new(build_action_registry());
+    let protected_resources = Arc::new(ProtectedResourceRegistry::new());
+
     let state = AppState::new(
         platform,
         self_metrics,
         host_telemetry,
         repository,
         dbms_adapter,
+        action_registry,
+        protected_resources,
     );
     let app = api::router(state);
 

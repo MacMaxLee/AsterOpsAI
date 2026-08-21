@@ -2,6 +2,7 @@
 //! integration tests can exercise the router directly without a real socket.
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
+pub mod actions;
 pub mod api;
 pub mod config;
 pub mod dbms_config;

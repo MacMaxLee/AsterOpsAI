@@ -4,6 +4,7 @@
 
 use std::sync::Arc;
 
+use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use contracts::Envelope;
@@ -16,7 +17,15 @@ async fn health_returns_a_valid_envelope() {
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), None);
-    let state = AppState::new(platform, self_metrics, host_telemetry, None, None);
+    let state = AppState::new(
+        platform,
+        self_metrics,
+        host_telemetry,
+        None,
+        None,
+        Arc::new(ActionTypeRegistry::new()),
+        Arc::new(ProtectedResourceRegistry::new()),
+    );
     let app = api::router(state);
 
     let request = Request::builder()

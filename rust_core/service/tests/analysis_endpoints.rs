@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use ai_ops_core::policy::{ActionTypeRegistry, ProtectedResourceRegistry};
 use ai_ops_core::repository::{self, RepositoryConfig, TelemetrySnapshotRow, WriteCommand};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -23,7 +24,15 @@ async fn build_app(repository: Option<repository::RepositoryHandle>) -> axum::Ro
         Arc::from(platform::current_platform_adapter());
     let self_metrics = self_metrics::spawn(platform.clone());
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), repository.clone());
-    let state = AppState::new(platform, self_metrics, host_telemetry, repository, None);
+    let state = AppState::new(
+        platform,
+        self_metrics,
+        host_telemetry,
+        repository,
+        None,
+        Arc::new(ActionTypeRegistry::new()),
+        Arc::new(ProtectedResourceRegistry::new()),
+    );
     api::router(state)
 }
 
@@ -50,6 +59,8 @@ async fn build_app_with_empty_repository(repository: repository::RepositoryHandl
         host_telemetry,
         Some(repository),
         None,
+        Arc::new(ActionTypeRegistry::new()),
+        Arc::new(ProtectedResourceRegistry::new()),
     );
     api::router(state)
 }
