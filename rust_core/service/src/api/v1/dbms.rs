@@ -9,15 +9,16 @@
 //! `DbmsAdapter` methods.
 
 use ai_ops_core::dbms::{
-    Gated, GucValue as CoreGucValue, IndexStat as CoreIndexStat, LockEdge as CoreLockEdge,
-    QueryStat as CoreQueryStat, ReplicationStatus as CoreReplicationStatus,
-    SessionInfo as CoreSessionInfo, SessionState, StandbyInfo as CoreStandbyInfo,
-    TableStat as CoreTableStat,
+    DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue, IndexStat as CoreIndexStat,
+    LockEdge as CoreLockEdge, QueryStat as CoreQueryStat,
+    ReplicationStatus as CoreReplicationStatus, SessionInfo as CoreSessionInfo, SessionState,
+    StandbyInfo as CoreStandbyInfo, TableStat as CoreTableStat,
+    TempFileActivity as CoreTempFileActivity,
 };
 use axum::extract::{Extension, State};
 use contracts::{
-    ApiError, GatedValue, GucValue, IndexStat, LockEdge, QueryStat, ReplicationStatus, SessionInfo,
-    StandbyInfo, TableStat,
+    ApiError, DeadlockInfo, GatedValue, GucValue, IndexStat, LockEdge, QueryStat,
+    ReplicationStatus, SessionInfo, StandbyInfo, TableStat, TempFileActivity,
 };
 
 use crate::middleware::RequestId;
@@ -271,6 +272,59 @@ pub async fn gucs(
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
         Ok(gucs.into_iter().map(to_wire_guc).collect())
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_temp_file_activity(activity: CoreTempFileActivity) -> TempFileActivity {
+    TempFileActivity {
+        temp_files: activity.temp_files,
+        temp_bytes: activity.temp_bytes,
+        stats_reset: activity.stats_reset,
+    }
+}
+
+pub async fn temp_file_activity(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<TempFileActivity> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let activity = adapter.temp_file_activity().await.map_err(|err| {
+            tracing::warn!(error = %err, "temp_file_activity failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(to_wire_temp_file_activity(activity))
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+fn to_wire_deadlock_info(info: CoreDeadlockInfo) -> DeadlockInfo {
+    DeadlockInfo {
+        deadlocks: info.deadlocks,
+        stats_reset: info.stats_reset,
+    }
+}
+
+pub async fn deadlock_history(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<DeadlockInfo> {
+    let result = async {
+        let adapter = state.dbms_adapter.clone().ok_or_else(|| {
+            ApiError::Unavailable("no database connection configured".to_string())
+        })?;
+        let info = adapter.deadlock_history().await.map_err(|err| {
+            tracing::warn!(error = %err, "deadlock_history failed");
+            ApiError::Unavailable(format!("DB poll failed: {err}"))
+        })?;
+        Ok(to_wire_deadlock_info(info))
     }
     .await;
 

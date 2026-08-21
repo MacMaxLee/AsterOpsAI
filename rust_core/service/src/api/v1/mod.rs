@@ -52,4 +52,6 @@ pub fn router() -> Router<AppState> {
         .route("/dbms/index-stats", get(dbms::index_stats))
         .route("/dbms/replication", get(dbms::replication))
         .route("/dbms/gucs", get(dbms::gucs))
+        .route("/dbms/temp-file-activity", get(dbms::temp_file_activity))
+        .route("/dbms/deadlock-history", get(dbms::deadlock_history))
 }

@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DeadlockInfo",
+  "description": "Unit U39: mirrors `core::dbms::DeadlockInfo` field-for-field.",
+  "type": "object",
+  "required": [
+    "deadlocks"
+  ],
+  "properties": {
+    "deadlocks": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "stats_reset": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  }
+}

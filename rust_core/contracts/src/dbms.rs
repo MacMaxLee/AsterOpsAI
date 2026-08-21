@@ -110,3 +110,18 @@ pub struct GucValue {
     pub unit: Option<String>,
     pub source: String,
 }
+
+/// Unit U39: mirrors `core::dbms::TempFileActivity` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TempFileActivity {
+    pub temp_files: i64,
+    pub temp_bytes: i64,
+    pub stats_reset: Option<DateTime<Utc>>,
+}
+
+/// Unit U39: mirrors `core::dbms::DeadlockInfo` field-for-field.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DeadlockInfo {
+    pub deadlocks: i64,
+    pub stats_reset: Option<DateTime<Utc>>,
+}

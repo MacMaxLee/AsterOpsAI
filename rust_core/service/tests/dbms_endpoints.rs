@@ -125,6 +125,22 @@ async fn gucs_is_unavailable_without_a_database() {
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
 }
 
+#[tokio::test]
+async fn temp_file_activity_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/temp-file-activity").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+#[tokio::test]
+async fn deadlock_history_is_unavailable_without_a_database() {
+    let app = build_app(None).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/deadlock-history").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
 /// Unit U33: `support::TestPostgres` doesn't configure `shared_preload_
 /// libraries`, so `pg_stat_statements` is never actually loadable here
 /// — confirmed by direct read of `core/tests/dbms_adapter_smoke_test.rs`
@@ -406,4 +422,192 @@ async fn locks_returns_a_real_blocking_edge_from_genuinely_induced_contention() 
             panic!("a real blocking edge for waiter {waiter_pid} must appear, got {body:?}")
         });
     assert_eq!(edge["blocking_pid"], holder_pid);
+}
+
+/// Unit U39: unlike `core/tests/dbms_adapter_smoke_test.rs`'s own
+/// trivially-true `temp.temp_files >= 0` on an idle fixture, this
+/// genuinely forces an external sort past a deliberately tiny
+/// `work_mem` so `pg_stat_database.temp_files`/`temp_bytes` really
+/// increment — the same "poll real state, not a guessed sleep"
+/// discipline `locks_returns_a_real_blocking_edge_from_genuinely_
+/// induced_contention` already established.
+#[tokio::test]
+async fn temp_file_activity_reports_a_real_spill_to_disk() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let setup = pg.superuser_client().await;
+    setup
+        .execute("SET work_mem = '64kB'", &[])
+        .await
+        .expect("set work_mem");
+    let rows = setup
+        .query(
+            "SELECT g FROM generate_series(1, 200000) g ORDER BY random()",
+            &[],
+        )
+        .await
+        .expect("force a real external sort spill");
+    assert_eq!(rows.len(), 200_000);
+
+    let deadline = tokio::time::Instant::now() + StdDuration::from_secs(10);
+    loop {
+        let row = setup
+            .query_one(
+                "SELECT temp_files FROM pg_stat_database WHERE datname = current_database()",
+                &[],
+            )
+            .await
+            .expect("query pg_stat_database");
+        let temp_files: i64 = row.get(0);
+        if temp_files >= 1 {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "temp_files counter never incremented after a real spill"
+        );
+        tokio::time::sleep(StdDuration::from_millis(50)).await;
+    }
+
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/temp-file-activity").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let temp_files = body["data"]["temp_files"]
+        .as_i64()
+        .expect("temp_files is a number");
+    let temp_bytes = body["data"]["temp_bytes"]
+        .as_i64()
+        .expect("temp_bytes is a number");
+    assert!(
+        temp_files >= 1,
+        "expected a real spill to disk, got temp_files={temp_files}"
+    );
+    assert!(
+        temp_bytes > 0,
+        "expected real nonzero temp bytes, got temp_bytes={temp_bytes}"
+    );
+}
+
+/// Unit U39: unlike the smoke test's trivially-true `deadlocks == 0` on
+/// an idle fixture, this genuinely induces a real two-connection
+/// deadlock (each locks one row, then requests the other's, with
+/// `deadlock_timeout` lowered so PostgreSQL's own detector fires
+/// quickly) so `pg_stat_database.deadlocks` really increments — reusing
+/// the exact two-connection/poll-not-sleep technique the locks test
+/// above already established.
+#[tokio::test]
+async fn deadlock_history_reports_a_real_induced_deadlock() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let setup = pg.superuser_client().await;
+    setup
+        .batch_execute("CREATE TABLE dl (id int PRIMARY KEY); INSERT INTO dl VALUES (1), (2);")
+        .await
+        .expect("create table and seed two rows");
+
+    let (conn_a, conn_a_driver) = pg
+        .config("postgres", "postgres")
+        .connect(tokio_postgres::NoTls)
+        .await
+        .expect("connect conn_a");
+    tokio::spawn(async move {
+        let _ = conn_a_driver.await;
+    });
+    conn_a
+        .batch_execute(
+            "SET deadlock_timeout = '50ms'; BEGIN; SELECT id FROM dl WHERE id = 1 FOR UPDATE;",
+        )
+        .await
+        .expect("conn_a locks row 1");
+    let conn_a_pid: i32 = conn_a
+        .query_one("SELECT pg_backend_pid()", &[])
+        .await
+        .expect("query pg_backend_pid")
+        .get(0);
+
+    let (conn_b, conn_b_driver) = pg
+        .config("postgres", "postgres")
+        .connect(tokio_postgres::NoTls)
+        .await
+        .expect("connect conn_b");
+    tokio::spawn(async move {
+        let _ = conn_b_driver.await;
+    });
+    conn_b
+        .batch_execute(
+            "SET deadlock_timeout = '50ms'; BEGIN; SELECT id FROM dl WHERE id = 2 FOR UPDATE;",
+        )
+        .await
+        .expect("conn_b locks row 2");
+
+    // conn_a now requests row 2 (held by conn_b) — blocks. Run in the
+    // background so the main task can complete the cycle from conn_b.
+    tokio::spawn(async move {
+        let _ = conn_a
+            .simple_query("SELECT id FROM dl WHERE id = 2 FOR UPDATE")
+            .await;
+    });
+
+    let deadline = tokio::time::Instant::now() + StdDuration::from_secs(10);
+    loop {
+        let row = setup
+            .query_one(
+                "SELECT count(*) FROM pg_stat_activity WHERE pid = $1 \
+                 AND wait_event_type = 'Lock'",
+                &[&conn_a_pid],
+            )
+            .await
+            .expect("query pg_stat_activity");
+        let waiting: i64 = row.get(0);
+        if waiting >= 1 {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "conn_a never registered as blocked on row 2"
+        );
+        tokio::time::sleep(StdDuration::from_millis(50)).await;
+    }
+
+    // conn_b now requests row 1 (held by conn_a) — completes the cycle;
+    // PostgreSQL's own deadlock detector aborts one side after
+    // deadlock_timeout.
+    let _ = conn_b
+        .simple_query("SELECT id FROM dl WHERE id = 1 FOR UPDATE")
+        .await;
+
+    let deadline = tokio::time::Instant::now() + StdDuration::from_secs(10);
+    loop {
+        let row = setup
+            .query_one(
+                "SELECT deadlocks FROM pg_stat_database WHERE datname = current_database()",
+                &[],
+            )
+            .await
+            .expect("query pg_stat_database");
+        let deadlocks: i64 = row.get(0);
+        if deadlocks >= 1 {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "deadlocks counter never incremented after a real induced deadlock"
+        );
+        tokio::time::sleep(StdDuration::from_millis(50)).await;
+    }
+
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/deadlock-history").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let deadlocks = body["data"]["deadlocks"]
+        .as_i64()
+        .expect("deadlocks is a number");
+    assert!(
+        deadlocks >= 1,
+        "expected a real induced deadlock, got deadlocks={deadlocks}"
+    );
 }

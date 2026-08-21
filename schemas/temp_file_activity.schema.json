@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TempFileActivity",
+  "description": "Unit U39: mirrors `core::dbms::TempFileActivity` field-for-field.",
+  "type": "object",
+  "required": [
+    "temp_bytes",
+    "temp_files"
+  ],
+  "properties": {
+    "stats_reset": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "temp_bytes": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "temp_files": {
+      "type": "integer",
+      "format": "int64"
+    }
+  }
+}
