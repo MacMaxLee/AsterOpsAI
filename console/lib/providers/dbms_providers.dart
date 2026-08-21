@@ -92,3 +92,26 @@ final dbmsGucsProvider = StreamProvider.autoDispose<ApiResult<List<GucValue>>>((
   ref.onDispose(repo.dispose);
   return repo.stream;
 });
+
+/// Unit U40's own console surface for unit U39's own real endpoints.
+final dbmsTempFileActivityProvider =
+    StreamProvider.autoDispose<ApiResult<TempFileActivity>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<TempFileActivity>(
+        fetch: client.getDbmsTempFileActivity,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });
+
+final dbmsDeadlockHistoryProvider =
+    StreamProvider.autoDispose<ApiResult<DeadlockInfo>>((ref) {
+      final client = ref.watch(apiClientProvider);
+      final repo = PolledRepository<DeadlockInfo>(
+        fetch: client.getDbmsDeadlockHistory,
+        interval: ref.watch(refreshIntervalProvider),
+      );
+      ref.onDispose(repo.dispose);
+      return repo.stream;
+    });

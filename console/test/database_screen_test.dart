@@ -81,6 +81,16 @@ GucValue fakeGucValue() => const GucValue(
   source: 'configuration file',
 );
 
+TempFileActivity fakeTempFileActivity({DateTime? statsReset}) =>
+    TempFileActivity(
+      tempFiles: 3,
+      tempBytes: 2 * 1024 * 1024,
+      statsReset: statsReset,
+    );
+
+DeadlockInfo fakeDeadlockInfo({DateTime? statsReset}) =>
+    DeadlockInfo(deadlocks: 2, statsReset: statsReset);
+
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
   const Scaffold(body: DatabaseScreen()),
@@ -323,6 +333,67 @@ void main() {
       expect(find.text('max_connections'), findsOneWidget);
       expect(find.textContaining('100'), findsOneWidget);
       expect(find.textContaining('configuration file'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted temp file activity renders its real file count/bytes and a '
+    'real non-null stats_reset',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/temp-file-activity',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              fakeTempFileActivity(
+                statsReset: DateTime.utc(2026, 1, 1, 9),
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.textContaining('3 temp files'), findsOneWidget);
+      expect(find.textContaining('2.0 MB'), findsOneWidget);
+      expect(find.textContaining('stats reset:'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a scripted deadlock history renders its real count and never shows a '
+    'fabricated stats_reset when the real value is null',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/deadlock-history',
+        ApiOk(
+          jsonEncode(okEnvelopeJson(fakeDeadlockInfo().toJson())),
+        ),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.textContaining('2 deadlock(s)'), findsOneWidget);
+      expect(find.textContaining('stats reset:'), findsNothing);
     },
   );
 }

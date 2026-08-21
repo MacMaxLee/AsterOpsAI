@@ -240,6 +240,27 @@
       "source": { "type": "String" }
     }
   },
+  "dbmsSectionTempFileActivity": "Temp file activity",
+  "dbmsSectionDeadlockHistory": "Deadlock history",
+  "dbmsTempFileActivitySummary": "{files} temp files  •  {bytes}",
+  "@dbmsTempFileActivitySummary": {
+    "placeholders": {
+      "files": { "type": "int" },
+      "bytes": { "type": "String" }
+    }
+  },
+  "dbmsDeadlockHistorySummary": "{count} deadlock(s)",
+  "@dbmsDeadlockHistorySummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "dbmsStatsResetAt": "stats reset: {resetTime}",
+  "@dbmsStatsResetAt": {
+    "placeholders": {
+      "resetTime": { "type": "String" }
+    }
+  },
 
   "securityColumnEvents": "{count} event(s)",
   "@securityColumnEvents": {

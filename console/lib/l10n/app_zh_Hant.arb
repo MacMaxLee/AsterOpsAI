@@ -239,6 +239,27 @@
       "source": { "type": "String" }
     }
   },
+  "dbmsSectionTempFileActivity": "暫存檔活動",
+  "dbmsSectionDeadlockHistory": "死結記錄",
+  "dbmsTempFileActivitySummary": "{files} 個暫存檔  •  {bytes}",
+  "@dbmsTempFileActivitySummary": {
+    "placeholders": {
+      "files": { "type": "int" },
+      "bytes": { "type": "String" }
+    }
+  },
+  "dbmsDeadlockHistorySummary": "{count} 次死結",
+  "@dbmsDeadlockHistorySummary": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "dbmsStatsResetAt": "統計重設於：{resetTime}",
+  "@dbmsStatsResetAt": {
+    "placeholders": {
+      "resetTime": { "type": "String" }
+    }
+  },
 
   "securityColumnEvents": "{count} 個事件",
   "@securityColumnEvents": {

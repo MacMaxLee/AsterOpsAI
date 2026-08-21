@@ -157,6 +157,12 @@ final class ApiClient {
     (json) => (json as List<dynamic>).map((e) => GucValue.fromJson(e)).toList(),
   );
 
+  Future<ApiResult<TempFileActivity>> getDbmsTempFileActivity() =>
+      _get('/api/v1/dbms/temp-file-activity', TempFileActivity.fromJson);
+
+  Future<ApiResult<DeadlockInfo>> getDbmsDeadlockHistory() =>
+      _get('/api/v1/dbms/deadlock-history', DeadlockInfo.fromJson);
+
   /// `resourceKind`/`resourceName` are both-or-neither — the caller
   /// (the suppress dialog) enforces that before this is ever called, so
   /// this never sends a half-built resource to the server.

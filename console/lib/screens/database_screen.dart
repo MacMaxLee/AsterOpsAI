@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../generated/models/deadlock_info.dart';
 import '../generated/models/gated_value_for_array_of_query_stat.dart';
 import '../generated/models/guc_value.dart';
 import '../generated/models/index_stat.dart';
@@ -10,15 +12,18 @@ import '../generated/models/replication_status.dart';
 import '../generated/models/session_info.dart';
 import '../generated/models/standby_info.dart';
 import '../generated/models/table_stat.dart';
+import '../generated/models/temp_file_activity.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/dbms_providers.dart';
 import '../widgets/async_result_view.dart';
+import '../widgets/formatters.dart';
 
-/// Unit U32/U34/U36/U38: the console surface for unit U31/U33/U35/U37's
-/// own direct DBMS endpoints. Independent sections (`Sessions`,
-/// `Locks`, `Query stats`, `Table stats`, `Index stats`, `Replication`,
-/// `Settings`), each watching its own provider, so a slow/failed poll
-/// on one never blocks the others — the same shape `DashboardScreen`'s
+/// Unit U32/U34/U36/U38/U40: the console surface for unit
+/// U31/U33/U35/U37/U39's own direct DBMS endpoints. Independent
+/// sections (`Sessions`, `Locks`, `Query stats`, `Table stats`, `Index
+/// stats`, `Replication`, `Settings`, `Temp file activity`, `Deadlock
+/// history`), each watching its own provider, so a slow/failed poll on
+/// one never blocks the others — the same shape `DashboardScreen`'s
 /// own multiple independently-polled `AsyncResultView` sections already
 /// use. Every endpoint here is read-only; there is no mutation UI.
 class DatabaseScreen extends ConsumerWidget {
@@ -34,6 +39,8 @@ class DatabaseScreen extends ConsumerWidget {
     final indexStats = ref.watch(dbmsIndexStatsProvider);
     final replication = ref.watch(dbmsReplicationProvider);
     final gucs = ref.watch(dbmsGucsProvider);
+    final tempFileActivity = ref.watch(dbmsTempFileActivityProvider);
+    final deadlockHistory = ref.watch(dbmsDeadlockHistoryProvider);
 
     return Column(
       children: [
@@ -119,6 +126,34 @@ class DatabaseScreen extends ConsumerWidget {
                   child: AsyncResultView<List<GucValue>>(
                     asyncValue: gucs,
                     builder: (context, list) => _GucsList(gucs: list),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _Section(
+                  title: l10n.dbmsSectionTempFileActivity,
+                  child: AsyncResultView<TempFileActivity>(
+                    asyncValue: tempFileActivity,
+                    builder: (context, activity) =>
+                        _TempFileActivitySection(activity: activity),
+                  ),
+                ),
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(
+                child: _Section(
+                  title: l10n.dbmsSectionDeadlockHistory,
+                  child: AsyncResultView<DeadlockInfo>(
+                    asyncValue: deadlockHistory,
+                    builder: (context, info) =>
+                        _DeadlockHistorySection(info: info),
                   ),
                 ),
               ),
@@ -508,6 +543,69 @@ class _GucRow extends StatelessWidget {
     return ListTile(
       title: Text(guc.name),
       subtitle: Text(l10n.dbmsGucRowSubtitle(settingWithUnit, guc.source)),
+    );
+  }
+}
+
+/// Unlike every other section here, `TempFileActivity`/`DeadlockInfo`
+/// are single-object flat summaries with no collection at all — a
+/// small `Column` of labeled lines, not a `ListView`. `stats_reset` is
+/// shown only when non-null (matching `tuning_history_screen.dart`'s
+/// own "never fabricate a completion time" precedent for its own
+/// nullable `completedAt`) — a null reset time is real information
+/// (PostgreSQL just hasn't reset these counters since the cluster
+/// started), not an error to paper over with a placeholder.
+class _TempFileActivitySection extends StatelessWidget {
+  final TempFileActivity activity;
+  const _TempFileActivitySection({required this.activity});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final statsReset = activity.statsReset;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            l10n.dbmsTempFileActivitySummary(
+              activity.tempFiles,
+              formatBytes(activity.tempBytes),
+            ),
+          ),
+          if (statsReset != null)
+            Text(
+              l10n.dbmsStatsResetAt(
+                DateFormat.yMd().add_Hm().format(statsReset.toLocal()),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DeadlockHistorySection extends StatelessWidget {
+  final DeadlockInfo info;
+  const _DeadlockHistorySection({required this.info});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final statsReset = info.statsReset;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(l10n.dbmsDeadlockHistorySummary(info.deadlocks)),
+          if (statsReset != null)
+            Text(
+              l10n.dbmsStatsResetAt(
+                DateFormat.yMd().add_Hm().format(statsReset.toLocal()),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
