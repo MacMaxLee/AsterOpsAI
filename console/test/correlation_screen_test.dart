@@ -179,7 +179,10 @@ void main() {
                     cause: RootCause.storageLatency,
                     reason: 'no sustained signal',
                   ),
-                  RuledOut(cause: RootCause.network, reason: 'no sustained signal'),
+                  RuledOut(
+                    cause: RootCause.network,
+                    reason: 'no sustained signal',
+                  ),
                 ],
               ).toJson(),
             ),

@@ -164,7 +164,8 @@ class _RuledOutColumn extends StatelessWidget {
         if (ruledOut.isEmpty)
           Text(l10n.genericEmpty)
         else
-          for (final entry in ruledOut) _RuledOutRow(ruledOut: entry, l10n: l10n),
+          for (final entry in ruledOut)
+            _RuledOutRow(ruledOut: entry, l10n: l10n),
       ],
     );
   }
@@ -210,6 +211,7 @@ String _causeLabel(RootCause cause, AppLocalizations l10n) {
     RootCause.hostMemory => l10n.correlationCauseHostMemory,
     RootCause.storageLatency => l10n.correlationCauseStorageLatency,
     RootCause.network => l10n.correlationCauseNetwork,
-    RootCause.clientSideApplication => l10n.correlationCauseClientSideApplication,
+    RootCause.clientSideApplication =>
+      l10n.correlationCauseClientSideApplication,
   };
 }
