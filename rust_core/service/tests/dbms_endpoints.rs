@@ -185,6 +185,70 @@ async fn query_stats_reports_a_real_unavailable_state_as_200_ok() {
     );
 }
 
+/// Unit U51 (ADR 0038/0056): closes the gap
+/// `query_stats_reports_a_real_unavailable_state_as_200_ok`'s own doc
+/// comment named — `pg_stat_statements` genuinely loadable this time,
+/// via `TestPostgres::start_with_extra_options`'s new
+/// `shared_preload_libraries` support. Runs a real, distinctively-named
+/// parameterized query 3 times so `pg_stat_statements` normalizes it to
+/// a single real row with `calls >= 3`.
+async fn setup_query_stats_fixture(pg: &support::TestPostgres) {
+    let client = pg.superuser_client().await;
+    client
+        .batch_execute(
+            "CREATE EXTENSION pg_stat_statements;
+             CREATE TABLE widgets_for_query_stats (id serial PRIMARY KEY, name text);
+             INSERT INTO widgets_for_query_stats (name) VALUES ('a')",
+        )
+        .await
+        .expect("fixture setup");
+    for _ in 0..3 {
+        client
+            .query(
+                "SELECT name FROM widgets_for_query_stats WHERE id = $1",
+                &[&1i32],
+            )
+            .await
+            .expect("run tracked query");
+    }
+}
+
+#[tokio::test]
+async fn query_stats_returns_real_populated_data() {
+    let mut pg = support::TestPostgres::start_with_extra_options(
+        17,
+        "-c shared_preload_libraries=pg_stat_statements",
+    )
+    .await;
+    setup_query_stats_fixture(&pg).await;
+    let adapter = adapter_for(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/query-stats").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["state"], "SUPPORTED");
+    let stats = body["data"]["value"].as_array().expect("value is an array");
+    let tracked = stats
+        .iter()
+        .find(|s| {
+            let query = s["normalized_query"].as_str().unwrap_or("");
+            // `.contains("widgets_for_query_stats")` alone also matches the
+            // fixture's own `CREATE TABLE`/`INSERT` statements (a real
+            // discovery — `pg_stat_statements` tracks every statement, not
+            // just the one this test cares about) — `starts_with("SELECT")`
+            // narrows to the specific, repeatedly-run tracked query.
+            query.starts_with("SELECT") && query.contains("widgets_for_query_stats")
+        })
+        .unwrap_or_else(|| {
+            panic!("expected the tracked SELECT naming widgets_for_query_stats, got: {stats:?}")
+        });
+    assert!(
+        tracked["calls"].as_i64().expect("calls is a number") >= 3,
+        "expected at least 3 real calls, got: {tracked:?}"
+    );
+}
+
 /// Unit U35: unlike `query_stats`, `table_stats`/`index_stats` have no
 /// `shared_preload_libraries` constraint, so this reuses `core/tests/
 /// dbms_adapter_smoke_test.rs`'s own proven real fixture to prove a

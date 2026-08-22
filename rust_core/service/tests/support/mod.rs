@@ -84,6 +84,15 @@ impl TestPostgres {
     /// Starts a fresh instance with trust auth — a throwaway,
     /// socket-only test fixture, not a real deployment.
     pub async fn start(major_version: u32) -> Self {
+        Self::start_with_extra_options(major_version, "").await
+    }
+
+    /// Unit U51: same as [`Self::start`], but `extra_options` is
+    /// appended verbatim to `pg_ctl start`'s own `-o` GUC-override
+    /// string — the only way to set a start-only (not reloadable) GUC
+    /// like `shared_preload_libraries`, needed to make an extension
+    /// such as `pg_stat_statements` genuinely loadable in a test.
+    pub async fn start_with_extra_options(major_version: u32, extra_options: &str) -> Self {
         let bin_dir = bin_dir(major_version);
         if !bin_dir.join("initdb").exists() {
             panic!(
@@ -121,7 +130,7 @@ impl TestPostgres {
             .arg(&log_path)
             .arg("-o")
             .arg(format!(
-                "-p {port} -k {} -c listen_addresses=''",
+                "-p {port} -k {} -c listen_addresses='' {extra_options}",
                 data_dir.path().display()
             ))
             .arg("start")
