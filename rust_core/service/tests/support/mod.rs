@@ -132,6 +132,65 @@ impl TestPostgres {
         .await
     }
 
+    /// Unit U60: same `initdb` step as [`Self::start_with_extra_
+    /// options`], but with `hba_prefix_line` prepended to the
+    /// generated `pg_hba.conf` before the shared `pg_ctl` tail —
+    /// `--auth=trust`'s own default entries would otherwise
+    /// trust-authenticate every connection, including the one this
+    /// unit's auth-failure test needs to genuinely fail password
+    /// verification for. A separate `TestPostgres` capability from
+    /// `start_with_extra_options` because GUC overrides (`-c` flags)
+    /// can't touch per-role/per-host authentication method — that's
+    /// `pg_hba.conf`'s own, separate configuration surface.
+    pub async fn start_with_pg_hba_prefix(
+        major_version: u32,
+        hba_prefix_line: &str,
+        extra_options: &str,
+    ) -> Self {
+        let bin_dir = bin_dir(major_version);
+        if !bin_dir.join("initdb").exists() {
+            panic!(
+                "PostgreSQL {major_version} binaries not found at {}; run \
+                 scripts/setup-test-postgres.sh first",
+                bin_dir.display()
+            );
+        }
+        let lib_dir = libpq_dir();
+        let data_dir = tempfile::tempdir().expect("tempdir");
+        let pgdata = data_dir.path().join("data");
+        let superuser = "postgres".to_string();
+
+        let status = Command::new(bin_dir.join("initdb"))
+            .arg("-D")
+            .arg(&pgdata)
+            .arg("-U")
+            .arg(&superuser)
+            .arg("--auth=trust")
+            .env("LD_LIBRARY_PATH", &lib_dir)
+            .status()
+            .await
+            .expect("spawn initdb");
+        assert!(
+            status.success(),
+            "initdb failed for PostgreSQL {major_version}"
+        );
+
+        let hba_path = pgdata.join("pg_hba.conf");
+        let existing = std::fs::read_to_string(&hba_path).expect("read pg_hba.conf");
+        std::fs::write(&hba_path, format!("{hba_prefix_line}\n{existing}"))
+            .expect("prepend pg_hba.conf entry");
+
+        Self::start_pg_ctl(
+            major_version,
+            data_dir,
+            bin_dir,
+            lib_dir,
+            superuser,
+            extra_options,
+        )
+        .await
+    }
+
     /// Unit U52: a real streaming-replication standby of `self`, built
     /// via a real `pg_basebackup -R` against this instance's own
     /// socket — never a fixture. Works entirely over the same

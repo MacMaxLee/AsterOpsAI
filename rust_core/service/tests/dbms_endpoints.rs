@@ -718,6 +718,110 @@ async fn gucs_polling_a_real_table_grant_produces_a_real_security_incident_but_o
     assert_eq!(incident["severity"], "MEDIUM");
 }
 
+/// Unit U60 (SRS FR-DBSEC-001(a), the last FR-DBSEC-001 sub-item —
+/// see docs/adr/0065): real, end-to-end proof of the authentication-
+/// failure detector against a genuine PostgreSQL server log, not a
+/// synthetic fixture (that's `core/tests/security_detector_auth_
+/// failure_test.rs`'s own job). `start_with_pg_hba_prefix` (unit
+/// U60's own new harness capability) forces `scram-sha-256` password
+/// auth for exactly one dedicated role (`pwuser`) over the same
+/// Unix-domain socket every other test in this file already uses —
+/// no TCP listener needed, unlike `sessions_polling_a_real_new_tcp_
+/// client_produces_a_real_security_incident`'s own reason for one.
+///
+/// A real bug this test itself caught (not assumed correct from
+/// reading code alone), documented in full in `security::detect_
+/// auth_failure`'s own doc comment: `TestPostgres::wait_until_ready`'s
+/// own `pg_isready` health check connects with no explicit `-U`, so
+/// it genuinely authenticates as the *OS* user (this sandbox's own
+/// `whoami`), producing a real, unrelated `"role ... does not exist"`
+/// auth-failure log line before this test ever induces its own. The
+/// first version of `detect_auth_failure` used `connection_from`
+/// alone as its resource key — every local-socket connection reports
+/// the identical `"[local]"` value, so this unrelated event and
+/// `pwuser`'s own later failure silently correlated into the *same*
+/// incident, and since an incident's `summary` is set once (by
+/// whichever event opens it), `pwuser` never appeared in it at all.
+/// Fixed by combining `user_name` and `connection_from` into the
+/// resource key; this test now asserts both that `pwuser`'s own
+/// incident exists *and* that it's distinct from the `pg_isready`
+/// noise, proving the fix rather than just the happy path.
+#[tokio::test]
+async fn gucs_polling_a_real_auth_failure_produces_a_real_security_incident() {
+    let mut pg = support::TestPostgres::start_with_pg_hba_prefix(
+        17,
+        "local   all             pwuser                                          scram-sha-256",
+        "-c log_destination=csvlog -c log_connections=on -c logging_collector=on \
+         -c log_directory=log",
+    )
+    .await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute(
+            "CREATE ROLE pwuser LOGIN PASSWORD 'a-real-correct-password'",
+            &[],
+        )
+        .await
+        .expect("CREATE ROLE pwuser");
+
+    // A real, deliberately wrong password against a role PostgreSQL
+    // now genuinely challenges for one — a real induced `FATAL`/
+    // `28P01` log line, not a simulated one.
+    let mut wrong_password_config = tokio_postgres::Config::new();
+    wrong_password_config
+        .host_path(&pg.socket_dir)
+        .port(pg.port)
+        .user("pwuser")
+        .password("definitely-the-wrong-password")
+        .dbname("postgres");
+    let connect_result = wrong_password_config.connect(tokio_postgres::NoTls).await;
+    assert!(
+        connect_result.is_err(),
+        "a wrong password must genuinely fail to authenticate"
+    );
+
+    // The logging collector flushes asynchronously — poll `/gucs`
+    // (which drives the real tail) in a short retry loop rather than
+    // assuming the log line landed inside a single poll.
+    let mut found_incident: Option<Value> = None;
+    for _ in 0..25 {
+        let adapter = adapter_for(&pg);
+        let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+        let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+        assert_eq!(status, StatusCode::OK, "gucs poll body: {body:?}");
+
+        let adapter = adapter_for(&pg);
+        let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+        let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+        assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+        let incidents = body["data"].as_array().expect("data is an array").clone();
+        if let Some(incident) = incidents
+            .into_iter()
+            .find(|i| i["summary"].as_str().unwrap_or("").contains("pwuser"))
+        {
+            found_incident = Some(incident);
+            break;
+        }
+        tokio::time::sleep(StdDuration::from_millis(200)).await;
+    }
+    pg.stop().await;
+
+    let incident = found_incident.unwrap_or_else(|| {
+        panic!("expected a real security incident naming pwuser within the retry budget")
+    });
+    assert_eq!(incident["severity"], "HIGH");
+    assert!(
+        !incident["summary"]
+            .as_str()
+            .unwrap_or("")
+            .contains("does not exist"),
+        "pwuser's own incident must be distinct from the unrelated pg_isready \
+         'role ... does not exist' noise, not merged with it: {incident:?}"
+    );
+}
+
 /// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*
 /// non-null `wait_event_type` as `Waiting` — and real PostgreSQL
 /// reports `wait_event_type = 'Client'` for *any* backend sitting idle

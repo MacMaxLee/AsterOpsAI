@@ -43,6 +43,7 @@ keyring = { workspace = true }
 tokio-postgres-rustls = { workspace = true }
 rustls = { workspace = true }
 regex = { workspace = true }
+csv = { workspace = true }
 # Plain HTTP/1.1 client for the Ollama AI provider (unit U6) — no TLS
 # backend (Ollama's own default is loopback/LAN plain HTTP; see
 # docs/adr/0011). Built directly on hyper's client feature (already a

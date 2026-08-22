@@ -10,10 +10,10 @@ use deadpool_postgres::Pool;
 
 use crate::dbms::{
     capability::Gated, connection_metadata::ConnectionMetadata, credential_store::CredentialStore,
-    pool, role_check, DatabaseInfo, DbmsAdapter, DbmsError, DeadlockInfo, GucValue,
-    IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    RoleMembership, RoleSuperuserFlag, SessionInfo, TablePrivilegeGrant, TableStat,
-    TempFileActivity, VersionInfo,
+    pool, role_check, AuthFailureLogConfig, DatabaseInfo, DbmsAdapter, DbmsError, DeadlockInfo,
+    GucValue, IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat,
+    ReplicationStatus, RoleMembership, RoleSuperuserFlag, SessionInfo, TablePrivilegeGrant,
+    TableStat, TempFileActivity, VersionInfo,
 };
 
 /// A row is "long-running" past this many seconds of open-transaction time
@@ -189,5 +189,10 @@ impl DbmsAdapter for PostgresAdapter {
     async fn table_privilege_grants(&self) -> Result<Vec<TablePrivilegeGrant>, DbmsError> {
         let client = self.pool.get().await?;
         queries::table_privilege_grants(&client).await
+    }
+
+    async fn auth_failure_log_config(&self) -> Result<AuthFailureLogConfig, DbmsError> {
+        let client = self.pool.get().await?;
+        queries::auth_failure_log_config(&client).await
     }
 }

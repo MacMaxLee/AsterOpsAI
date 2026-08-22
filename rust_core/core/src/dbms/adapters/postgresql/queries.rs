@@ -2,11 +2,13 @@
 //! `check-no-sql-outside-adapters.sh` grep gate enforces that nothing
 //! outside `core/src/dbms/adapters/` contains one.
 
+use std::path::Path;
+
 use crate::dbms::{
-    capability::Gated, privacy, DatabaseInfo, DbmsError, DeadlockInfo, GucValue,
-    IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    RoleMembership, RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TablePrivilegeGrant,
-    TableStat, TempFileActivity, VersionInfo,
+    capability::Gated, privacy, AuthFailureLogConfig, DatabaseInfo, DbmsError, DeadlockInfo,
+    GucValue, IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat,
+    ReplicationStatus, RoleMembership, RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo,
+    TablePrivilegeGrant, TableStat, TempFileActivity, VersionInfo,
 };
 
 pub async fn version_info(client: &tokio_postgres::Client) -> Result<VersionInfo, DbmsError> {
@@ -472,6 +474,49 @@ pub async fn table_privilege_grants(
             privilege_type: row.get(3),
         })
         .collect())
+}
+
+/// Unit U60 (SRS FR-DBSEC-001(a)): all four settings are real,
+/// unprivileged-readable `pg_settings` rows (confirmed empirically —
+/// no `pg_monitor`-style grant needed to *locate* the log, only to
+/// *read* it, which happens as direct OS file I/O in the co-located
+/// deployment this detector is scoped to, not through PostgreSQL).
+/// `logging_collector` must be `on` for `log_directory`/`log_
+/// destination` to control where/how PostgreSQL actually writes its
+/// server log at all (with it `off`, logs go to stderr only, which
+/// this detector can't tail).
+pub async fn auth_failure_log_config(
+    client: &tokio_postgres::Client,
+) -> Result<AuthFailureLogConfig, DbmsError> {
+    let row = client
+        .query_one(
+            "SELECT \
+             current_setting('data_directory'), \
+             current_setting('log_directory'), \
+             current_setting('log_destination'), \
+             current_setting('logging_collector')",
+            &[],
+        )
+        .await?;
+    let data_directory: String = row.get(0);
+    let log_directory: String = row.get(1);
+    let log_destination: String = row.get(2);
+    let logging_collector: String = row.get(3);
+
+    let csv_logging_enabled =
+        logging_collector == "on" && log_destination.split(',').any(|d| d.trim() == "csvlog");
+
+    let log_dir_path = Path::new(&log_directory);
+    let log_dir = if log_dir_path.is_absolute() {
+        log_dir_path.to_path_buf()
+    } else {
+        Path::new(&data_directory).join(log_dir_path)
+    };
+
+    Ok(AuthFailureLogConfig {
+        csv_logging_enabled,
+        log_dir,
+    })
 }
 
 /// Used by `role_check`'s validation query and by tests — kept here since

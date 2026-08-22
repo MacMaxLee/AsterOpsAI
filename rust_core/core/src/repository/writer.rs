@@ -14,6 +14,7 @@ use super::client_address_history;
 use super::device_trust;
 use super::error::RepositoryError;
 use super::guc_history;
+use super::log_tail_offset;
 use super::models::{
     AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
     NewSecurityEvent, NewSecuritySuppression, NewTuningPlan, PerformanceAnalysisRow,
@@ -174,6 +175,14 @@ pub enum WriteCommand {
         privilege_type: String,
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<bool, RepositoryError>>,
+    },
+    /// Persists the new end-of-file byte offset for a log file after a
+    /// real tail pass (unit U60, SRS FR-DBSEC-001(a)).
+    SetLogTailOffset {
+        log_file_path: String,
+        byte_offset: i64,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<(), RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -346,6 +355,19 @@ pub fn spawn(
                             &schema,
                             &table,
                             &privilege_type,
+                            now,
+                        )));
+                    }
+                    WriteCommand::SetLogTailOffset {
+                        log_file_path,
+                        byte_offset,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(log_tail_offset::set_offset(
+                            &conn,
+                            &log_file_path,
+                            byte_offset,
                             now,
                         )));
                     }

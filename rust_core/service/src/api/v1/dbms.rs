@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use ai_ops_core::dbms::{
-    DbmsAdapter, DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue,
+    log_tail, DbmsAdapter, DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue,
     IdleInTransactionSession as CoreIdleInTransactionSession, IndexStat as CoreIndexStat,
     LockEdge as CoreLockEdge, LongTransaction as CoreLongTransaction, QueryStat as CoreQueryStat,
     ReplicationStatus as CoreReplicationStatus, SessionInfo as CoreSessionInfo, SessionState,
@@ -479,6 +479,85 @@ async fn check_table_privilege_grants(
     }
 }
 
+/// Unit U60 (SRS FR-DBSEC-001(a), the last FR-DBSEC-001 sub-item —
+/// see `security::detect_auth_failure`'s own doc comment and
+/// docs/adr/0065): the fifth best-effort step on this same "DB-wide
+/// security/config posture" poll point (`gucs`'s handler has now
+/// accumulated five different concerns, a real, named design debt
+/// worth a future dedicated refactor — not attempted in this unit).
+/// Unlike the other four checks, this does real local-host file I/O
+/// (`core::dbms::log_tail`, deliberately not a `DbmsAdapter` method —
+/// see that module's own doc comment) and simply never fires
+/// anything on a non-co-located deployment (`csv_logging_enabled`
+/// false, or the log directory unreadable/empty) — every other check
+/// keeps working regardless.
+async fn check_auth_failures(repo: &repository::RepositoryHandle, adapter: &Arc<dyn DbmsAdapter>) {
+    let config = match adapter.auth_failure_log_config().await {
+        Ok(config) => config,
+        Err(err) => {
+            tracing::warn!(error = %err, "auth_failure_log_config failed");
+            return;
+        }
+    };
+    if !config.csv_logging_enabled {
+        return;
+    }
+
+    let active_file = match log_tail::find_active_csv_file(&config.log_dir).await {
+        Ok(Some(path)) => path,
+        Ok(None) => return,
+        Err(err) => {
+            tracing::warn!(error = %err, log_dir = %config.log_dir.display(), "find_active_csv_file failed");
+            return;
+        }
+    };
+    let active_file_str = active_file.to_string_lossy().to_string();
+
+    let previous_offset = match repository::get_log_tail_offset(repo, &active_file_str).await {
+        Ok(offset) => offset,
+        Err(err) => {
+            tracing::warn!(error = %err, log_file = %active_file_str, "get_log_tail_offset failed");
+            return;
+        }
+    };
+    let since_offset = previous_offset.map(|offset| (active_file.clone(), offset));
+
+    let (events, tailed_file, new_offset) = match log_tail::read_new_auth_failures(
+        &config.log_dir,
+        since_offset,
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(err) => {
+            tracing::warn!(error = %err, log_dir = %config.log_dir.display(), "read_new_auth_failures failed");
+            return;
+        }
+    };
+
+    let now = Utc::now();
+    for auth_failure in &events {
+        let event = security::detect_auth_failure(auth_failure, now);
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, "record_event failed for a detected auth failure");
+        }
+    }
+
+    let tailed_file_str = tailed_file.to_string_lossy().to_string();
+    if let Err(err) = repository::set_log_tail_offset(repo, tailed_file_str, new_offset, now).await
+    {
+        tracing::warn!(error = %err, log_file = %active_file_str, "set_log_tail_offset failed");
+    }
+}
+
+/// Unit U60 note: this handler has grown, one unit at a time (U55-
+/// U60), into a de facto "DB-wide security/config sweep" — it now
+/// does meaningfully more than its name ("read the relevant GUCs")
+/// suggests, since no dedicated poll/scheduler infrastructure exists
+/// in `service` yet for these five best-effort checks to live on
+/// instead. A real, named design debt: a future unit should probably
+/// extract this into its own dedicated internal sweep function/poll
+/// point, not keep growing this one. Not attempted here.
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -497,6 +576,7 @@ pub async fn gucs(
             check_role_superuser_grants(repo, &adapter).await;
             check_role_membership_grants(repo, &adapter).await;
             check_table_privilege_grants(repo, &adapter).await;
+            check_auth_failures(repo, &adapter).await;
         }
 
         Ok(gucs.into_iter().map(to_wire_guc).collect())

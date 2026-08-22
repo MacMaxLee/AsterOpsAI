@@ -57,6 +57,13 @@ keyring = { version = "4", features = ["apple-native-keyring-store"] }
 # `bundled` feature).
 tokio-postgres-rustls = { version = "0.14", default-features = false }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+# Unit U60: parses PostgreSQL's own csvlog output for the auth-failure
+# detector (`core::dbms::log_tail`) — a real, well-tested CSV parser
+# handles PostgreSQL's own embedded-comma/quote/newline quoting in
+# `message`/`detail`/`query` correctly, which hand-rolling via the
+# already-present `regex` crate would risk getting wrong. MIT/Unlicense
+# dual-licensed; MIT is in deny.toml's allowlist.
+csv = "1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

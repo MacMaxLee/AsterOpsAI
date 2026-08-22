@@ -17,10 +17,13 @@ pub mod adapters;
 pub mod capability;
 pub mod connection_metadata;
 pub mod credential_store;
+pub mod log_tail;
 pub mod pool;
 pub mod privacy;
 pub mod role_check;
 pub mod version_matrix;
+
+use std::path::PathBuf;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -239,6 +242,19 @@ pub struct TablePrivilegeGrant {
     pub privilege_type: String,
 }
 
+/// Unit U60 (SRS FR-DBSEC-001(a)): the pure-SQL half of auth-failure
+/// detection — where the PostgreSQL server writes its own log, and
+/// whether it's writing it in the structured `csvlog` format `core::
+/// dbms::log_tail` can parse. `log_dir` is always absolute (joined
+/// against `data_directory` when PostgreSQL's own `log_directory`
+/// setting is relative, matching PostgreSQL's own documented default
+/// behavior). Detection input only, same as `RoleSuperuserFlag`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AuthFailureLogConfig {
+    pub csv_logging_enabled: bool,
+    pub log_dir: PathBuf,
+}
+
 /// TRS §33's exact method set. Read-only through U4 — the action surface
 /// (`analyze_table`, etc.) arrives in U8 under policy gating, never a
 /// generic "execute SQL" escape hatch (FORBIDDEN, this unit and every
@@ -273,4 +289,10 @@ pub trait DbmsAdapter: Send + Sync {
     /// detection input for `security::detect_table_privilege_granted`,
     /// not a raw HTTP-exposed listing.
     async fn table_privilege_grants(&self) -> Result<Vec<TablePrivilegeGrant>, DbmsError>;
+    /// Unit U60 (SRS FR-DBSEC-001(a)): where (and whether) this
+    /// instance's own auth-failure-carrying server log lives — pure
+    /// SQL, unlike `log_tail`'s actual file reading, which is
+    /// deliberately NOT a trait method (see that module's own doc
+    /// comment for why).
+    async fn auth_failure_log_config(&self) -> Result<AuthFailureLogConfig, DbmsError>;
 }

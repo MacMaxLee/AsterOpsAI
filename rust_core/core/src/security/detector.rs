@@ -8,6 +8,7 @@
 
 use chrono::{DateTime, Utc};
 
+use crate::dbms::log_tail::AuthFailureEvent;
 use crate::dbms::role_check::ValidationOutcome;
 use crate::policy::{ResourceDescriptor, ResourceKind};
 
@@ -34,6 +35,7 @@ pub const DETECTOR_ROLE_SUPERUSER_GRANTED: &str = "dbms.role_superuser_granted";
 pub const DETECTOR_UNUSUAL_CLIENT_ADDRESS: &str = "dbms.unusual_client_address";
 pub const DETECTOR_ROLE_MEMBERSHIP_GRANTED: &str = "dbms.role_membership_granted";
 pub const DETECTOR_TABLE_PRIVILEGE_GRANTED: &str = "dbms.table_privilege_granted";
+pub const DETECTOR_AUTH_FAILURE: &str = "dbms.auth_failure";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -309,6 +311,65 @@ pub fn detect_table_privilege_granted(
     })
 }
 
+/// Unit U60 (SRS FR-DBSEC-001(a), the last FR-DBSEC-001 sub-item — see
+/// docs/adr/0065): unlike every detector above, this has **no
+/// fire/no-fire branch and never returns `Option`** — every `event`
+/// passed in already came from `dbms::log_tail::read_new_auth_
+/// failures`, which only ever yields rows whose `sql_state_code`
+/// already matched PostgreSQL's own auth-failure SQLSTATEs, and the
+/// caller's persisted byte offset guarantees a given log line is
+/// tailed (and therefore detected) exactly once — the same
+/// "the input is inherently the event" shape as `detect_superuser_
+/// override`'s own `Some`-only construction, just without even the
+/// `override_used` guard. `Severity::High`, not `Medium`: a failed
+/// auth attempt could be an attack in progress — a real judgment
+/// call, since (per SRS's own "repeated authentication failure"
+/// wording) severity doesn't yet scale with repetition, a named,
+/// deferred refinement (docs/adr/0065).
+///
+/// A real bug caught by this unit's own service-level test, not
+/// assumed correct from reading code alone: resource naming by
+/// `connection_from` *alone* (mirroring `detect_unusual_client_
+/// address`'s own choice) turned out wrong here — every local-socket
+/// connection reports the identical `connection_from` value
+/// (`"[local]"`), so two **genuinely unrelated** auth failures for
+/// two different users from the same socket silently correlated into
+/// one incident (FR-SEC-002's own "related events," stretched past
+/// what "related" should mean), and since an incident's own summary
+/// is set once, from whichever event opened it, the later user's
+/// name never surfaced in it at all. Fixed to combine `user_name` and
+/// `connection_from` into one composite resource key — the two
+/// together are the real "who tried, from where" identity a repeat
+/// offender's own *subsequent* failures should still correlate
+/// against, while two different users no longer collide.
+pub fn detect_auth_failure(event: &AuthFailureEvent, now: DateTime<Utc>) -> DetectedEvent {
+    let user_display = event.user_name.as_deref().unwrap_or("<unknown>");
+    let connection_display = event.connection_from.as_deref().unwrap_or("<unknown>");
+    let resource_name = format!("{user_display}@{connection_display}");
+    DetectedEvent {
+        detector_id: DETECTOR_AUTH_FAILURE,
+        severity: Severity::High,
+        category: "AUTHENTICATION_FAILURE",
+        summary: format!(
+            "authentication failure for user '{user_display}': {}",
+            event.message
+        ),
+        evidence_json: serde_json::json!({
+            "user_name": event.user_name,
+            "database_name": event.database_name,
+            "connection_from": event.connection_from,
+            "message": event.message,
+            "log_time": event.log_time,
+        })
+        .to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: resource_name,
+        },
+        ts: now,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -440,5 +501,65 @@ mod tests {
                 .is_none(),
             "an already-known tuple never fires"
         );
+    }
+
+    #[test]
+    fn auth_failure_always_produces_a_high_severity_event() {
+        let now = Utc::now();
+        let event = AuthFailureEvent {
+            user_name: Some("pwuser".to_string()),
+            database_name: Some("postgres".to_string()),
+            connection_from: Some("127.0.0.1:46060".to_string()),
+            message: "password authentication failed for user \"pwuser\"".to_string(),
+            log_time: now,
+        };
+        let detected = detect_auth_failure(&event, now);
+        assert_eq!(detected.severity, Severity::High);
+        assert_eq!(detected.resource.name, "pwuser@127.0.0.1:46060");
+        assert!(detected.summary.contains("pwuser"));
+    }
+
+    #[test]
+    fn auth_failure_resource_combines_user_and_connection_so_different_users_never_collide() {
+        let now = Utc::now();
+        let same_address_different_users = [
+            AuthFailureEvent {
+                user_name: Some("parallels".to_string()),
+                database_name: None,
+                connection_from: Some("[local]".to_string()),
+                message: "role \"parallels\" does not exist".to_string(),
+                log_time: now,
+            },
+            AuthFailureEvent {
+                user_name: Some("pwuser".to_string()),
+                database_name: Some("postgres".to_string()),
+                connection_from: Some("[local]".to_string()),
+                message: "password authentication failed for user \"pwuser\"".to_string(),
+                log_time: now,
+            },
+        ];
+        let resources: Vec<String> = same_address_different_users
+            .iter()
+            .map(|event| detect_auth_failure(event, now).resource.name)
+            .collect();
+        assert_ne!(
+            resources[0], resources[1],
+            "two different users failing from the same connection_from must not \
+             collide into the same resource (and therefore the same incident)"
+        );
+    }
+
+    #[test]
+    fn auth_failure_resource_degrades_gracefully_when_a_field_is_absent() {
+        let now = Utc::now();
+        let event = AuthFailureEvent {
+            user_name: Some("pwuser".to_string()),
+            database_name: None,
+            connection_from: None,
+            message: "password authentication failed for user \"pwuser\"".to_string(),
+            log_time: now,
+        };
+        let detected = detect_auth_failure(&event, now);
+        assert_eq!(detected.resource.name, "pwuser@<unknown>");
     }
 }

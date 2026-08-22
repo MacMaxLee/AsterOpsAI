@@ -10,6 +10,7 @@ pub mod device_trust;
 pub mod error;
 pub mod guc_history;
 pub mod history;
+pub mod log_tail_offset;
 pub mod migrations;
 pub mod models;
 pub mod performance_analysis;
@@ -478,6 +479,43 @@ pub async fn record_table_privilege_grant_seen(
             schema: schema.into(),
             table: table.into(),
             privilege_type: privilege_type.into(),
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U60 (SRS FR-DBSEC-001(a)): how far into `log_file_path` the
+/// authentication-failure detector has already tailed, if ever. A
+/// plain read (like `get_action`/`get_tuning_plan`), not a
+/// `WriteCommand` — no write happens here.
+pub async fn get_log_tail_offset(
+    handle: &RepositoryHandle,
+    log_file_path: &str,
+) -> Result<Option<i64>, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    log_tail_offset::get_offset(&conn, log_file_path)
+}
+
+/// Unit U60 (SRS FR-DBSEC-001(a)): persists the new end-of-file byte
+/// offset for `log_file_path` after a real tail pass
+/// (`core::dbms::log_tail::read_new_auth_failures`).
+pub async fn set_log_tail_offset(
+    handle: &RepositoryHandle,
+    log_file_path: impl Into<String>,
+    byte_offset: i64,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<(), RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::SetLogTailOffset {
+            log_file_path: log_file_path.into(),
+            byte_offset,
             now,
             reply: reply_tx,
         })

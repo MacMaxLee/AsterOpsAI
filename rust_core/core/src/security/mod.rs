@@ -37,11 +37,12 @@ pub mod suppression;
 pub mod response;
 
 pub use detector::{
-    detect_guc_change, detect_role_membership_granted, detect_role_superuser_granted,
-    detect_superuser_override, detect_table_privilege_granted, detect_untrusted_device,
-    detect_unusual_client_address, DetectedEvent, DETECTOR_GUC_CHANGED,
-    DETECTOR_ROLE_MEMBERSHIP_GRANTED, DETECTOR_ROLE_SUPERUSER_GRANTED, DETECTOR_SUPERUSER_OVERRIDE,
-    DETECTOR_TABLE_PRIVILEGE_GRANTED, DETECTOR_UNTRUSTED_DEVICE, DETECTOR_UNUSUAL_CLIENT_ADDRESS,
+    detect_auth_failure, detect_guc_change, detect_role_membership_granted,
+    detect_role_superuser_granted, detect_superuser_override, detect_table_privilege_granted,
+    detect_untrusted_device, detect_unusual_client_address, DetectedEvent, DETECTOR_AUTH_FAILURE,
+    DETECTOR_GUC_CHANGED, DETECTOR_ROLE_MEMBERSHIP_GRANTED, DETECTOR_ROLE_SUPERUSER_GRANTED,
+    DETECTOR_SUPERUSER_OVERRIDE, DETECTOR_TABLE_PRIVILEGE_GRANTED, DETECTOR_UNTRUSTED_DEVICE,
+    DETECTOR_UNUSUAL_CLIENT_ADDRESS,
 };
 pub use error::SecurityError;
 pub use incident::{record_event, IncidentOutcome};
