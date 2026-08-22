@@ -45,6 +45,7 @@ pub fn router() -> Router<AppState> {
         .route("/security/suppress", post(security::suppress))
         .route("/analysis/host", get(analysis::host))
         .route("/analysis/host/explain", get(analysis::explain_host))
+        .route("/analysis/db/explain", get(analysis::explain_db))
         .route("/analysis/correlation", get(analysis::correlation))
         .route("/dbms/sessions", get(dbms::sessions))
         .route("/dbms/locks", get(dbms::locks))

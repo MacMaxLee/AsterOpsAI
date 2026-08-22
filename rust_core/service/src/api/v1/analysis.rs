@@ -6,7 +6,7 @@
 //! configured is not an error").
 
 use ai_ops_core::ai::{
-    build_host_bundle, try_explain, AiExplanation as CoreAiExplanation,
+    build_db_bundle, build_host_bundle, try_explain, AiExplanation as CoreAiExplanation,
     MetricClaim as CoreMetricClaim, Observation as CoreObservation,
     Recommendation as CoreRecommendation, RiskLevel as CoreAiRiskLevel,
 };
@@ -178,61 +178,73 @@ async fn compute_host_verdict(
     .map_err(|_| ApiError::Internal)?
 }
 
+/// Unit U46: the real poll logic, split out from `compute_db_verdict`
+/// so `explain_db` can reuse it without duplicating the 10-way
+/// `try_join!` — `explain_db` needs the real `DbEvidenceBundle` itself
+/// (for `core::ai::build_db_bundle`'s own candidates), not just the
+/// classified verdict `compute_db_verdict` alone returns. All-or-
+/// nothing on the poll: if any of the ~10 calls fails, the whole
+/// bundle degrades rather than mixing real and fabricated fields.
+async fn compute_db_verdict_and_bundle(
+    state: &AppState,
+    now: DateTime<Utc>,
+) -> Result<(DbHealthVerdict, DbEvidenceBundle), String> {
+    let adapter = state
+        .dbms_adapter
+        .clone()
+        .ok_or_else(|| "no database connection configured".to_string())?;
+
+    let (
+        databases,
+        sessions,
+        query_stats,
+        locks,
+        table_stats,
+        replication,
+        gucs,
+        temp_file_activity,
+        deadlocks,
+        long_transactions,
+    ) = tokio::try_join!(
+        adapter.list_databases(),
+        adapter.list_sessions(),
+        adapter.query_stats(),
+        adapter.lock_graph(),
+        adapter.table_stats(),
+        adapter.replication_status(),
+        adapter.relevant_gucs(),
+        adapter.temp_file_activity(),
+        adapter.deadlock_history(),
+        adapter.long_transactions(),
+    )
+    .map_err(|err| {
+        tracing::warn!(error = %err, "DB poll failed; correlation's DB side degrades to unavailable");
+        format!("DB poll failed: {err}")
+    })?;
+
+    let bundle = DbEvidenceBundle {
+        databases,
+        sessions,
+        query_stats,
+        locks,
+        table_stats,
+        replication,
+        gucs,
+        temp_file_activity,
+        deadlocks,
+        long_transactions,
+    };
+    let verdict = analysis::classify_db(&bundle, now);
+    Ok((verdict, bundle))
+}
+
 /// Never fails — "no DB evidence" (unconfigured, or a poll that failed)
 /// is a real, honest verdict (`unavailable_verdict`), not an error this
-/// endpoint refuses to answer. All-or-nothing on the poll: if any of the
-/// ~10 calls `DbEvidenceBundle` needs fails, the whole bundle degrades
-/// rather than mixing real and fabricated fields.
+/// endpoint refuses to answer.
 async fn compute_db_verdict(state: &AppState, now: DateTime<Utc>) -> DbHealthVerdict {
-    let Some(adapter) = state.dbms_adapter.clone() else {
-        return analysis::unavailable_verdict("no database connection configured", now);
-    };
-
-    let bundle = async {
-        let (
-            databases,
-            sessions,
-            query_stats,
-            locks,
-            table_stats,
-            replication,
-            gucs,
-            temp_file_activity,
-            deadlocks,
-            long_transactions,
-        ) = tokio::try_join!(
-            adapter.list_databases(),
-            adapter.list_sessions(),
-            adapter.query_stats(),
-            adapter.lock_graph(),
-            adapter.table_stats(),
-            adapter.replication_status(),
-            adapter.relevant_gucs(),
-            adapter.temp_file_activity(),
-            adapter.deadlock_history(),
-            adapter.long_transactions(),
-        )?;
-        Ok::<_, ai_ops_core::dbms::DbmsError>(DbEvidenceBundle {
-            databases,
-            sessions,
-            query_stats,
-            locks,
-            table_stats,
-            replication,
-            gucs,
-            temp_file_activity,
-            deadlocks,
-            long_transactions,
-        })
-    }
-    .await;
-
-    match bundle {
-        Ok(bundle) => analysis::classify_db(&bundle, now),
-        Err(err) => {
-            tracing::warn!(error = %err, "DB poll failed; correlation's DB side degrades to unavailable");
-            analysis::unavailable_verdict(&format!("DB poll failed: {err}"), now)
-        }
+    match compute_db_verdict_and_bundle(state, now).await {
+        Ok((verdict, _)) => verdict,
+        Err(reason) => analysis::unavailable_verdict(&reason, now),
     }
 }
 
@@ -330,6 +342,43 @@ pub async fn explain_host(
             .processes
             .clone();
         let bundle = build_host_bundle(&verdict, "HOST", Some(&processes));
+        Ok(match try_explain(provider.as_ref(), &bundle).await {
+            Some(explanation) => GatedValue::Supported {
+                value: to_wire_ai_explanation(explanation),
+            },
+            None => GatedValue::Unavailable {
+                reason: "AI explanation unavailable".to_string(),
+            },
+        })
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+/// Unit U46: `core::ai`'s second and final planned slice
+/// (`build_db_bundle` — `build_host_bundle`'s own sibling). Unlike
+/// `explain_host`, a real `DbEvidenceBundle` (not just a verdict) is
+/// required — `compute_db_verdict_and_bundle` degrades to a real `503`
+/// with its own real reason ("no database connection configured" or a
+/// real poll failure) rather than fabricating an empty bundle to
+/// explain, the same "no real evidence, no fabricated 200" precedent
+/// every other DBMS-dependent endpoint in this codebase already uses.
+/// See docs/adr/0051.
+pub async fn explain_db(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<GatedValue<WireAiExplanation>> {
+    let now = Utc::now();
+    let result = async {
+        let provider = state
+            .ai_provider
+            .clone()
+            .ok_or_else(|| ApiError::Unavailable("no AI provider configured".to_string()))?;
+        let (verdict, source) = compute_db_verdict_and_bundle(&state, now)
+            .await
+            .map_err(ApiError::Unavailable)?;
+        let bundle = build_db_bundle(&verdict, &source, "DATABASE");
         Ok(match try_explain(provider.as_ref(), &bundle).await {
             Some(explanation) => GatedValue::Supported {
                 value: to_wire_ai_explanation(explanation),

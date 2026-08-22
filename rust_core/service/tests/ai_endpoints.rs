@@ -13,10 +13,14 @@
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+mod support;
+
 use std::sync::Arc;
 use std::time::Duration;
 
 use ai_ops_core::ai::{AiProvider, AiProviderConfig, OllamaProvider};
+use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
+use ai_ops_core::dbms::{pool, DbmsAdapter};
 use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
 use ai_ops_core::repository::{self, RepositoryConfig};
 use axum::body::Body;
@@ -30,6 +34,7 @@ use tower::ServiceExt;
 async fn build_app(
     repository: Option<repository::RepositoryHandle>,
     ai_provider: Option<Arc<dyn AiProvider>>,
+    dbms_adapter: Option<Arc<dyn DbmsAdapter>>,
 ) -> axum::Router {
     let platform: Arc<dyn platform::PlatformAdapter> =
         Arc::from(platform::current_platform_adapter());
@@ -46,13 +51,29 @@ async fn build_app(
         self_metrics,
         host_telemetry,
         repository,
-        None,
+        dbms_adapter,
         Arc::new(ActionTypeRegistry::new()),
         Arc::new(ProtectedResourceRegistry::new()),
         Environment::Development,
         ai_provider,
     );
     api::router(state)
+}
+
+/// Mirrors `dbms_endpoints.rs`'s own `adapter_for` (test-only code,
+/// not worth extracting into `support` for one caller).
+fn adapter_for(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
+    let cfg = service::dbms_config::resolve_db_connection_from(
+        Some(pg.socket_dir.display().to_string()),
+        Some(pg.port.to_string()),
+        Some("postgres".to_string()),
+        Some("postgres".to_string()),
+        Some("trust-auth-ignores-this".to_string()),
+        Some("disable".to_string()),
+    )
+    .expect("host+password were both given");
+    let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds");
+    Arc::new(PostgresAdapter::from_pool(pg_pool, false))
 }
 
 async fn open_repo() -> repository::RepositoryHandle {
@@ -127,7 +148,7 @@ fn provider_for_port(port: u16) -> Arc<dyn AiProvider> {
 
 #[tokio::test]
 async fn explain_host_is_unavailable_without_an_ai_provider() {
-    let app = build_app(None, None).await;
+    let app = build_app(None, None, None).await;
     let (status, body) = get_json(app, "/api/v1/analysis/host/explain").await;
     assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
@@ -145,7 +166,7 @@ async fn explain_host_reports_a_real_unavailable_state_as_200_ok_when_the_provid
 {
     let repo = open_repo().await;
     let port = closed_port().await;
-    let app = build_app(Some(repo), Some(provider_for_port(port))).await;
+    let app = build_app(Some(repo), Some(provider_for_port(port)), None).await;
     let (status, body) = get_json(app, "/api/v1/analysis/host/explain").await;
 
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
@@ -173,7 +194,7 @@ async fn explain_host_returns_a_real_supported_explanation_from_a_real_provider_
     let response_body = http_ok_json_body(&ollama_envelope(&inner));
     let port = one_shot_server(response_body).await;
 
-    let app = build_app(Some(repo), Some(provider_for_port(port))).await;
+    let app = build_app(Some(repo), Some(provider_for_port(port)), None).await;
     let (status, body) = get_json(app, "/api/v1/analysis/host/explain").await;
 
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
@@ -181,4 +202,60 @@ async fn explain_host_returns_a_real_supported_explanation_from_a_real_provider_
     assert_eq!(body["data"]["value"]["summary"], "The host looks idle.");
     assert_eq!(body["data"]["value"]["risk"], "LOW");
     assert_eq!(body["data"]["value"]["confidence"], 0.9);
+}
+
+#[tokio::test]
+async fn explain_db_is_unavailable_without_an_ai_provider() {
+    let app = build_app(None, None, None).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/db/explain").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+/// The AI provider *is* configured (presence alone — `explain_db`
+/// checks it first, before ever polling the database), but no
+/// `dbms_adapter` is — a distinct real `503` reason from the
+/// AI-provider case, matching `compute_db_verdict`'s own existing
+/// "no database connection configured" wording exactly.
+#[tokio::test]
+async fn explain_db_is_unavailable_without_a_database() {
+    let port = closed_port().await;
+    let app = build_app(None, Some(provider_for_port(port)), None).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/db/explain").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+    assert_eq!(
+        body["error"]["message"], "no database connection configured",
+        "expected the real, existing compute_db_verdict reason, got: {body:?}"
+    );
+}
+
+#[tokio::test]
+async fn explain_db_returns_a_real_supported_explanation_from_a_real_provider_and_database_round_trip(
+) {
+    let mut pg = support::TestPostgres::start(17).await;
+    let dbms_adapter = adapter_for(&pg);
+    let inner = serde_json::json!({
+        "summary": "The database looks healthy.",
+        "observations": [],
+        "recommendations": [],
+        "risk": "LOW",
+        "confidence": 0.85,
+    })
+    .to_string();
+    let response_body = http_ok_json_body(&ollama_envelope(&inner));
+    let ai_port = one_shot_server(response_body).await;
+
+    let app = build_app(None, Some(provider_for_port(ai_port)), Some(dbms_adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/db/explain").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["state"], "SUPPORTED");
+    assert_eq!(
+        body["data"]["value"]["summary"],
+        "The database looks healthy."
+    );
+    assert_eq!(body["data"]["value"]["risk"], "LOW");
+    assert_eq!(body["data"]["value"]["confidence"], 0.85);
 }
