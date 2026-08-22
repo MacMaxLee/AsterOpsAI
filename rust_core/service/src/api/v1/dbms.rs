@@ -64,6 +64,46 @@ fn to_wire_lock(lock: CoreLockEdge) -> LockEdge {
     }
 }
 
+/// Unit U57 (SRS FR-DBSEC-001(d)): unlike U55/U56's own necessarily
+/// pragmatic choice of home (`gucs`, since no query for GUC/role data
+/// existed to reuse and no endpoint was a perfect semantic fit), this
+/// is the one perfect fit — `sessions` already surfaces `client_addr`
+/// directly, no new query needed. Same best-effort posture: a
+/// detection failure is logged, never blocks the real session data
+/// this endpoint exists to serve. `detect_unusual_client_address`
+/// fires on a genuinely new address's very first observation (not a
+/// diff — see its own doc comment) — a real, accepted tradeoff worth
+/// naming: a fresh deployment's first poll flags every already-
+/// connected address as "new" to this service's own tracking, the
+/// same characteristic `detect_untrusted_device` has always had for
+/// already-attached devices.
+async fn check_unusual_client_addresses(
+    repo: &repository::RepositoryHandle,
+    sessions: &[CoreSessionInfo],
+) {
+    let now = Utc::now();
+    for session in sessions {
+        let Some(client_addr) = session.client_addr.as_deref() else {
+            continue;
+        };
+        let already_known =
+            match repository::record_client_address_seen(repo, client_addr, now).await {
+                Ok(already_known) => already_known,
+                Err(err) => {
+                    tracing::warn!(error = %err, client_addr, "record_client_address_seen failed");
+                    continue;
+                }
+            };
+        let Some(event) = security::detect_unusual_client_address(client_addr, already_known, now)
+        else {
+            continue;
+        };
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, client_addr, "record_event failed for a detected unusual client address");
+        }
+    }
+}
+
 /// No DB configured, or a genuine live poll failure, both degrade to a
 /// real, honest `Unavailable` — the same category `analysis.rs`'s own
 /// `compute_db_verdict` already uses for "no DB evidence" (its own
@@ -81,6 +121,11 @@ pub async fn sessions(
             tracing::warn!(error = %err, "list_sessions failed");
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
+
+        if let Some(repo) = state.repository.as_ref() {
+            check_unusual_client_addresses(repo, &sessions).await;
+        }
+
         Ok(sessions.into_iter().map(to_wire_session).collect())
     }
     .await;

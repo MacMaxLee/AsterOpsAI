@@ -646,6 +646,78 @@ async fn sessions_returns_a_real_idle_in_transaction_backend_correctly() {
     assert_eq!(session["state"], "IDLE_IN_TRANSACTION");
 }
 
+/// Unit U57 (SRS FR-DBSEC-001(d)): closes the gap
+/// `sessions_returns_a_real_idle_in_transaction_backend_correctly`
+/// (and every other test in this file) never needed — every
+/// `TestPostgres` instance so far only ever accepted Unix-socket
+/// connections, so `client_addr` was always `NULL`. This test enables
+/// real TCP listening (`start_with_extra_options`, unit U51's own
+/// harness capability, needing no new addition) and opens a real,
+/// independent TCP connection — the genuine "unusual client" — to
+/// prove `/api/v1/dbms/sessions` polling it for the first time
+/// produces a real, queryable security incident.
+///
+/// A real discovery while writing this test, not assumed from reading
+/// code: `list_sessions`'s own pre-existing `client_addr::text` cast
+/// (unmodified by this unit — casting PostgreSQL's `inet` type to
+/// text preserves its netmask) reports a host address as
+/// `"127.0.0.1/32"`, not the bare `"127.0.0.1"` a plain IP-string
+/// comparison would expect. Pre-existing wire behavior, not something
+/// this unit changes — asserted here as it actually is.
+#[tokio::test]
+async fn sessions_polling_a_real_new_tcp_client_produces_a_real_security_incident() {
+    let mut pg =
+        support::TestPostgres::start_with_extra_options(17, "-c listen_addresses='127.0.0.1'")
+            .await;
+    let repo = open_repo().await;
+
+    // A real, independent TCP connection — the "unusual client" itself
+    // — kept alive for the duration of the poll so it genuinely shows
+    // up in pg_stat_activity with a real, non-null client_addr.
+    let mut tcp_config = tokio_postgres::Config::new();
+    tcp_config
+        .host("127.0.0.1")
+        .port(pg.port)
+        .user("postgres")
+        .dbname("postgres");
+    let (tcp_client, tcp_connection) = tcp_config
+        .connect(tokio_postgres::NoTls)
+        .await
+        .expect("real TCP connect");
+    tokio::spawn(async move {
+        let _ = tcp_connection.await;
+    });
+    tcp_client
+        .query_one("SELECT 1", &[])
+        .await
+        .expect("keep the real TCP session alive with a real query");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/sessions").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let sessions = body["data"].as_array().expect("data is an array");
+    assert!(
+        sessions.iter().any(|s| s["client_addr"] == "127.0.0.1/32"),
+        "the real TCP session must appear with a real, non-null client_addr, got: {sessions:?}"
+    );
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    let incident = incidents
+        .iter()
+        .find(|i| i["summary"].as_str().unwrap_or("").contains("127.0.0.1"))
+        .unwrap_or_else(|| {
+            panic!("expected a real security incident naming 127.0.0.1, got: {incidents:?}")
+        });
+    assert_eq!(incident["severity"], "MEDIUM");
+}
+
 /// Also proves the U49/ADR 0054 fix's real contrast: a genuine
 /// `wait_event_type = 'Lock'` waiter classifies as `WAITING` in
 /// `/api/v1/dbms/sessions`, distinct from the genuine idle-in-

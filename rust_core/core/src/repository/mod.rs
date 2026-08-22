@@ -4,6 +4,7 @@
 
 pub mod audit;
 pub mod benchmark;
+pub mod client_address_history;
 pub mod connection;
 pub mod device_trust;
 pub mod error;
@@ -395,6 +396,29 @@ pub async fn record_role_superuser_flag(
         .send(WriteCommand::RecordRoleSuperuserFlag {
             rolname: rolname.into(),
             rolsuper,
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U57: returns whether `client_addr` was already known before
+/// this call — the caller (`security::detect_unusual_client_address`)
+/// decides whether that constitutes a real, fireable event.
+pub async fn record_client_address_seen(
+    handle: &RepositoryHandle,
+    client_addr: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<bool, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordClientAddressSeen {
+            client_addr: client_addr.into(),
             now,
             reply: reply_tx,
         })

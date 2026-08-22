@@ -31,6 +31,7 @@ pub const DETECTOR_SUPERUSER_OVERRIDE: &str = "dbms.superuser_override_used";
 pub const DETECTOR_UNTRUSTED_DEVICE: &str = "host.untrusted_device_attached";
 pub const DETECTOR_GUC_CHANGED: &str = "dbms.guc_changed";
 pub const DETECTOR_ROLE_SUPERUSER_GRANTED: &str = "dbms.role_superuser_granted";
+pub const DETECTOR_UNUSUAL_CLIENT_ADDRESS: &str = "dbms.unusual_client_address";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -188,6 +189,38 @@ pub fn detect_role_superuser_granted(
     })
 }
 
+/// Unit U57 (SRS FR-DBSEC-001(d)): mirrors `detect_untrusted_device`'s
+/// exact shape — "have we ever seen a connection from this address
+/// before" is itself the interesting event, so this fires on a
+/// genuinely new address's very first observation, unlike the
+/// diff-based GUC/role-grant detectors above (which need a known
+/// prior value to compare against). `already_known` comes from
+/// `repository::client_address_history::record_seen` — real, durable
+/// history, not a per-process-lifetime guess. Deterministic
+/// first-time-seen only (FR-SEC-001's "no detector may depend on an
+/// AI model" boundary) — no statistical/anomaly model.
+pub fn detect_unusual_client_address(
+    client_addr: &str,
+    already_known: bool,
+    now: DateTime<Utc>,
+) -> Option<DetectedEvent> {
+    if already_known {
+        return None;
+    }
+    Some(DetectedEvent {
+        detector_id: DETECTOR_UNUSUAL_CLIENT_ADDRESS,
+        severity: Severity::Medium,
+        category: "UNUSUAL_CLIENT_ADDRESS",
+        summary: format!("previously-unseen client address '{client_addr}' connected"),
+        evidence_json: serde_json::json!({ "client_addr": client_addr }).to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: client_addr.to_string(),
+        },
+        ts: now,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,6 +313,16 @@ mod tests {
         assert!(
             detect_role_superuser_granted("app_user", Some(false), false, now).is_none(),
             "an unchanged non-superuser role must never fire"
+        );
+    }
+
+    #[test]
+    fn unusual_client_address_fires_only_for_a_genuinely_new_address() {
+        let now = Utc::now();
+        assert!(detect_unusual_client_address("127.0.0.1", false, now).is_some());
+        assert!(
+            detect_unusual_client_address("127.0.0.1", true, now).is_none(),
+            "an already-known address never fires"
         );
     }
 }

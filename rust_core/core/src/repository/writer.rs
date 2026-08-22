@@ -10,6 +10,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::audit::{insert_audit_event, seed_chain_state};
 use super::benchmark::{insert_benchmark_run, mark_rolled_back};
+use super::client_address_history;
 use super::device_trust;
 use super::error::RepositoryError;
 use super::guc_history;
@@ -144,6 +145,13 @@ pub enum WriteCommand {
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<Option<bool>, RepositoryError>>,
     },
+    /// Records that a client address has been observed (unit U57, SRS
+    /// FR-DBSEC-001(d)), replying with whether it was *already* known.
+    RecordClientAddressSeen {
+        client_addr: String,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<bool, RepositoryError>>,
+    },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
     /// against process exit.
@@ -275,6 +283,17 @@ pub fn spawn(
                     } => {
                         drop(reply.send(role_history::record_role_superuser_flag(
                             &conn, &rolname, rolsuper, now,
+                        )));
+                    }
+                    WriteCommand::RecordClientAddressSeen {
+                        client_addr,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(client_address_history::record_seen(
+                            &conn,
+                            &client_addr,
+                            now,
                         )));
                     }
                     WriteCommand::Shutdown { reply } => {
