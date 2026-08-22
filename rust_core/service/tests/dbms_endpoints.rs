@@ -780,16 +780,14 @@ async fn deadlock_history_reports_a_real_induced_deadlock() {
 }
 
 /// Unit U41: both `long_transactions`/`idle_in_transaction_sessions`
-/// filter on a hardcoded 60-second threshold at the `core` level
-/// (`LONG_TRANSACTION_THRESHOLD_SECONDS`/`IDLE_IN_TRANSACTION_
+/// filter on a hardcoded 60-second default threshold at the `core`
+/// level (`LONG_TRANSACTION_THRESHOLD_SECONDS`/`IDLE_IN_TRANSACTION_
 /// THRESHOLD_SECONDS`) — unlike U39's temp-file/deadlock pair, genuinely
 /// exceeding that threshold would mean this test suite waits a real 60+
-/// seconds on every single run, forever. `core/tests/dbms_adapter_
-/// smoke_test.rs` itself only proves the empty path for exactly this
-/// reason; this test matches that same honest scope, proven end-to-end
-/// over real HTTP rather than asserted from reading code alone. The
-/// threshold-crossing populated path remains a real, named, untested
-/// gap — see docs/adr/0046.
+/// seconds on every single run, forever. This test proves the real,
+/// honest empty path against the real default threshold; the populated
+/// path below (unit U53) proves the real fixture instead, via
+/// `PostgresAdapter::with_activity_thresholds`, not by waiting.
 #[tokio::test]
 async fn long_transactions_reports_a_real_empty_result() {
     let mut pg = support::TestPostgres::start(17).await;
@@ -820,4 +818,133 @@ async fn idle_in_transaction_sessions_reports_a_real_empty_result() {
         sessions.is_empty(),
         "expected no real idle-in-transaction session in a fresh fixture, got: {sessions:?}"
     );
+}
+
+/// Unit U53 (ADR 0046/0058): same connection config as `adapter_for`,
+/// but with both activity thresholds overridden to `0.0` — any real
+/// open transaction/idle-in-transaction session qualifies immediately,
+/// with zero sleep/wait: by the time the HTTP handler's own query
+/// runs, some real (however small) time has already elapsed since
+/// `xact_start`/`state_change`, so `>= 0.0` is always true. No
+/// flakiness risk, unlike waiting a fixed short delay.
+fn adapter_for_with_zero_activity_thresholds(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
+    let cfg = service::dbms_config::resolve_db_connection_from(
+        Some(pg.socket_dir.display().to_string()),
+        Some(pg.port.to_string()),
+        Some("postgres".to_string()),
+        Some("postgres".to_string()),
+        Some("trust-auth-ignores-this".to_string()),
+        Some("disable".to_string()),
+        None,
+        None,
+    )
+    .expect("host+password were both given");
+    let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds");
+    Arc::new(PostgresAdapter::from_pool(pg_pool, false).with_activity_thresholds(0.0, 0.0))
+}
+
+/// Unit U53 (ADR 0046/0058): a real, genuinely open transaction —
+/// `BEGIN;` with no further query, the same real fixture U49's
+/// `sessions_returns_a_real_idle_in_transaction_backend_correctly`
+/// already established — reported for real via the endpoint, closing
+/// ADR 0046's own named populated-path gap.
+#[tokio::test]
+async fn long_transactions_reports_a_real_long_running_transaction() {
+    let mut pg = support::TestPostgres::start(17).await;
+
+    let (client, connection) = pg
+        .config("postgres", "postgres")
+        .connect(tokio_postgres::NoTls)
+        .await
+        .expect("connect");
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    client
+        .batch_execute("BEGIN;")
+        .await
+        .expect("open a real transaction");
+    let backend_pid: i32 = client
+        .query_one("SELECT pg_backend_pid()", &[])
+        .await
+        .expect("query pg_backend_pid")
+        .get(0);
+
+    let adapter = adapter_for_with_zero_activity_thresholds(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/long-transactions").await;
+
+    client
+        .batch_execute("ROLLBACK;")
+        .await
+        .expect("release the real transaction");
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let txns = body["data"].as_array().expect("data is an array");
+    let txn = txns
+        .iter()
+        .find(|t| t["pid"] == backend_pid)
+        .unwrap_or_else(|| {
+            panic!("the real open transaction {backend_pid} must appear, got {body:?}")
+        });
+    assert!(
+        txn["duration_seconds"]
+            .as_f64()
+            .expect("duration_seconds is a number")
+            >= 0.0
+    );
+    assert_eq!(txn["state"], "IDLE_IN_TRANSACTION");
+    assert_eq!(txn["username"], "postgres");
+}
+
+/// Unit U53 (ADR 0046/0058): closes the same named populated-path gap
+/// for the sibling endpoint, using the identical real fixture.
+#[tokio::test]
+async fn idle_in_transaction_sessions_reports_a_real_idle_session() {
+    let mut pg = support::TestPostgres::start(17).await;
+
+    let (client, connection) = pg
+        .config("postgres", "postgres")
+        .connect(tokio_postgres::NoTls)
+        .await
+        .expect("connect");
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    client
+        .batch_execute("BEGIN;")
+        .await
+        .expect("open a real transaction");
+    let backend_pid: i32 = client
+        .query_one("SELECT pg_backend_pid()", &[])
+        .await
+        .expect("query pg_backend_pid")
+        .get(0);
+
+    let adapter = adapter_for_with_zero_activity_thresholds(&pg);
+    let app = build_app(Some(adapter)).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/idle-in-transaction-sessions").await;
+
+    client
+        .batch_execute("ROLLBACK;")
+        .await
+        .expect("release the real transaction");
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let sessions = body["data"].as_array().expect("data is an array");
+    let session = sessions
+        .iter()
+        .find(|s| s["pid"] == backend_pid)
+        .unwrap_or_else(|| {
+            panic!("the real idle-in-transaction session {backend_pid} must appear, got {body:?}")
+        });
+    assert!(
+        session["idle_duration_seconds"]
+            .as_f64()
+            .expect("idle_duration_seconds is a number")
+            >= 0.0
+    );
+    assert_eq!(session["username"], "postgres");
 }

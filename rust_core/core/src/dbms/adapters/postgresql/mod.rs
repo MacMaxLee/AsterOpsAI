@@ -17,16 +17,19 @@ use crate::dbms::{
 
 /// A row is "long-running" past this many seconds of open-transaction time
 /// (`long_transactions`) or idle-in-transaction time
-/// (`idle_in_transaction_sessions`) — not user-configurable this unit
-/// (SCOPE doesn't wire up a live config surface yet; see mod.rs's scope
-/// note), but named as a constant rather than a buried literal so a later
-/// unit can make it configurable without hunting for it.
+/// (`idle_in_transaction_sessions`) — the real default every production
+/// caller (`connect`/`from_pool`) uses. Unit U53: overridable per-instance
+/// via `with_activity_thresholds` (test-only — `service` never calls it),
+/// the same real, session-scoped-override spirit `deadlock_timeout` was
+/// lowered with in unit U39.
 const LONG_TRANSACTION_THRESHOLD_SECONDS: f64 = 60.0;
 const IDLE_IN_TRANSACTION_THRESHOLD_SECONDS: f64 = 60.0;
 
 pub struct PostgresAdapter {
     pool: Pool,
     capture_raw_sql: bool,
+    long_transaction_threshold_seconds: f64,
+    idle_in_transaction_threshold_seconds: f64,
 }
 
 impl PostgresAdapter {
@@ -54,6 +57,8 @@ impl PostgresAdapter {
         Ok(Self {
             pool,
             capture_raw_sql: metadata.capture_raw_sql,
+            long_transaction_threshold_seconds: LONG_TRANSACTION_THRESHOLD_SECONDS,
+            idle_in_transaction_threshold_seconds: IDLE_IN_TRANSACTION_THRESHOLD_SECONDS,
         })
     }
 
@@ -66,7 +71,25 @@ impl PostgresAdapter {
         Self {
             pool,
             capture_raw_sql,
+            long_transaction_threshold_seconds: LONG_TRANSACTION_THRESHOLD_SECONDS,
+            idle_in_transaction_threshold_seconds: IDLE_IN_TRANSACTION_THRESHOLD_SECONDS,
         }
+    }
+
+    /// Unit U53: test-only override for the otherwise-fixed
+    /// activity-detection thresholds above — lets a test prove
+    /// `long_transactions`/`idle_in_transaction_sessions`' real
+    /// populated path in milliseconds instead of waiting a genuine 60
+    /// real seconds. Not a general runtime config knob — no env var,
+    /// no `service`-layer plumbing; `service` never calls this.
+    pub fn with_activity_thresholds(
+        mut self,
+        long_transaction_seconds: f64,
+        idle_in_transaction_seconds: f64,
+    ) -> Self {
+        self.long_transaction_threshold_seconds = long_transaction_seconds;
+        self.idle_in_transaction_threshold_seconds = idle_in_transaction_seconds;
+        self
     }
 }
 
@@ -138,7 +161,7 @@ impl DbmsAdapter for PostgresAdapter {
         let client = self.pool.get().await?;
         queries::long_transactions(
             &client,
-            LONG_TRANSACTION_THRESHOLD_SECONDS,
+            self.long_transaction_threshold_seconds,
             self.capture_raw_sql,
         )
         .await
@@ -148,6 +171,7 @@ impl DbmsAdapter for PostgresAdapter {
         &self,
     ) -> Result<Vec<IdleInTransactionSession>, DbmsError> {
         let client = self.pool.get().await?;
-        queries::idle_in_transaction_sessions(&client, IDLE_IN_TRANSACTION_THRESHOLD_SECONDS).await
+        queries::idle_in_transaction_sessions(&client, self.idle_in_transaction_threshold_seconds)
+            .await
     }
 }
