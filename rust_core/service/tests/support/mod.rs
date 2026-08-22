@@ -104,7 +104,6 @@ impl TestPostgres {
         let lib_dir = libpq_dir();
         let data_dir = tempfile::tempdir().expect("tempdir");
         let pgdata = data_dir.path().join("data");
-        let port = pick_free_port();
         let superuser = "postgres".to_string();
 
         let status = Command::new(bin_dir.join("initdb"))
@@ -122,6 +121,88 @@ impl TestPostgres {
             "initdb failed for PostgreSQL {major_version}"
         );
 
+        Self::start_pg_ctl(
+            major_version,
+            data_dir,
+            bin_dir,
+            lib_dir,
+            superuser,
+            extra_options,
+        )
+        .await
+    }
+
+    /// Unit U52: a real streaming-replication standby of `self`, built
+    /// via a real `pg_basebackup -R` against this instance's own
+    /// socket — never a fixture. Works entirely over the same
+    /// Unix-domain socket every `TestPostgres` already uses
+    /// (`primary_conninfo`'s `host` accepts a socket directory, no TCP
+    /// listener needed); `initdb --auth=trust`'s own default
+    /// `pg_hba.conf` already trust-authenticates `replication`
+    /// connections, so no extra auth setup is needed either. `-R`
+    /// auto-writes `standby.signal` + `primary_conninfo`; the default
+    /// `--wal-method=stream` (since PG10) needs no extra flags for a
+    /// consistent, working standby. Returns another full
+    /// `TestPostgres` — from every caller's perspective a standby is
+    /// just another real running instance, so every existing method
+    /// (`superuser_client`, `config`, `stop`) works unchanged.
+    pub async fn start_standby_of(&self, major_version: u32) -> Self {
+        let bin_dir = bin_dir(major_version);
+        if !bin_dir.join("pg_basebackup").exists() {
+            panic!(
+                "PostgreSQL {major_version} binaries not found at {}; run \
+                 scripts/setup-test-postgres.sh first",
+                bin_dir.display()
+            );
+        }
+        let lib_dir = libpq_dir();
+        let data_dir = tempfile::tempdir().expect("tempdir");
+        let pgdata = data_dir.path().join("data");
+
+        let status = Command::new(bin_dir.join("pg_basebackup"))
+            .arg("-h")
+            .arg(&self.socket_dir)
+            .arg("-p")
+            .arg(self.port.to_string())
+            .arg("-U")
+            .arg(&self.superuser)
+            .arg("-D")
+            .arg(&pgdata)
+            .arg("-R")
+            .env("LD_LIBRARY_PATH", &lib_dir)
+            .status()
+            .await
+            .expect("spawn pg_basebackup");
+        assert!(
+            status.success(),
+            "pg_basebackup failed for PostgreSQL {major_version}"
+        );
+
+        Self::start_pg_ctl(
+            major_version,
+            data_dir,
+            bin_dir,
+            lib_dir,
+            self.superuser.clone(),
+            "",
+        )
+        .await
+    }
+
+    /// Shared tail of every start path above: run `pg_ctl start`
+    /// against an already-prepared `pgdata` directory (built by either
+    /// `initdb` or `pg_basebackup`), wait for real readiness, and
+    /// construct `Self`.
+    async fn start_pg_ctl(
+        major_version: u32,
+        data_dir: TempDir,
+        bin_dir: PathBuf,
+        lib_dir: PathBuf,
+        superuser: String,
+        extra_options: &str,
+    ) -> Self {
+        let pgdata = data_dir.path().join("data");
+        let port = pick_free_port();
         let log_path = data_dir.path().join("server.log");
         let status = Command::new(bin_dir.join("pg_ctl"))
             .arg("-D")

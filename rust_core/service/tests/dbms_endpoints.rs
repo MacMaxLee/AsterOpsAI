@@ -337,6 +337,77 @@ async fn replication_status_reports_a_real_primary_state() {
     );
 }
 
+/// Unit U52 (ADR 0042/0057): closes the last remaining test-coverage
+/// gap named above — a real streaming-replication standby, built via
+/// `support::TestPostgres::start_standby_of`'s real `pg_basebackup`,
+/// proving both the primary's real `pg_stat_replication`-backed view
+/// and the standby's own in-recovery view, neither ever exercised over
+/// HTTP before this unit.
+#[tokio::test]
+async fn replication_status_reports_a_real_standby_once_streaming() {
+    let mut primary = support::TestPostgres::start(17).await;
+    let mut standby = primary.start_standby_of(17).await;
+
+    // Poll the primary's real pg_stat_replication for the real standby
+    // to register — no guessed sleep.
+    let setup = primary.superuser_client().await;
+    let deadline = tokio::time::Instant::now() + StdDuration::from_secs(15);
+    loop {
+        let row = setup
+            .query_one("SELECT count(*) FROM pg_stat_replication", &[])
+            .await
+            .expect("query pg_stat_replication");
+        let count: i64 = row.get(0);
+        if count >= 1 {
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "the real standby never registered in pg_stat_replication"
+        );
+        tokio::time::sleep(StdDuration::from_millis(100)).await;
+    }
+
+    let primary_adapter = adapter_for(&primary);
+    let primary_app = build_app(Some(primary_adapter)).await;
+    let (primary_status, primary_body) = get_json(primary_app, "/api/v1/dbms/replication").await;
+
+    let standby_adapter = adapter_for(&standby);
+    let standby_app = build_app(Some(standby_adapter)).await;
+    let (standby_status, standby_body) = get_json(standby_app, "/api/v1/dbms/replication").await;
+
+    standby.stop().await;
+    primary.stop().await;
+
+    assert_eq!(primary_status, StatusCode::OK, "body: {primary_body:?}");
+    assert_eq!(primary_body["data"]["is_primary"], true);
+    assert_eq!(primary_body["data"]["in_recovery"], false);
+    let standbys = primary_body["data"]["standbys"]
+        .as_array()
+        .expect("standbys is an array");
+    assert_eq!(
+        standbys.len(),
+        1,
+        "expected exactly one real streaming standby, got: {standbys:?}"
+    );
+    assert_eq!(standbys[0]["state"], "streaming");
+
+    assert_eq!(
+        standby_status,
+        StatusCode::OK,
+        "standby body: {standby_body:?}"
+    );
+    assert_eq!(standby_body["data"]["is_primary"], false);
+    assert_eq!(standby_body["data"]["in_recovery"], true);
+    assert_eq!(
+        standby_body["data"]["standbys"]
+            .as_array()
+            .expect("standbys is an array")
+            .len(),
+        0
+    );
+}
+
 #[tokio::test]
 async fn gucs_returns_real_settings_including_max_connections() {
     let mut pg = support::TestPostgres::start(17).await;
