@@ -12,6 +12,7 @@ use super::audit::{insert_audit_event, seed_chain_state};
 use super::benchmark::{insert_benchmark_run, mark_rolled_back};
 use super::device_trust;
 use super::error::RepositoryError;
+use super::guc_history;
 use super::models::{
     AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
     NewSecurityEvent, NewSecuritySuppression, NewTuningPlan, PerformanceAnalysisRow,
@@ -126,6 +127,14 @@ pub enum WriteCommand {
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<bool, RepositoryError>>,
     },
+    /// Records a GUC's polled setting (unit U55, SRS FR-DBSEC-001(e)),
+    /// replying with its previous setting, if any.
+    RecordGucValue {
+        name: String,
+        setting: String,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<Option<String>, RepositoryError>>,
+    },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
     /// against process exit.
@@ -238,6 +247,16 @@ pub fn spawn(
                         reply,
                     } => {
                         drop(reply.send(device_trust::record_seen(&conn, &identifier, now)));
+                    }
+                    WriteCommand::RecordGucValue {
+                        name,
+                        setting,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(guc_history::record_guc_value(
+                            &conn, &name, &setting, now,
+                        )));
                     }
                     WriteCommand::Shutdown { reply } => {
                         let _ = reply.send(());

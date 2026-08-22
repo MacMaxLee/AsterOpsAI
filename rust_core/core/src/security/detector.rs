@@ -29,6 +29,7 @@ pub struct DetectedEvent {
 
 pub const DETECTOR_SUPERUSER_OVERRIDE: &str = "dbms.superuser_override_used";
 pub const DETECTOR_UNTRUSTED_DEVICE: &str = "host.untrusted_device_attached";
+pub const DETECTOR_GUC_CHANGED: &str = "dbms.guc_changed";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -106,6 +107,47 @@ pub fn detect_untrusted_device(
     })
 }
 
+/// Unit U55 (SRS FR-DBSEC-001(e)): fires only when `previous_setting`
+/// is a real, previously-recorded value (`repository::guc_history::
+/// record_guc_value`'s own `None` means "first-ever observation" —
+/// seeding the baseline, not a change, the identical "empty history
+/// isn't a real event" precedent `detect_untrusted_device` already
+/// established) *and* it genuinely differs from `current_setting`. A
+/// judgment call, not an SRS-pinned severity: `Medium`, the same
+/// tier `detect_untrusted_device` uses — worth flagging for review,
+/// not inherently as dangerous as a privilege escalation.
+pub fn detect_guc_change(
+    name: &str,
+    previous_setting: Option<&str>,
+    current_setting: &str,
+    now: DateTime<Utc>,
+) -> Option<DetectedEvent> {
+    let previous_setting = previous_setting?;
+    if previous_setting == current_setting {
+        return None;
+    }
+    Some(DetectedEvent {
+        detector_id: DETECTOR_GUC_CHANGED,
+        severity: Severity::Medium,
+        category: "CONFIGURATION_CHANGE",
+        summary: format!(
+            "configuration setting '{name}' changed from '{previous_setting}' to \
+             '{current_setting}'"
+        ),
+        evidence_json: serde_json::json!({
+            "name": name,
+            "previous_setting": previous_setting,
+            "current_setting": current_setting,
+        })
+        .to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: name.to_string(),
+        },
+        ts: now,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,6 +197,24 @@ mod tests {
         assert!(
             detect_untrusted_device("block:sda", "sda", false, false, now).is_none(),
             "non-removable devices never fire, even when new"
+        );
+    }
+
+    #[test]
+    fn guc_change_fires_only_when_a_known_prior_value_genuinely_differs() {
+        let now = Utc::now();
+        assert!(
+            detect_guc_change("autovacuum", Some("on"), "off", now).is_some(),
+            "a real change from a known prior value must fire"
+        );
+        assert!(
+            detect_guc_change("autovacuum", None, "on", now).is_none(),
+            "the first-ever observation of a GUC must never fire — it seeds \
+             the baseline, not a change"
+        );
+        assert!(
+            detect_guc_change("autovacuum", Some("on"), "on", now).is_none(),
+            "an unchanged value must never fire"
         );
     }
 }

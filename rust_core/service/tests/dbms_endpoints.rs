@@ -17,6 +17,7 @@ use std::time::Duration as StdDuration;
 use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
 use ai_ops_core::dbms::{pool, DbmsAdapter};
 use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
+use ai_ops_core::repository::{self, RepositoryConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
@@ -40,6 +41,41 @@ async fn build_app(dbms_adapter: Option<Arc<dyn DbmsAdapter>>) -> axum::Router {
         None,
     );
     api::router(state)
+}
+
+/// Unit U55: same as `build_app`, but with a real repository wired in
+/// — needed only by the configuration-change-detection test, which is
+/// why every one of this file's other ~26 tests keeps using plain
+/// `build_app` (repository-less) unchanged.
+async fn build_app_with_repository(
+    dbms_adapter: Option<Arc<dyn DbmsAdapter>>,
+    repository: repository::RepositoryHandle,
+) -> axum::Router {
+    let platform: Arc<dyn platform::PlatformAdapter> =
+        Arc::from(platform::current_platform_adapter());
+    let self_metrics = self_metrics::spawn(platform.clone());
+    let host_telemetry = telemetry::sampler::spawn(platform.clone(), None);
+    let state = AppState::new(
+        platform,
+        self_metrics,
+        host_telemetry,
+        Some(repository),
+        dbms_adapter,
+        Arc::new(ActionTypeRegistry::new()),
+        Arc::new(ProtectedResourceRegistry::new()),
+        Environment::Development,
+        None,
+    );
+    api::router(state)
+}
+
+async fn open_repo() -> repository::RepositoryHandle {
+    let dir = tempfile::tempdir().expect("temp dir");
+    let db_path = dir.path().join("test.sqlite3");
+    // Leak the TempDir so the file survives for the rest of the test —
+    // integration-test scale, not a real service lifetime concern.
+    std::mem::forget(dir);
+    repository::init(&RepositoryConfig { db_path }).expect("repository::init")
 }
 
 async fn get_json(app: axum::Router, path: &str) -> (StatusCode, Value) {
@@ -429,6 +465,68 @@ async fn gucs_returns_real_settings_including_max_connections() {
             .is_empty(),
         "expected a real, non-empty setting value"
     );
+}
+
+/// Unit U55 (SRS FR-DBSEC-001(e)): the first real, end-to-end proof of
+/// the whole detection pipeline — a genuine `sighup`-context GUC
+/// change (empirically confirmed against a real instance before this
+/// test was written: `ALTER SYSTEM SET` + `pg_reload_conf()` changes
+/// `pg_settings.setting` immediately, on any connection, no restart
+/// needed) polled twice via the real `/gucs` endpoint produces a real,
+/// queryable security incident over `GET /api/v1/security/incidents`
+/// — the same router this file's own `build_app` already assembles in
+/// full, not a narrower test-only route set.
+#[tokio::test]
+async fn gucs_polling_a_real_changed_sighup_guc_produces_a_real_security_incident() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
+
+    // Two separate statements, not one batch: PostgreSQL's simple-query
+    // protocol implicitly wraps a multi-statement string in a
+    // transaction, and ALTER SYSTEM refuses to run inside one.
+    setup
+        .execute("ALTER SYSTEM SET autovacuum = off", &[])
+        .await
+        .expect("ALTER SYSTEM SET");
+    setup
+        .execute("SELECT pg_reload_conf()", &[])
+        .await
+        .expect("pg_reload_conf");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let gucs = body["data"].as_array().expect("data is an array");
+    let autovacuum = gucs
+        .iter()
+        .find(|g| g["name"] == "autovacuum")
+        .unwrap_or_else(|| panic!("expected a real autovacuum guc, got: {gucs:?}"));
+    assert_eq!(
+        autovacuum["setting"], "off",
+        "the real config-file reload must be reflected here"
+    );
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    let incident = incidents
+        .iter()
+        .find(|i| i["summary"].as_str().unwrap_or("").contains("autovacuum"))
+        .unwrap_or_else(|| {
+            panic!("expected a real security incident naming autovacuum, got: {incidents:?}")
+        });
+    assert_eq!(incident["severity"], "MEDIUM");
 }
 
 /// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*

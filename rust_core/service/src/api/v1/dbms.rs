@@ -16,7 +16,10 @@ use ai_ops_core::dbms::{
     StandbyInfo as CoreStandbyInfo, TableStat as CoreTableStat,
     TempFileActivity as CoreTempFileActivity,
 };
+use ai_ops_core::repository;
+use ai_ops_core::security;
 use axum::extract::{Extension, State};
+use chrono::Utc;
 use contracts::{
     ApiError, DeadlockInfo, GatedValue, GucValue, IdleInTransactionSession, IndexStat, LockEdge,
     LongTransaction, QueryStat, ReplicationStatus, SessionInfo, StandbyInfo, TableStat,
@@ -261,6 +264,35 @@ fn to_wire_guc(guc: CoreGucValue) -> GucValue {
     }
 }
 
+/// Unit U55 (SRS FR-DBSEC-001(e)): the first production trigger for
+/// `core::security`'s detection→incident pipeline (neither pre-existing
+/// detector was ever called from `service` before this unit). No
+/// standing DBMS poll loop exists — detection piggybacks on this
+/// already-real, already-polled endpoint instead of new scheduler
+/// infrastructure. Best-effort: a detection failure is logged, never
+/// blocks the real GUC data this endpoint exists to serve.
+async fn check_guc_changes(repo: &repository::RepositoryHandle, gucs: &[CoreGucValue]) {
+    let now = Utc::now();
+    for guc in gucs {
+        let previous = match repository::record_guc_value(repo, &guc.name, &guc.setting, now).await
+        {
+            Ok(previous) => previous,
+            Err(err) => {
+                tracing::warn!(error = %err, guc = %guc.name, "record_guc_value failed");
+                continue;
+            }
+        };
+        let Some(event) =
+            security::detect_guc_change(&guc.name, previous.as_deref(), &guc.setting, now)
+        else {
+            continue;
+        };
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, guc = %guc.name, "record_event failed for a detected GUC change");
+        }
+    }
+}
+
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -273,6 +305,11 @@ pub async fn gucs(
             tracing::warn!(error = %err, "relevant_gucs failed");
             ApiError::Unavailable(format!("DB poll failed: {err}"))
         })?;
+
+        if let Some(repo) = state.repository.as_ref() {
+            check_guc_changes(repo, &gucs).await;
+        }
+
         Ok(gucs.into_iter().map(to_wire_guc).collect())
     }
     .await;

@@ -7,6 +7,7 @@ pub mod benchmark;
 pub mod connection;
 pub mod device_trust;
 pub mod error;
+pub mod guc_history;
 pub mod history;
 pub mod migrations;
 pub mod models;
@@ -341,6 +342,32 @@ pub async fn record_security_suppression(
         .command_tx
         .send(WriteCommand::RecordSuppression {
             new,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U55: returns the previous setting for `name`, if any (`None`
+/// means this is the first observation, a baseline seed rather than a
+/// change) — the caller (`security::detect_guc_change`) decides
+/// whether that constitutes a real, fireable event.
+pub async fn record_guc_value(
+    handle: &RepositoryHandle,
+    name: impl Into<String>,
+    setting: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<Option<String>, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordGucValue {
+            name: name.into(),
+            setting: setting.into(),
+            now,
             reply: reply_tx,
         })
         .await
