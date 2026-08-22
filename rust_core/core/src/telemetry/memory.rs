@@ -204,6 +204,8 @@ mod tests {
         insta::assert_json_snapshot!(snapshot);
     }
 
+    /// SRS FR-MEM-002: inside a container, the cgroup limit is the
+    /// reported ceiling, not the host's own total.
     #[test]
     fn container_reports_cgroup_limit() {
         let source = FixtureProcSource::scenario("container");

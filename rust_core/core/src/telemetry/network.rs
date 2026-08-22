@@ -130,6 +130,8 @@ mod tests {
         insta::assert_json_snapshot!(snapshot);
     }
 
+    /// SRS FR-NET-001: per-interface throughput/packets/errors/drops,
+    /// and a NIC counter reset must never present as negative throughput.
     #[test]
     fn nic_counter_reset() {
         let before = FixtureProcSource::scenario_phase("nic-counter-reset", "before");

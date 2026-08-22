@@ -296,6 +296,10 @@ mod tests {
         }
     }
 
+    /// SRS FR-PRO-001 (CPU%/RSS/owner/cmdline per process) and
+    /// FR-PRO-002 (per-process disk/network I/O only where the platform
+    /// supports it — the snapshot locks in `PermissionRequired`/
+    /// `Unavailable`, never a fabricated value).
     #[test]
     fn idle() {
         let source = FixtureProcSource::scenario("idle");

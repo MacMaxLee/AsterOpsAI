@@ -1,6 +1,9 @@
 //! Full `DbmsAdapter` method set, exercised against real PostgreSQL 13, 15,
 //! and 17 server instances (the DoD's version matrix) — one shared body,
 //! run once per version so a failure clearly names which version broke.
+//! Covers SRS FR-DB-001 (version/uptime), FR-DB-003 (`query_stats`'s
+//! `Gated` degrade path), FR-DB-007 (table/index stats), and FR-DB-009
+//! (curated GUCs, temp-file activity).
 //!
 //! Integration tests are already test-only code; the workspace's
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.

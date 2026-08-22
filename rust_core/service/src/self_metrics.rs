@@ -1,6 +1,12 @@
-//! Tracks this process's own CPU%/RSS, exposed on `/api/v1/health` (TRS §40).
-//! Sampling happens on a background interval so the health handler never
-//! blocks on a syscall per request.
+//! Tracks this process's own CPU%/RSS, exposed on `/api/v1/health` (TRS
+//! §40, SRS FR-SYS-002: "the core reports its own resource usage on every
+//! health check"). Sampling happens on a background interval so the
+//! health handler never blocks on a syscall per request.
+//!
+//! `service/tests/health_endpoint.rs`'s own test exercises this wiring
+//! end-to-end but doesn't currently assert on the resulting
+//! `self_cpu_percent`/`self_rss_bytes` values — real wiring, thin
+//! verification, a real gap worth a small follow-up assertion.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};

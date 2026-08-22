@@ -97,6 +97,8 @@ fn clean_bundle_is_all_ok_or_unavailable() {
     assert_eq!(verdict.score, 100);
 }
 
+/// SRS FR-DB-004: active-session reporting includes a state
+/// classification and connection-saturation relative to `max_connections`.
 #[test]
 fn connection_saturation_critical_when_near_max() {
     let mut bundle = empty_bundle();

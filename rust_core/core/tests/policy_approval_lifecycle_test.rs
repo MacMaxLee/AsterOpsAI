@@ -1,6 +1,8 @@
-//! TRS §25's approval lifecycle: single-use, expiry, replay, parameter
-//! mutation, and target change are each a dedicated, real test against the
-//! real SQLite writer thread — not an in-memory stand-in. Integration
+//! TRS §25's approval lifecycle (SRS FR-POL-003: explicit, single-use,
+//! time-limited approval bound to a target/parameter set): single-use,
+//! expiry, replay, parameter mutation, and target change are each a
+//! dedicated, real test against the real SQLite writer thread — not an
+//! in-memory stand-in. Integration
 //! tests are already test-only code; the workspace's unwrap/expect deny
 //! targets production code paths, not `tests/*.rs`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]

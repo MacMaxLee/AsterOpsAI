@@ -227,6 +227,8 @@ mod tests {
         }
     }
 
+    /// SRS FR-CPU-001: per-core/aggregate utilization, load averages, and
+    /// frequency are all present in this snapshot.
     #[test]
     fn idle() {
         let source = FixtureProcSource::scenario("idle");
@@ -251,6 +253,9 @@ mod tests {
         insta::assert_json_snapshot!(snapshot);
     }
 
+    /// SRS FR-CPU-002: utilization is computed from a monotonic elapsed
+    /// delta, not wall time — a large real gap (suspend/resume) must
+    /// surface as `SampleGap`, never a fabricated rate.
     #[test]
     fn suspend_gap_emits_sample_gap() {
         let before = FixtureProcSource::scenario_phase("suspend-gap", "before");

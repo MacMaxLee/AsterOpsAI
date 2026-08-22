@@ -2,7 +2,7 @@
 //! standby (both real extracted-binary PostgreSQL instances, wired via
 //! `pg_basebackup -R`, not simulated), confirming `replication_status()`
 //! reports genuine sent/write/flush/replay LSN and lag data from the
-//! primary's own `pg_stat_replication`.
+//! primary's own `pg_stat_replication` — SRS FR-DB-008.
 //!
 //! Integration tests are already test-only code; the workspace's
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.

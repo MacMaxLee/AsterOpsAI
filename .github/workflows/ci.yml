@@ -79,6 +79,12 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-no-sql-outside-adapters.sh
 
+  fr-id-traceability:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-fr-id-traceability.sh
+
   # Native runners, not cross-compiled from ubuntu-latest: unit U2 added
   # rusqlite's "bundled" feature, which compiles SQLite's C sources via
   # `cc` in a build script. Cross-compiling that C code from Linux to

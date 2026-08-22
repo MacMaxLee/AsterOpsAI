@@ -15,6 +15,8 @@ Future<void> _pump(WidgetTester tester, Widget child) async {
   );
 }
 
+/// SRS FR-CONSOLE-002: the console must never render "zero" and
+/// "no data" (SAMPLE_GAP/UNAVAILABLE) identically.
 void main() {
   testWidgets('SUPPORTED renders the formatted value, no badge', (
     tester,

@@ -4,7 +4,8 @@
 //! closes (the service sampler's own prior tracking was an ephemeral,
 //! in-process `HashSet` that reset on every restart) — then that
 //! `security::detect_untrusted_device` only fires for a new, removable
-//! device.
+//! device — SRS FR-DEV-001's own "attached storage/removable/peripheral
+//! devices with a stable identifier" requirement, real and durable.
 //!
 //! Integration tests are already test-only code; the workspace's
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.

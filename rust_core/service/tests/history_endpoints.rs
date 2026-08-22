@@ -55,6 +55,9 @@ async fn history_is_unavailable_without_a_repository() {
     assert_eq!(body["error"]["code"], "UNAVAILABLE");
 }
 
+/// SRS FR-HIST-001: history is queryable over the range tiers this
+/// endpoint exposes (last_hour exercised here; 24h/7d/30d/custom share
+/// the same `resolve_range` code path).
 #[tokio::test]
 async fn history_returns_persisted_points_once_a_repository_is_wired_up() {
     let dir = tempfile::tempdir().unwrap();

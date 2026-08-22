@@ -112,6 +112,11 @@ fn parse_diskstats(raw: &str) -> HashMap<String, DiskCounters> {
 
 pub type PrevDiskState = HashMap<String, DiskCounters>;
 
+/// SRS FR-STO-002: I/O latency where the platform exposes it. Unlike
+/// `parse_storage_snapshot`'s own rate/counter-reset branches (FR-STO-001),
+/// no existing test currently drives this with a real before/after
+/// fixture pair — every test calls it via a `prev: None` first sample, so
+/// the counter-reset/decrease branch below is implemented but unverified.
 fn latency_ms(prev: &DiskCounters, curr: &DiskCounters, ctx: &SampleContext) -> MetricValue<f64> {
     if ctx.elapsed > ctx.configured_interval * 2 {
         return MetricValue::SampleGap {
