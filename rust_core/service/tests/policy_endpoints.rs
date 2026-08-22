@@ -363,6 +363,88 @@ async fn granting_an_already_granted_action_is_a_bad_request_not_a_panic() {
     assert_eq!(body["error"]["code"], "BAD_REQUEST");
 }
 
+/// Unit U54 (ADR 0055/0059): the veto ADR 0055 deferred — a real
+/// `AUTO_ALLOWED` row can now be rejected over HTTP, before it ever
+/// runs, and is audited under its own distinct event type.
+#[tokio::test]
+async fn rejecting_an_auto_allowed_action_denies_it_and_records_a_distinct_audit_event() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_auto_allowed_for(
+        &repo,
+        "tuning-engine",
+        "host.set_process_cpu_affinity",
+        &target,
+        json!({ "cpus": [0] }),
+    )
+    .await;
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/reject"),
+        json!({ "rejected_by": "reviewer" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+
+    let row = repository::get_action(&repo, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(row.status, "DENIED");
+
+    let conn = repository::reader::checkout(&repo.read_pool).expect("checkout reader");
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM audit_events WHERE event_type = 'policy.auto_allowed_rejected'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("query audit_events");
+    assert_eq!(
+        count, 1,
+        "a vetoed auto-allowed row must be audited distinctly from an \
+         ordinary pending-proposal rejection"
+    );
+}
+
+/// Unit U54: rejecting an already-`EXECUTED` row is still a real `400`,
+/// not silently accepted — proves the CAS's status check is genuinely
+/// enforced, not bypassed by this unit's new `AUTO_ALLOWED` branch.
+#[tokio::test]
+async fn rejecting_an_already_executed_action_is_a_real_bad_request() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_pending_for(
+        &repo,
+        "tester",
+        "host.set_process_cpu_affinity",
+        &target,
+        json!({ "cpus": [0] }),
+    )
+    .await;
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, _) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/reject"),
+        json!({ "rejected_by": "reviewer" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {body:?}");
+    assert_eq!(body["error"]["code"], "BAD_REQUEST");
+}
+
 /// Unit U50 (ADR 0028/0055): the gap being closed — a real
 /// `AUTO_ALLOWED` row genuinely appears in the inbox for the first
 /// time, distinguishable from a `PENDING_APPROVAL` row via the new

@@ -14,6 +14,7 @@ use ai_ops_core::policy::{
     approval, evaluate, validate, ActionRequest, Environment, PolicyOutcome, ResourceDescriptor,
     ResourceKind, TargetIdentity,
 };
+use ai_ops_core::repository;
 use chrono::{Duration, Utc};
 use common::lifecycle_test_registry;
 use repo_common::TestRepo;
@@ -317,5 +318,127 @@ async fn changed_resource_after_approval_is_rejected() {
     assert!(
         result.is_err(),
         "authorize() with a different resource than what was proposed must fail"
+    );
+}
+
+/// Unit U54: no core-level `reject` coverage existed in this file before
+/// this unit — baseline proof of the pre-existing `PENDING_APPROVAL`
+/// path, unmodified by this unit's `AUTO_ALLOWED` addition below.
+#[tokio::test]
+async fn reject_a_pending_approval_action_denies_it_and_audits_as_rejected() {
+    let repo = TestRepo::open();
+    let registry = lifecycle_test_registry();
+    let now = Utc::now();
+    let validated = validate(needs_approval_request(), &registry).expect("validate");
+    let outcome = evaluate(
+        validated,
+        Environment::Development,
+        &registry,
+        &repo.handle,
+        now,
+    )
+    .await
+    .expect("evaluate");
+    let row_id = match outcome {
+        PolicyOutcome::PendingApproval { row_id, .. } => row_id,
+        other => panic!("expected PendingApproval, got {other:?}"),
+    };
+
+    approval::reject(&repo.handle, row_id, "reviewer", now)
+        .await
+        .expect("reject");
+
+    let row = repository::get_action(&repo.handle, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(row.status, "DENIED");
+
+    let event_type = repository::latest_audit_event_type(&repo.handle)
+        .await
+        .expect("latest_audit_event_type")
+        .expect("an audit event exists");
+    assert_eq!(event_type, "policy.rejected");
+}
+
+/// Unit U54 (ADR 0055/0059): the new capability — a real `AUTO_ALLOWED`
+/// row (never itself calling `grant`) can now be vetoed before it ever
+/// runs, denied for real, and audited under its own distinct event type.
+#[tokio::test]
+async fn reject_an_auto_allowed_action_denies_it_and_audits_distinctly() {
+    let repo = TestRepo::open();
+    let registry = lifecycle_test_registry();
+    let now = Utc::now();
+    let request = ActionRequest {
+        action_type: "test.auto_allow".to_string(),
+        ..needs_approval_request()
+    };
+    let validated = validate(request, &registry).expect("validate");
+    let outcome = evaluate(
+        validated,
+        Environment::Development,
+        &registry,
+        &repo.handle,
+        now,
+    )
+    .await
+    .expect("evaluate");
+    let row_id = match outcome {
+        PolicyOutcome::AutoAllowed { row_id } => row_id,
+        other => panic!("expected AutoAllowed, got {other:?}"),
+    };
+
+    approval::reject(&repo.handle, row_id, "reviewer", now)
+        .await
+        .expect("reject an auto-allowed row");
+
+    let row = repository::get_action(&repo.handle, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(row.status, "DENIED");
+
+    let event_type = repository::latest_audit_event_type(&repo.handle)
+        .await
+        .expect("latest_audit_event_type")
+        .expect("an audit event exists");
+    assert_eq!(
+        event_type, "policy.auto_allowed_rejected",
+        "a vetoed auto-allowed row must be audited distinctly from a human's \
+         rejection of an ordinary pending proposal"
+    );
+}
+
+/// Unit U54: the CAS still protects against a wrong/already-terminal
+/// status — rejecting an already-`DENIED` row must fail, not silently
+/// re-apply or panic.
+#[tokio::test]
+async fn rejecting_an_already_denied_action_fails_not_a_panic() {
+    let repo = TestRepo::open();
+    let registry = lifecycle_test_registry();
+    let now = Utc::now();
+    let validated = validate(needs_approval_request(), &registry).expect("validate");
+    let outcome = evaluate(
+        validated,
+        Environment::Development,
+        &registry,
+        &repo.handle,
+        now,
+    )
+    .await
+    .expect("evaluate");
+    let row_id = match outcome {
+        PolicyOutcome::PendingApproval { row_id, .. } => row_id,
+        other => panic!("expected PendingApproval, got {other:?}"),
+    };
+
+    approval::reject(&repo.handle, row_id, "reviewer", now)
+        .await
+        .expect("first reject should succeed");
+
+    let second = approval::reject(&repo.handle, row_id, "reviewer-again", now).await;
+    assert!(
+        second.is_err(),
+        "rejecting an already-DENIED row a second time must fail"
     );
 }

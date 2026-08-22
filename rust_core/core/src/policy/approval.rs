@@ -80,6 +80,22 @@ pub async fn grant(
 /// decision, even though both rows end up `DENIED`. Leaves `approved_by`
 /// unset (same as an automatic denial) — the audit event, not a row
 /// column, is this action's durable record of who did it.
+///
+/// Unit U54 (ADR 0055/0059): also accepts an `AUTO_ALLOWED` row — the
+/// veto ADR 0055 explicitly deferred. `authorize`'s own precedent
+/// (accepting `APPROVED` *or* `AUTO_ALLOWED` directly) is mirrored here:
+/// read the row first, validate its status is one of the two acceptable
+/// starting points, then CAS from whichever it actually is. `DENIED`
+/// remains the right terminal status either way — "policy will not
+/// execute this" is equally true whether a human declined a pending
+/// proposal or vetoed an already-authorized one — so no new status value
+/// was introduced; the two cases stay distinguishable via a distinct
+/// audit event type instead (`"policy.auto_allowed_rejected"`, mirroring
+/// `grant`'s own `"policy.auto_allowed_executed"` vs `"policy.granted"`
+/// split). An `AUTO_ALLOWED` row never carries an expiry (`evaluate`'s
+/// own `AutoAllow` branch never sets one), so `check_not_expired` is
+/// only ever meaningful for the `PENDING_APPROVAL` case — mirroring
+/// `authorize`'s own identical `check_not_expired` derivation.
 pub async fn reject(
     handle: &RepositoryHandle,
     row_id: i64,
@@ -87,23 +103,44 @@ pub async fn reject(
     now: DateTime<Utc>,
 ) -> Result<(), PolicyError> {
     let rejected_by = rejected_by.into();
+
+    let row = get_action(handle, row_id)
+        .await?
+        .ok_or(PolicyError::NotFound(row_id))?;
+    let current_status = row.status.as_str();
+    if current_status != ActionStatus::PendingApproval.as_str()
+        && current_status != ActionStatus::AutoAllowed.as_str()
+    {
+        return Err(PolicyError::WrongStatus {
+            id: row_id,
+            expected: "PENDING_APPROVAL or AUTO_ALLOWED".to_string(),
+            actual: current_status.to_string(),
+        });
+    }
+    let check_not_expired = current_status == ActionStatus::PendingApproval.as_str();
+
     transition_action(
         handle,
         row_id,
-        ActionStatus::PendingApproval.as_str(),
+        current_status,
         ActionStatus::Denied.as_str(),
         now,
-        true,
+        check_not_expired,
         TransitionPatch::default(),
     )
     .await
     .map_err(map_transition_err)?;
 
+    let event_type = if current_status == ActionStatus::AutoAllowed.as_str() {
+        "policy.auto_allowed_rejected"
+    } else {
+        "policy.rejected"
+    };
     record_audit_event(
         handle,
         NewAuditEvent {
             ts: now,
-            event_type: "policy.rejected".to_string(),
+            event_type: event_type.to_string(),
             actor: rejected_by,
             summary: format!("action {row_id} rejected"),
             detail_json: serde_json::json!({ "row_id": row_id }).to_string(),

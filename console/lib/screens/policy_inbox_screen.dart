@@ -109,10 +109,10 @@ class _PendingActionRowState extends ConsumerState<_PendingActionRow> {
       if (action.approvalExpiresAt != null)
         '${l10n.policyColumnExpires}: ${dateFormat.format(action.approvalExpiresAt!.toLocal())}',
     ];
-    // Unit U50: an AUTO_ALLOWED row is already policy-authorized — there
-    // is nothing to reject (its own CAS still only accepts a
-    // PENDING_APPROVAL row), so only a single run-it action is offered,
-    // labeled distinctly from a human "Grant" decision.
+    // Unit U50: an AUTO_ALLOWED row's own action button runs it directly
+    // rather than granting it, labeled distinctly from a human "Grant"
+    // decision. Unit U54: Reject is now offered for both statuses —
+    // it's a real veto for an AUTO_ALLOWED row too, not just a decline.
     final isAutoAllowed = action.status == 'AUTO_ALLOWED';
 
     return ListTile(
@@ -127,13 +127,8 @@ class _PendingActionRowState extends ConsumerState<_PendingActionRow> {
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!isAutoAllowed) ...[
-                  TextButton(
-                    onPressed: _reject,
-                    child: Text(l10n.policyReject),
-                  ),
-                  const SizedBox(width: 8),
-                ],
+                TextButton(onPressed: _reject, child: Text(l10n.policyReject)),
+                const SizedBox(width: 8),
                 FilledButton(
                   onPressed: _grant,
                   child: Text(

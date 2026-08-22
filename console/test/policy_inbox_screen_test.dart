@@ -154,8 +154,8 @@ void main() {
   );
 
   testWidgets(
-    'an AUTO_ALLOWED row shows Run now with no Reject, and tapping it '
-    'posts to the same grant endpoint',
+    'an AUTO_ALLOWED row shows Run now and Reject, and tapping Run now '
+    'posts to the grant endpoint',
     (tester) async {
       final transport = createFakeTransport();
       transport.queue(
@@ -177,7 +177,7 @@ void main() {
 
       expect(find.text('Run now'), findsOneWidget);
       expect(find.text('Grant'), findsNothing);
-      expect(find.text('Reject'), findsNothing);
+      expect(find.text('Reject'), findsOneWidget);
 
       transport.queuePost(
         '/api/v1/policy/9/grant',
@@ -195,6 +195,49 @@ void main() {
       final posted = transport.postedRequests.single;
       expect(posted.requestedPath, '/api/v1/policy/9/grant');
       expect(jsonDecode(posted.body), {'granted_by': 'console-operator'});
+      expect(find.text('Nothing to show'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping Reject on an AUTO_ALLOWED row vetoes it and the row disappears',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/policy/pending',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson([
+              fakeAction(id: 11, status: 'AUTO_ALLOWED').toJson(),
+            ]),
+          ),
+        ),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: PolicyInboxScreen()),
+        transport: transport,
+      );
+      await tester.pump();
+      expect(find.text('host.set_process_priority'), findsOneWidget);
+
+      transport.queuePost(
+        '/api/v1/policy/11/reject',
+        ApiOk(jsonEncode(okEnvelopeJson(null))),
+      );
+      transport.queue(
+        '/api/v1/policy/pending',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+
+      await tester.tap(find.text('Reject'));
+      await tester.pump();
+      await tester.pump();
+
+      final posted = transport.postedRequests.single;
+      expect(posted.requestedPath, '/api/v1/policy/11/reject');
+      expect(jsonDecode(posted.body), {'rejected_by': 'console-operator'});
+      expect(find.text('host.set_process_priority'), findsNothing);
       expect(find.text('Nothing to show'), findsOneWidget);
     },
   );
