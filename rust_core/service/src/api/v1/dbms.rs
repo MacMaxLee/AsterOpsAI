@@ -8,8 +8,10 @@
 //! for why this is a deliberately small first slice, not all 12
 //! `DbmsAdapter` methods.
 
+use std::sync::Arc;
+
 use ai_ops_core::dbms::{
-    DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue,
+    DbmsAdapter, DeadlockInfo as CoreDeadlockInfo, Gated, GucValue as CoreGucValue,
     IdleInTransactionSession as CoreIdleInTransactionSession, IndexStat as CoreIndexStat,
     LockEdge as CoreLockEdge, LongTransaction as CoreLongTransaction, QueryStat as CoreQueryStat,
     ReplicationStatus as CoreReplicationStatus, SessionInfo as CoreSessionInfo, SessionState,
@@ -293,6 +295,51 @@ async fn check_guc_changes(repo: &repository::RepositoryHandle, gucs: &[CoreGucV
     }
 }
 
+/// Unit U56 (SRS FR-DBSEC-001(b), narrowed to the `rolsuper` flag —
+/// see `security::detect_role_superuser_granted`'s own doc comment).
+/// No existing endpoint is a perfect semantic fit for role data;
+/// `gucs` — already U55's "slow-changing DB-wide security/config
+/// posture" poll point — is the least-contrived existing, already-
+/// polled home, a pragmatic choice named explicitly rather than a
+/// perfect one. Same best-effort posture as `check_guc_changes`.
+async fn check_role_superuser_grants(
+    repo: &repository::RepositoryHandle,
+    adapter: &Arc<dyn DbmsAdapter>,
+) {
+    let roles = match adapter.role_superuser_flags().await {
+        Ok(roles) => roles,
+        Err(err) => {
+            tracing::warn!(error = %err, "role_superuser_flags failed");
+            return;
+        }
+    };
+    let now = Utc::now();
+    for role in roles {
+        let previous = match repository::record_role_superuser_flag(
+            repo,
+            &role.rolname,
+            role.rolsuper,
+            now,
+        )
+        .await
+        {
+            Ok(previous) => previous,
+            Err(err) => {
+                tracing::warn!(error = %err, rolname = %role.rolname, "record_role_superuser_flag failed");
+                continue;
+            }
+        };
+        let Some(event) =
+            security::detect_role_superuser_granted(&role.rolname, previous, role.rolsuper, now)
+        else {
+            continue;
+        };
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, rolname = %role.rolname, "record_event failed for a detected superuser grant");
+        }
+    }
+}
+
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -308,6 +355,7 @@ pub async fn gucs(
 
         if let Some(repo) = state.repository.as_ref() {
             check_guc_changes(repo, &gucs).await;
+            check_role_superuser_grants(repo, &adapter).await;
         }
 
         Ok(gucs.into_iter().map(to_wire_guc).collect())

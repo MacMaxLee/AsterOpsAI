@@ -37,8 +37,9 @@ pub mod suppression;
 pub mod response;
 
 pub use detector::{
-    detect_guc_change, detect_superuser_override, detect_untrusted_device, DetectedEvent,
-    DETECTOR_GUC_CHANGED, DETECTOR_SUPERUSER_OVERRIDE, DETECTOR_UNTRUSTED_DEVICE,
+    detect_guc_change, detect_role_superuser_granted, detect_superuser_override,
+    detect_untrusted_device, DetectedEvent, DETECTOR_GUC_CHANGED, DETECTOR_ROLE_SUPERUSER_GRANTED,
+    DETECTOR_SUPERUSER_OVERRIDE, DETECTOR_UNTRUSTED_DEVICE,
 };
 pub use error::SecurityError;
 pub use incident::{record_event, IncidentOutcome};

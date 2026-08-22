@@ -30,6 +30,7 @@ pub struct DetectedEvent {
 pub const DETECTOR_SUPERUSER_OVERRIDE: &str = "dbms.superuser_override_used";
 pub const DETECTOR_UNTRUSTED_DEVICE: &str = "host.untrusted_device_attached";
 pub const DETECTOR_GUC_CHANGED: &str = "dbms.guc_changed";
+pub const DETECTOR_ROLE_SUPERUSER_GRANTED: &str = "dbms.role_superuser_granted";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -148,6 +149,45 @@ pub fn detect_guc_change(
     })
 }
 
+/// Unit U56 (SRS FR-DBSEC-001(b), narrowed to the `rolsuper` flag —
+/// see this module's own file-level context, not general role-
+/// membership grants): fires only on a real, known `false -> true`
+/// transition. Never on first observation (`previous_rolsuper: None`
+/// — a role that's superuser on its very first poll, e.g. the
+/// bootstrap `postgres` role, is not itself evidence of a *newly*
+/// granted privilege, the same "empty history isn't a real event"
+/// precedent every detector in this file shares). Never when already
+/// `true` (no new grant happened). Never on a transition *to* `false`
+/// — a revocation, the opposite of what SRS's "newly granted" wording
+/// asks for.
+pub fn detect_role_superuser_granted(
+    rolname: &str,
+    previous_rolsuper: Option<bool>,
+    current_rolsuper: bool,
+    now: DateTime<Utc>,
+) -> Option<DetectedEvent> {
+    if previous_rolsuper != Some(false) || !current_rolsuper {
+        return None;
+    }
+    Some(DetectedEvent {
+        detector_id: DETECTOR_ROLE_SUPERUSER_GRANTED,
+        severity: Severity::High,
+        category: "PRIVILEGE_ESCALATION",
+        summary: format!("role '{rolname}' was newly granted superuser privilege"),
+        evidence_json: serde_json::json!({
+            "rolname": rolname,
+            "previous_rolsuper": previous_rolsuper,
+            "current_rolsuper": current_rolsuper,
+        })
+        .to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: rolname.to_string(),
+        },
+        ts: now,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -215,6 +255,31 @@ mod tests {
         assert!(
             detect_guc_change("autovacuum", Some("on"), "on", now).is_none(),
             "an unchanged value must never fire"
+        );
+    }
+
+    #[test]
+    fn role_superuser_granted_fires_only_on_a_real_known_false_to_true_transition() {
+        let now = Utc::now();
+        assert!(
+            detect_role_superuser_granted("app_user", Some(false), true, now).is_some(),
+            "a real grant from a known non-superuser role must fire"
+        );
+        assert!(
+            detect_role_superuser_granted("postgres", None, true, now).is_none(),
+            "a role that's already superuser on its first-ever poll must never fire"
+        );
+        assert!(
+            detect_role_superuser_granted("app_user", Some(true), true, now).is_none(),
+            "an already-superuser role firing again is not a new grant"
+        );
+        assert!(
+            detect_role_superuser_granted("app_user", Some(true), false, now).is_none(),
+            "a revocation (true -> false) must never fire — this detector is grants only"
+        );
+        assert!(
+            detect_role_superuser_granted("app_user", Some(false), false, now).is_none(),
+            "an unchanged non-superuser role must never fire"
         );
     }
 }

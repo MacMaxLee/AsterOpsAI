@@ -5,7 +5,8 @@
 use crate::dbms::{
     capability::Gated, privacy, DatabaseInfo, DbmsError, DeadlockInfo, GucValue,
     IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    SessionInfo, SessionState, StandbyInfo, TableStat, TempFileActivity, VersionInfo,
+    RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TableStat, TempFileActivity,
+    VersionInfo,
 };
 
 pub async fn version_info(client: &tokio_postgres::Client) -> Result<VersionInfo, DbmsError> {
@@ -386,6 +387,30 @@ pub async fn idle_in_transaction_sessions(
             pid: row.get(0),
             username: row.get(1),
             idle_duration_seconds: row.get(2),
+        })
+        .collect())
+}
+
+/// Unit U56 (SRS FR-DBSEC-001(b)): every role's `rolsuper` flag —
+/// `pg_roles` is readable by an ordinary, unprivileged role with no
+/// special grants (confirmed by direct connection as a fresh,
+/// non-superuser role), unlike some other DBMS monitoring queries
+/// this module's own `role_check.rs` neighbor documents needing
+/// `pg_monitor`.
+pub async fn role_superuser_flags(
+    client: &tokio_postgres::Client,
+) -> Result<Vec<RoleSuperuserFlag>, DbmsError> {
+    let rows = client
+        .query(
+            "SELECT rolname, rolsuper FROM pg_roles ORDER BY rolname",
+            &[],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| RoleSuperuserFlag {
+            rolname: row.get(0),
+            rolsuper: row.get(1),
         })
         .collect())
 }

@@ -529,6 +529,69 @@ async fn gucs_polling_a_real_changed_sighup_guc_produces_a_real_security_inciden
     assert_eq!(incident["severity"], "MEDIUM");
 }
 
+/// Unit U56 (SRS FR-DBSEC-001(b)): the same real, end-to-end pipeline
+/// proof as the GUC-change test above, but for a genuine `rolsuper`
+/// grant — `CREATE ROLE`/`ALTER ROLE ... SUPERUSER` between two polls
+/// of the real `/gucs` endpoint (which now also checks role grants,
+/// see `check_role_superuser_grants`) produces a real, queryable
+/// `HIGH`-severity security incident.
+///
+/// A real discovery while writing this test, not assumed from reading
+/// code: the role must be created *before* the baseline poll. Creating
+/// it only after (with `ALTER ROLE ... SUPERUSER` run before the
+/// *second* poll) means the second poll is the first time the role is
+/// ever observed at all — the detector's own first-observation rule
+/// then correctly treats that as a baseline seed, not a transition,
+/// and never fires. The role's own history has to start before the
+/// baseline, exactly like the GUC test's own baseline poll already
+/// establishes for `autovacuum`.
+#[tokio::test]
+async fn gucs_polling_a_real_new_superuser_grant_produces_a_real_security_incident() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    // The role must exist (as a non-superuser) *before* the baseline
+    // poll — otherwise the baseline poll never observes it, and the
+    // detector correctly (per its own first-observation rule) treats
+    // its later, already-superuser state as a first observation, not
+    // a transition, and never fires.
+    setup
+        .execute("CREATE ROLE app_user", &[])
+        .await
+        .expect("CREATE ROLE");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
+
+    setup
+        .execute("ALTER ROLE app_user SUPERUSER", &[])
+        .await
+        .expect("ALTER ROLE ... SUPERUSER");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    let incident = incidents
+        .iter()
+        .find(|i| i["summary"].as_str().unwrap_or("").contains("app_user"))
+        .unwrap_or_else(|| {
+            panic!("expected a real security incident naming app_user, got: {incidents:?}")
+        });
+    assert_eq!(incident["severity"], "HIGH");
+}
+
 /// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*
 /// non-null `wait_event_type` as `Waiting` — and real PostgreSQL
 /// reports `wait_event_type = 'Client'` for *any* backend sitting idle

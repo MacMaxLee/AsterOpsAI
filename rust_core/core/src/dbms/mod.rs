@@ -211,6 +211,14 @@ pub struct IdleInTransactionSession {
     pub idle_duration_seconds: f64,
 }
 
+/// Unit U56 (SRS FR-DBSEC-001(b)): detection input only, never a
+/// `contracts` wire type — no HTTP endpoint exposes raw role data.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoleSuperuserFlag {
+    pub rolname: String,
+    pub rolsuper: bool,
+}
+
 /// TRS §33's exact method set. Read-only through U4 — the action surface
 /// (`analyze_table`, etc.) arrives in U8 under policy gating, never a
 /// generic "execute SQL" escape hatch (FORBIDDEN, this unit and every
@@ -232,4 +240,8 @@ pub trait DbmsAdapter: Send + Sync {
     async fn idle_in_transaction_sessions(
         &self,
     ) -> Result<Vec<IdleInTransactionSession>, DbmsError>;
+    /// Unit U56 (SRS FR-DBSEC-001(b)): every role's `rolsuper` flag —
+    /// detection input for `security::detect_role_superuser_granted`,
+    /// not a raw HTTP-exposed listing.
+    async fn role_superuser_flags(&self) -> Result<Vec<RoleSuperuserFlag>, DbmsError>;
 }

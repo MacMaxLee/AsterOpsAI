@@ -22,6 +22,7 @@ use super::models::{
 use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
+use super::role_history;
 use super::security::{insert_suppression, record_event_checked};
 use super::telemetry_store::insert_raw_snapshot;
 use super::tuning::{insert_tuning_plan, mark_plan_completed};
@@ -134,6 +135,14 @@ pub enum WriteCommand {
         setting: String,
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<Option<String>, RepositoryError>>,
+    },
+    /// Records a role's polled `rolsuper` flag (unit U56, SRS
+    /// FR-DBSEC-001(b)), replying with its previous flag, if any.
+    RecordRoleSuperuserFlag {
+        rolname: String,
+        rolsuper: bool,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<Option<bool>, RepositoryError>>,
     },
     /// Lets tests (and, later, graceful process shutdown) deterministically
     /// drain the channel and join the thread instead of racing thread exit
@@ -256,6 +265,16 @@ pub fn spawn(
                     } => {
                         drop(reply.send(guc_history::record_guc_value(
                             &conn, &name, &setting, now,
+                        )));
+                    }
+                    WriteCommand::RecordRoleSuperuserFlag {
+                        rolname,
+                        rolsuper,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(role_history::record_role_superuser_flag(
+                            &conn, &rolname, rolsuper, now,
                         )));
                     }
                     WriteCommand::Shutdown { reply } => {
