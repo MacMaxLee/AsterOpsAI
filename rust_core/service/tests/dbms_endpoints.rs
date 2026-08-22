@@ -592,6 +592,60 @@ async fn gucs_polling_a_real_new_superuser_grant_produces_a_real_security_incide
     assert_eq!(incident["severity"], "HIGH");
 }
 
+/// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder): unlike the
+/// superuser-grant test above, this detector fires on a genuinely new
+/// `(member, granted_role)` pair's very *first* observation (the same
+/// `detect_untrusted_device` family, not the diff-based family), so
+/// no baseline poll is needed — one real `CREATE ROLE`/`GRANT ... TO`
+/// followed by a single `/gucs` poll is enough. Also proves the real
+/// `pg_*` system-role filter: the 3 real bootstrap `pg_monitor`
+/// memberships every fresh instance already has must never fire.
+#[tokio::test]
+async fn gucs_polling_a_real_new_role_membership_grant_produces_a_real_security_incident() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute("CREATE ROLE alice LOGIN", &[])
+        .await
+        .expect("CREATE ROLE alice");
+    setup
+        .execute("CREATE ROLE admins", &[])
+        .await
+        .expect("CREATE ROLE admins");
+    setup
+        .execute("GRANT admins TO alice", &[])
+        .await
+        .expect("GRANT admins TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    let incident = incidents
+        .iter()
+        .find(|i| i["summary"].as_str().unwrap_or("").contains("alice"))
+        .unwrap_or_else(|| {
+            panic!("expected a real security incident naming alice, got: {incidents:?}")
+        });
+    assert_eq!(incident["severity"], "HIGH");
+    assert!(
+        !incidents
+            .iter()
+            .any(|i| i["summary"].as_str().unwrap_or("").contains("pg_monitor")),
+        "the real, pre-existing pg_monitor bootstrap memberships must never fire, got: {incidents:?}"
+    );
+}
+
 /// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*
 /// non-null `wait_event_type` as `Waiting` — and real PostgreSQL
 /// reports `wait_event_type = 'Client'` for *any* backend sitting idle

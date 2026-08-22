@@ -12,7 +12,7 @@ use crate::dbms::{
     capability::Gated, connection_metadata::ConnectionMetadata, credential_store::CredentialStore,
     pool, role_check, DatabaseInfo, DbmsAdapter, DbmsError, DeadlockInfo, GucValue,
     IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    RoleSuperuserFlag, SessionInfo, TableStat, TempFileActivity, VersionInfo,
+    RoleMembership, RoleSuperuserFlag, SessionInfo, TableStat, TempFileActivity, VersionInfo,
 };
 
 /// A row is "long-running" past this many seconds of open-transaction time
@@ -178,5 +178,10 @@ impl DbmsAdapter for PostgresAdapter {
     async fn role_superuser_flags(&self) -> Result<Vec<RoleSuperuserFlag>, DbmsError> {
         let client = self.pool.get().await?;
         queries::role_superuser_flags(&client).await
+    }
+
+    async fn role_memberships(&self) -> Result<Vec<RoleMembership>, DbmsError> {
+        let client = self.pool.get().await?;
+        queries::role_memberships(&client).await
     }
 }

@@ -219,6 +219,15 @@ pub struct RoleSuperuserFlag {
     pub rolsuper: bool,
 }
 
+/// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder): a real
+/// `pg_auth_members` row — `member` is a member of `granted_role`.
+/// Detection input only, same as `RoleSuperuserFlag`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RoleMembership {
+    pub member: String,
+    pub granted_role: String,
+}
+
 /// TRS §33's exact method set. Read-only through U4 — the action surface
 /// (`analyze_table`, etc.) arrives in U8 under policy gating, never a
 /// generic "execute SQL" escape hatch (FORBIDDEN, this unit and every
@@ -244,4 +253,8 @@ pub trait DbmsAdapter: Send + Sync {
     /// detection input for `security::detect_role_superuser_granted`,
     /// not a raw HTTP-exposed listing.
     async fn role_superuser_flags(&self) -> Result<Vec<RoleSuperuserFlag>, DbmsError>;
+    /// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder): every real
+    /// `pg_auth_members` row — detection input for `security::
+    /// detect_role_membership_granted`, not a raw HTTP-exposed listing.
+    async fn role_memberships(&self) -> Result<Vec<RoleMembership>, DbmsError>;
 }

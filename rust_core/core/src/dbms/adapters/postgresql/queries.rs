@@ -5,8 +5,8 @@
 use crate::dbms::{
     capability::Gated, privacy, DatabaseInfo, DbmsError, DeadlockInfo, GucValue,
     IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TableStat, TempFileActivity,
-    VersionInfo,
+    RoleMembership, RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TableStat,
+    TempFileActivity, VersionInfo,
 };
 
 pub async fn version_info(client: &tokio_postgres::Client) -> Result<VersionInfo, DbmsError> {
@@ -411,6 +411,32 @@ pub async fn role_superuser_flags(
         .map(|row| RoleSuperuserFlag {
             rolname: row.get(0),
             rolsuper: row.get(1),
+        })
+        .collect())
+}
+
+/// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder): every real
+/// role-membership grant, joined against `pg_roles` twice for real
+/// role names rather than raw OIDs. `pg_auth_members` carries the
+/// same PUBLIC-readable character as `pg_roles` — confirmed by direct
+/// connection as an unprivileged role, same as U56's own query.
+pub async fn role_memberships(
+    client: &tokio_postgres::Client,
+) -> Result<Vec<RoleMembership>, DbmsError> {
+    let rows = client
+        .query(
+            "SELECT m.rolname, g.rolname \
+             FROM pg_auth_members am \
+             JOIN pg_roles m ON m.oid = am.member \
+             JOIN pg_roles g ON g.oid = am.roleid",
+            &[],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| RoleMembership {
+            member: row.get(0),
+            granted_role: row.get(1),
         })
         .collect())
 }

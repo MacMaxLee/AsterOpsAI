@@ -385,6 +385,51 @@ async fn check_role_superuser_grants(
     }
 }
 
+/// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder — see `security::
+/// detect_role_membership_granted`'s own doc comment): the third
+/// best-effort step on this same "DB-wide security/config posture"
+/// poll point.
+async fn check_role_membership_grants(
+    repo: &repository::RepositoryHandle,
+    adapter: &Arc<dyn DbmsAdapter>,
+) {
+    let memberships = match adapter.role_memberships().await {
+        Ok(memberships) => memberships,
+        Err(err) => {
+            tracing::warn!(error = %err, "role_memberships failed");
+            return;
+        }
+    };
+    let now = Utc::now();
+    for membership in memberships {
+        let already_known = match repository::record_role_membership_seen(
+            repo,
+            &membership.member,
+            &membership.granted_role,
+            now,
+        )
+        .await
+        {
+            Ok(already_known) => already_known,
+            Err(err) => {
+                tracing::warn!(error = %err, member = %membership.member, granted_role = %membership.granted_role, "record_role_membership_seen failed");
+                continue;
+            }
+        };
+        let Some(event) = security::detect_role_membership_granted(
+            &membership.member,
+            &membership.granted_role,
+            already_known,
+            now,
+        ) else {
+            continue;
+        };
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, member = %membership.member, "record_event failed for a detected role-membership grant");
+        }
+    }
+}
+
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -401,6 +446,7 @@ pub async fn gucs(
         if let Some(repo) = state.repository.as_ref() {
             check_guc_changes(repo, &gucs).await;
             check_role_superuser_grants(repo, &adapter).await;
+            check_role_membership_grants(repo, &adapter).await;
         }
 
         Ok(gucs.into_iter().map(to_wire_guc).collect())

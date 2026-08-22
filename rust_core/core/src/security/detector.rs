@@ -32,6 +32,7 @@ pub const DETECTOR_UNTRUSTED_DEVICE: &str = "host.untrusted_device_attached";
 pub const DETECTOR_GUC_CHANGED: &str = "dbms.guc_changed";
 pub const DETECTOR_ROLE_SUPERUSER_GRANTED: &str = "dbms.role_superuser_granted";
 pub const DETECTOR_UNUSUAL_CLIENT_ADDRESS: &str = "dbms.unusual_client_address";
+pub const DETECTOR_ROLE_MEMBERSHIP_GRANTED: &str = "dbms.role_membership_granted";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -221,6 +222,51 @@ pub fn detect_unusual_client_address(
     })
 }
 
+/// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder — see this
+/// module's own file-level context, general role-membership grants
+/// via `pg_auth_members`, distinct from `detect_role_superuser_
+/// granted`'s narrower `rolsuper` flag): mirrors `detect_untrusted_
+/// device`'s exact shape — a role-membership grant is a discrete,
+/// atomic fact, not a value that changes for a fixed key, so this
+/// fires on a genuinely new `(member, granted_role)` pair's very
+/// first observation. `already_known` comes from `repository::role_
+/// membership_history::record_seen` — real, durable history.
+///
+/// Filters out every PostgreSQL built-in system role (the `pg_`
+/// prefix is PostgreSQL's own reserved convention) as the *member* —
+/// a fresh instance's own bootstrap already grants several such
+/// memberships (e.g. `pg_monitor` in `pg_read_all_stats`), real,
+/// expected PostgreSQL behavior, not something a human did. The same
+/// "restrict to the actually-interesting subset" precedent `detect_
+/// untrusted_device` already established via its own `removable`
+/// filter.
+pub fn detect_role_membership_granted(
+    member: &str,
+    granted_role: &str,
+    already_known: bool,
+    now: DateTime<Utc>,
+) -> Option<DetectedEvent> {
+    if already_known || member.starts_with("pg_") {
+        return None;
+    }
+    Some(DetectedEvent {
+        detector_id: DETECTOR_ROLE_MEMBERSHIP_GRANTED,
+        severity: Severity::High,
+        category: "PRIVILEGE_ESCALATION",
+        summary: format!("role '{member}' was newly granted membership in '{granted_role}'"),
+        evidence_json: serde_json::json!({
+            "member": member,
+            "granted_role": granted_role,
+        })
+        .to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: member.to_string(),
+        },
+        ts: now,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,6 +369,20 @@ mod tests {
         assert!(
             detect_unusual_client_address("127.0.0.1", true, now).is_none(),
             "an already-known address never fires"
+        );
+    }
+
+    #[test]
+    fn role_membership_granted_fires_only_for_a_new_non_system_member() {
+        let now = Utc::now();
+        assert!(detect_role_membership_granted("alice", "admins", false, now).is_some());
+        assert!(
+            detect_role_membership_granted("alice", "admins", true, now).is_none(),
+            "an already-known pair never fires"
+        );
+        assert!(
+            detect_role_membership_granted("pg_monitor", "pg_read_all_stats", false, now).is_none(),
+            "a built-in pg_* system role member never fires, even when new"
         );
     }
 }

@@ -17,6 +17,7 @@ pub mod policy;
 pub mod reader;
 pub mod retention;
 pub mod role_history;
+pub mod role_membership_history;
 pub mod security;
 pub mod telemetry_store;
 mod time;
@@ -419,6 +420,32 @@ pub async fn record_client_address_seen(
         .command_tx
         .send(WriteCommand::RecordClientAddressSeen {
             client_addr: client_addr.into(),
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U58: returns whether the exact `(member, granted_role)` pair
+/// was already known before this call — the caller (`security::
+/// detect_role_membership_granted`) decides whether that constitutes
+/// a real, fireable event.
+pub async fn record_role_membership_seen(
+    handle: &RepositoryHandle,
+    member: impl Into<String>,
+    granted_role: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<bool, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordRoleMembershipSeen {
+            member: member.into(),
+            granted_role: granted_role.into(),
             now,
             reply: reply_tx,
         })

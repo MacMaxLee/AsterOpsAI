@@ -24,6 +24,7 @@ use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
 use super::role_history;
+use super::role_membership_history;
 use super::security::{insert_suppression, record_event_checked};
 use super::telemetry_store::insert_raw_snapshot;
 use super::tuning::{insert_tuning_plan, mark_plan_completed};
@@ -149,6 +150,15 @@ pub enum WriteCommand {
     /// FR-DBSEC-001(d)), replying with whether it was *already* known.
     RecordClientAddressSeen {
         client_addr: String,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<bool, RepositoryError>>,
+    },
+    /// Records that a `(member, granted_role)` pair has been observed
+    /// (unit U58, SRS FR-DBSEC-001(b)'s deferred remainder), replying
+    /// with whether it was *already* known.
+    RecordRoleMembershipSeen {
+        member: String,
+        granted_role: String,
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<bool, RepositoryError>>,
     },
@@ -293,6 +303,19 @@ pub fn spawn(
                         drop(reply.send(client_address_history::record_seen(
                             &conn,
                             &client_addr,
+                            now,
+                        )));
+                    }
+                    WriteCommand::RecordRoleMembershipSeen {
+                        member,
+                        granted_role,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(role_membership_history::record_seen(
+                            &conn,
+                            &member,
+                            &granted_role,
                             now,
                         )));
                     }
