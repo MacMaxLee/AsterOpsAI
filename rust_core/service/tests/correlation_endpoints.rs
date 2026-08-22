@@ -118,6 +118,8 @@ async fn a_refused_db_connection_degrades_to_ruled_out_never_a_503() {
         Some("postgres".to_string()),
         Some("irrelevant".to_string()),
         Some("disable".to_string()),
+        None,
+        None,
     )
     .expect("host+password were both given");
     let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds lazily");
@@ -219,6 +221,8 @@ async fn a_real_lock_storm_ranks_db_locks_from_genuinely_induced_contention() {
         Some("postgres".to_string()),
         Some("trust-auth-ignores-this".to_string()),
         Some("disable".to_string()),
+        None,
+        None,
     )
     .expect("host+password were both given");
     let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds");

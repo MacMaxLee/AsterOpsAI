@@ -2,14 +2,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use ai_ops_core::ai::{AiProvider, OllamaProvider};
-use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
-use ai_ops_core::dbms::{pool, DbmsAdapter};
+use ai_ops_core::dbms::DbmsAdapter;
 use ai_ops_core::policy::ProtectedResourceRegistry;
 use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
 use service::{
-    actions::build_action_registry, ai_config, api, config, dbms_config, policy_config, retention,
-    self_metrics, state::AppState, telemetry,
+    actions::build_action_registry, ai_config, api, config, dbms_config, dbms_connect,
+    policy_config, retention, self_metrics, state::AppState, telemetry,
 };
 
 #[derive(Parser)]
@@ -80,16 +79,10 @@ async fn serve() -> anyhow::Result<()> {
     let host_telemetry = telemetry::sampler::spawn(platform.clone(), repository.clone());
 
     let dbms_adapter: Option<Arc<dyn DbmsAdapter>> = match dbms_config::resolve_db_connection() {
-        Some(cfg) => match pool::build_pool(&cfg.metadata, &cfg.password) {
-            Ok(pg_pool) => Some(Arc::new(PostgresAdapter::from_pool(
-                pg_pool,
-                cfg.metadata.capture_raw_sql,
-            ))),
-            Err(err) => {
-                tracing::error!(error = %err, "could not build the configured DB connection pool; continuing without it");
-                None
-            }
-        },
+        Some(cfg) => {
+            dbms_connect::connect_and_validate(&cfg.metadata, &cfg.password, repository.as_ref())
+                .await
+        }
         None => None,
     };
 
