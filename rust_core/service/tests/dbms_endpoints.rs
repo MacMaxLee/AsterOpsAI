@@ -296,19 +296,16 @@ async fn gucs_returns_real_settings_including_max_connections() {
     );
 }
 
-/// A real discovery while writing this test, not the assumption it
-/// started with: `classify_session_state` (`core/src/dbms/adapters/
-/// postgresql/queries.rs`) treats *any* non-null `wait_event_type` as
-/// `Waiting`, checked before the `state` column at all — and real
-/// PostgreSQL reports `wait_event_type = 'Client'` for *any* backend
-/// sitting idle on the socket waiting for its next command, including
-/// one that's idle inside an open transaction. So a real, genuinely
-/// idle-in-transaction backend classifies as `WAITING`, not
-/// `IDLE_IN_TRANSACTION` — real, existing, unmodified `core::dbms`
-/// behavior (out of this unit's scope to change), asserted here as it
-/// actually is, not as first assumed.
+/// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*
+/// non-null `wait_event_type` as `Waiting` — and real PostgreSQL
+/// reports `wait_event_type = 'Client'` for *any* backend sitting idle
+/// on the socket waiting for its next command, including one that's
+/// idle inside an open transaction, so a genuinely idle-in-transaction
+/// backend used to misclassify as `WAITING`. Fixed to check
+/// specifically for `'Lock'` (see the corrected function's own doc
+/// comment); this test now asserts the correct classification.
 #[tokio::test]
-async fn sessions_returns_a_real_idle_backend_as_waiting() {
+async fn sessions_returns_a_real_idle_in_transaction_backend_correctly() {
     let mut pg = support::TestPostgres::start(17).await;
 
     // A real, genuinely idle-in-transaction backend: an open BEGIN with
@@ -350,9 +347,14 @@ async fn sessions_returns_a_real_idle_backend_as_waiting() {
         .unwrap_or_else(|| {
             panic!("the real idle-in-transaction backend {backend_pid} must appear, got {body:?}")
         });
-    assert_eq!(session["state"], "WAITING");
+    assert_eq!(session["state"], "IDLE_IN_TRANSACTION");
 }
 
+/// Also proves the U49/ADR 0054 fix's real contrast: a genuine
+/// `wait_event_type = 'Lock'` waiter classifies as `WAITING` in
+/// `/api/v1/dbms/sessions`, distinct from the genuine idle-in-
+/// transaction case `sessions_returns_a_real_idle_in_transaction_
+/// backend_correctly` covers.
 #[tokio::test]
 async fn locks_returns_a_real_blocking_edge_from_genuinely_induced_contention() {
     let mut pg = support::TestPostgres::start(17).await;
@@ -424,7 +426,8 @@ async fn locks_returns_a_real_blocking_edge_from_genuinely_induced_contention() 
 
     let adapter = adapter_for(&pg);
     let app = build_app(Some(adapter)).await;
-    let (status, body) = get_json(app, "/api/v1/dbms/locks").await;
+    let (status, body) = get_json(app.clone(), "/api/v1/dbms/locks").await;
+    let (sessions_status, sessions_body) = get_json(app, "/api/v1/dbms/sessions").await;
 
     holder
         .batch_execute("ROLLBACK;")
@@ -440,6 +443,16 @@ async fn locks_returns_a_real_blocking_edge_from_genuinely_induced_contention() 
         .unwrap_or_else(|| {
             panic!("a real blocking edge for waiter {waiter_pid} must appear, got {body:?}")
         });
+
+    assert_eq!(sessions_status, StatusCode::OK, "body: {sessions_body:?}");
+    let sessions = sessions_body["data"].as_array().expect("data is an array");
+    let waiter_session = sessions
+        .iter()
+        .find(|s| s["pid"] == waiter_pid)
+        .unwrap_or_else(|| {
+            panic!("the real lock waiter {waiter_pid} must appear, got {sessions_body:?}")
+        });
+    assert_eq!(waiter_session["state"], "WAITING");
     assert_eq!(edge["blocking_pid"], holder_pid);
 }
 

@@ -47,8 +47,16 @@ pub async fn list_databases(
         .collect())
 }
 
+/// `wait_event_type` and `state` are orthogonal `pg_stat_activity`
+/// columns — PostgreSQL sets `wait_event_type` for *any* backend wait
+/// (`'Client'` for an ordinary idle-on-socket wait between commands,
+/// including a session idle inside an open transaction; also `'IO'`,
+/// `'Timeout'`, `'Extension'`, `'IPC'`, etc.), not only `'Lock'`. Only
+/// `'Lock'` means "blocked waiting for another session's lock," the
+/// one signal `SessionState::Waiting` is meant to represent, so that's
+/// the only value checked here.
 fn classify_session_state(state: Option<&str>, wait_event_type: Option<&str>) -> SessionState {
-    if wait_event_type.is_some() {
+    if wait_event_type == Some("Lock") {
         return SessionState::Waiting;
     }
     match state {
