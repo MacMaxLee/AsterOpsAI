@@ -5,8 +5,8 @@
 use crate::dbms::{
     capability::Gated, privacy, DatabaseInfo, DbmsError, DeadlockInfo, GucValue,
     IdleInTransactionSession, IndexStat, LockEdge, LongTransaction, QueryStat, ReplicationStatus,
-    RoleMembership, RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TableStat,
-    TempFileActivity, VersionInfo,
+    RoleMembership, RoleSuperuserFlag, SessionInfo, SessionState, StandbyInfo, TablePrivilegeGrant,
+    TableStat, TempFileActivity, VersionInfo,
 };
 
 pub async fn version_info(client: &tokio_postgres::Client) -> Result<VersionInfo, DbmsError> {
@@ -437,6 +437,39 @@ pub async fn role_memberships(
         .map(|row| RoleMembership {
             member: row.get(0),
             granted_role: row.get(1),
+        })
+        .collect())
+}
+
+/// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
+/// docs/adr/0064): deliberately excludes `pg_catalog`/`information_
+/// schema` (real, empirically confirmed bootstrap noise — 1,678 rows
+/// on a nearly-empty fresh instance, essentially all system-catalog
+/// PUBLIC grants) and any grant to the table's own owner (PostgreSQL
+/// reports a table owner's full implicit privilege set as if it had
+/// been explicitly "granted," even though nothing was) — both
+/// confirmed empirically to reduce a fresh table's own baseline to
+/// genuinely zero rows, leaving only real, explicit grants.
+pub async fn table_privilege_grants(
+    client: &tokio_postgres::Client,
+) -> Result<Vec<TablePrivilegeGrant>, DbmsError> {
+    let rows = client
+        .query(
+            "SELECT tp.grantee, tp.table_schema, tp.table_name, tp.privilege_type \
+             FROM information_schema.table_privileges tp \
+             JOIN pg_tables t ON t.schemaname = tp.table_schema AND t.tablename = tp.table_name \
+             WHERE tp.table_schema NOT IN ('pg_catalog', 'information_schema') \
+             AND tp.grantee <> t.tableowner",
+            &[],
+        )
+        .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| TablePrivilegeGrant {
+            grantee: row.get(0),
+            schema: row.get(1),
+            table: row.get(2),
+            privilege_type: row.get(3),
         })
         .collect())
 }

@@ -430,6 +430,55 @@ async fn check_role_membership_grants(
     }
 }
 
+/// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
+/// `security::detect_table_privilege_granted`'s own doc comment): the
+/// fourth best-effort step on this same "DB-wide security/config
+/// posture" poll point.
+async fn check_table_privilege_grants(
+    repo: &repository::RepositoryHandle,
+    adapter: &Arc<dyn DbmsAdapter>,
+) {
+    let grants = match adapter.table_privilege_grants().await {
+        Ok(grants) => grants,
+        Err(err) => {
+            tracing::warn!(error = %err, "table_privilege_grants failed");
+            return;
+        }
+    };
+    let now = Utc::now();
+    for grant in grants {
+        let already_known = match repository::record_table_privilege_grant_seen(
+            repo,
+            &grant.grantee,
+            &grant.schema,
+            &grant.table,
+            &grant.privilege_type,
+            now,
+        )
+        .await
+        {
+            Ok(already_known) => already_known,
+            Err(err) => {
+                tracing::warn!(error = %err, grantee = %grant.grantee, table = %grant.table, "record_table_privilege_grant_seen failed");
+                continue;
+            }
+        };
+        let Some(event) = security::detect_table_privilege_granted(
+            &grant.grantee,
+            &grant.schema,
+            &grant.table,
+            &grant.privilege_type,
+            already_known,
+            now,
+        ) else {
+            continue;
+        };
+        if let Err(err) = security::record_event(repo, event).await {
+            tracing::warn!(error = %err, grantee = %grant.grantee, "record_event failed for a detected table privilege grant");
+        }
+    }
+}
+
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -447,6 +496,7 @@ pub async fn gucs(
             check_guc_changes(repo, &gucs).await;
             check_role_superuser_grants(repo, &adapter).await;
             check_role_membership_grants(repo, &adapter).await;
+            check_table_privilege_grants(repo, &adapter).await;
         }
 
         Ok(gucs.into_iter().map(to_wire_guc).collect())

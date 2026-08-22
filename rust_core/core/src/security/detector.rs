@@ -33,6 +33,7 @@ pub const DETECTOR_GUC_CHANGED: &str = "dbms.guc_changed";
 pub const DETECTOR_ROLE_SUPERUSER_GRANTED: &str = "dbms.role_superuser_granted";
 pub const DETECTOR_UNUSUAL_CLIENT_ADDRESS: &str = "dbms.unusual_client_address";
 pub const DETECTOR_ROLE_MEMBERSHIP_GRANTED: &str = "dbms.role_membership_granted";
+pub const DETECTOR_TABLE_PRIVILEGE_GRANTED: &str = "dbms.table_privilege_granted";
 
 /// Rationale: a superuser role connecting to a Production-classified
 /// database instance is already refused outright unless the connection's
@@ -267,6 +268,47 @@ pub fn detect_role_membership_granted(
     })
 }
 
+/// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed to table-level
+/// DML privileges — see docs/adr/0064 for the full scope decision):
+/// same `known_*` "have we ever seen this before" family as `detect_
+/// role_membership_granted`. No additional in-Rust filtering is
+/// needed here — the caller's own SQL query (`queries::table_
+/// privilege_grants`) already excludes system schemas and the table
+/// owner's own implicit grants, empirically confirmed to leave zero
+/// baseline noise.
+pub fn detect_table_privilege_granted(
+    grantee: &str,
+    schema: &str,
+    table: &str,
+    privilege_type: &str,
+    already_known: bool,
+    now: DateTime<Utc>,
+) -> Option<DetectedEvent> {
+    if already_known {
+        return None;
+    }
+    Some(DetectedEvent {
+        detector_id: DETECTOR_TABLE_PRIVILEGE_GRANTED,
+        severity: Severity::Medium,
+        category: "PERMISSION_CHANGE",
+        summary: format!(
+            "role '{grantee}' was newly granted {privilege_type} on '{schema}.{table}'"
+        ),
+        evidence_json: serde_json::json!({
+            "grantee": grantee,
+            "schema": schema,
+            "table": table,
+            "privilege_type": privilege_type,
+        })
+        .to_string(),
+        resource: ResourceDescriptor {
+            kind: ResourceKind::Infrastructure,
+            name: format!("{schema}.{table}"),
+        },
+        ts: now,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -383,6 +425,20 @@ mod tests {
         assert!(
             detect_role_membership_granted("pg_monitor", "pg_read_all_stats", false, now).is_none(),
             "a built-in pg_* system role member never fires, even when new"
+        );
+    }
+
+    #[test]
+    fn table_privilege_granted_fires_only_for_a_new_tuple() {
+        let now = Utc::now();
+        assert!(
+            detect_table_privilege_granted("alice", "public", "widgets", "SELECT", false, now)
+                .is_some()
+        );
+        assert!(
+            detect_table_privilege_granted("alice", "public", "widgets", "SELECT", true, now)
+                .is_none(),
+            "an already-known tuple never fires"
         );
     }
 }

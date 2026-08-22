@@ -26,6 +26,7 @@ use super::retention::run_sweep;
 use super::role_history;
 use super::role_membership_history;
 use super::security::{insert_suppression, record_event_checked};
+use super::table_privilege_history;
 use super::telemetry_store::insert_raw_snapshot;
 use super::tuning::{insert_tuning_plan, mark_plan_completed};
 
@@ -159,6 +160,18 @@ pub enum WriteCommand {
     RecordRoleMembershipSeen {
         member: String,
         granted_role: String,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<bool, RepositoryError>>,
+    },
+    /// Records that a `(grantee, schema, table, privilege_type)` tuple
+    /// has been observed (unit U59, SRS FR-DBSEC-001(c)), replying
+    /// with whether it was *already* known.
+    #[allow(clippy::type_complexity)]
+    RecordTablePrivilegeGrantSeen {
+        grantee: String,
+        schema: String,
+        table: String,
+        privilege_type: String,
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<bool, RepositoryError>>,
     },
@@ -316,6 +329,23 @@ pub fn spawn(
                             &conn,
                             &member,
                             &granted_role,
+                            now,
+                        )));
+                    }
+                    WriteCommand::RecordTablePrivilegeGrantSeen {
+                        grantee,
+                        schema,
+                        table,
+                        privilege_type,
+                        now,
+                        reply,
+                    } => {
+                        drop(reply.send(table_privilege_history::record_seen(
+                            &conn,
+                            &grantee,
+                            &schema,
+                            &table,
+                            &privilege_type,
                             now,
                         )));
                     }

@@ -19,6 +19,7 @@ pub mod retention;
 pub mod role_history;
 pub mod role_membership_history;
 pub mod security;
+pub mod table_privilege_history;
 pub mod telemetry_store;
 mod time;
 pub mod tuning;
@@ -446,6 +447,37 @@ pub async fn record_role_membership_seen(
         .send(WriteCommand::RecordRoleMembershipSeen {
             member: member.into(),
             granted_role: granted_role.into(),
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U59: returns whether the exact `(grantee, schema, table,
+/// privilege_type)` tuple was already known before this call — the
+/// caller (`security::detect_table_privilege_granted`) decides
+/// whether that constitutes a real, fireable event.
+#[allow(clippy::too_many_arguments)]
+pub async fn record_table_privilege_grant_seen(
+    handle: &RepositoryHandle,
+    grantee: impl Into<String>,
+    schema: impl Into<String>,
+    table: impl Into<String>,
+    privilege_type: impl Into<String>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<bool, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::RecordTablePrivilegeGrantSeen {
+            grantee: grantee.into(),
+            schema: schema.into(),
+            table: table.into(),
+            privilege_type: privilege_type.into(),
             now,
             reply: reply_tx,
         })

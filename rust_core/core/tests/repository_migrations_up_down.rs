@@ -28,6 +28,7 @@ const EXPECTED_TABLES: &[&str] = &[
     "known_role_superuser_flags",
     "known_client_addresses",
     "known_role_memberships",
+    "known_table_privilege_grants",
 ];
 
 fn table_names(conn: &Connection) -> Vec<String> {

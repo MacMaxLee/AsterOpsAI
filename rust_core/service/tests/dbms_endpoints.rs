@@ -646,6 +646,78 @@ async fn gucs_polling_a_real_new_role_membership_grant_produces_a_real_security_
     );
 }
 
+/// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
+/// docs/adr/0064): proves the real, filtered `table_privilege_grants`
+/// query end-to-end. A fresh table's own real, implicit owner
+/// privileges (7 rows across SELECT/INSERT/UPDATE/DELETE/TRUNCATE/
+/// REFERENCES/TRIGGER) must never fire — only a real, explicit grant
+/// to a genuinely different role does.
+#[tokio::test]
+async fn gucs_polling_a_real_table_grant_produces_a_real_security_incident_but_owner_privileges_do_not(
+) {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute("CREATE TABLE widgets (id int)", &[])
+        .await
+        .expect("CREATE TABLE widgets");
+    setup
+        .execute("CREATE ROLE alice LOGIN", &[])
+        .await
+        .expect("CREATE ROLE alice");
+
+    // Poll once with zero explicit grants yet — the owner's own real,
+    // implicit privileges must not be mistaken for a human's grant.
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    assert!(
+        !incidents
+            .iter()
+            .any(|i| i["summary"].as_str().unwrap_or("").contains("widgets")),
+        "the table owner's own real, implicit privileges must never fire, got: {incidents:?}"
+    );
+
+    setup
+        .execute("GRANT SELECT ON widgets TO alice", &[])
+        .await
+        .expect("GRANT SELECT ON widgets TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter), repo).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    pg.stop().await;
+
+    assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+    let incidents = body["data"].as_array().expect("data is an array");
+    let incident = incidents
+        .iter()
+        .find(|i| {
+            let summary = i["summary"].as_str().unwrap_or("");
+            summary.contains("alice") && summary.contains("widgets") && summary.contains("SELECT")
+        })
+        .unwrap_or_else(|| {
+            panic!(
+                "expected a real security incident naming alice/widgets/SELECT, got: {incidents:?}"
+            )
+        });
+    assert_eq!(incident["severity"], "MEDIUM");
+}
+
 /// Unit U49 (ADR 0054): `classify_session_state` used to treat *any*
 /// non-null `wait_event_type` as `Waiting` — and real PostgreSQL
 /// reports `wait_event_type = 'Client'` for *any* backend sitting idle

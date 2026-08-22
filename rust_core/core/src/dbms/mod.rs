@@ -228,6 +228,17 @@ pub struct RoleMembership {
     pub granted_role: String,
 }
 
+/// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
+/// docs/adr/0064): a real, non-owner, non-system-schema table
+/// privilege grant. Detection input only, same as `RoleMembership`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct TablePrivilegeGrant {
+    pub grantee: String,
+    pub schema: String,
+    pub table: String,
+    pub privilege_type: String,
+}
+
 /// TRS §33's exact method set. Read-only through U4 — the action surface
 /// (`analyze_table`, etc.) arrives in U8 under policy gating, never a
 /// generic "execute SQL" escape hatch (FORBIDDEN, this unit and every
@@ -257,4 +268,9 @@ pub trait DbmsAdapter: Send + Sync {
     /// `pg_auth_members` row — detection input for `security::
     /// detect_role_membership_granted`, not a raw HTTP-exposed listing.
     async fn role_memberships(&self) -> Result<Vec<RoleMembership>, DbmsError>;
+    /// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed): every
+    /// real, non-owner, non-system-schema table privilege grant —
+    /// detection input for `security::detect_table_privilege_granted`,
+    /// not a raw HTTP-exposed listing.
+    async fn table_privilege_grants(&self) -> Result<Vec<TablePrivilegeGrant>, DbmsError>;
 }
