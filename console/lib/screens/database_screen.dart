@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../api/api_failure.dart';
+import '../api/api_result.dart';
+import '../generated/models/ai_explanation.dart';
 import '../generated/models/deadlock_info.dart';
 import '../generated/models/gated_value_for_array_of_query_stat.dart';
+import '../generated/models/gated_value_for_ai_explanation.dart';
 import '../generated/models/guc_value.dart';
 import '../generated/models/idle_in_transaction_session.dart';
 import '../generated/models/index_stat.dart';
@@ -17,6 +21,7 @@ import '../generated/models/table_stat.dart';
 import '../generated/models/temp_file_activity.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/dbms_providers.dart';
+import '../providers/transport_provider.dart';
 import '../widgets/async_result_view.dart';
 import '../widgets/formatters.dart';
 
@@ -208,6 +213,16 @@ class DatabaseScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+          const Divider(height: 32),
+          // Unit U47: no `zoneHeight` `SizedBox` here on purpose — unlike
+          // every zone above, this section has no internal
+          // `ListView.builder` needing a bounded height (mirrors
+          // `host_analysis_screen.dart`'s own unconstrained
+          // `_ExplanationSection`, ADR 0050).
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: _ExplanationSection(),
           ),
         ],
       ),
@@ -736,6 +751,232 @@ class _IdleInTransactionSessionRow extends StatelessWidget {
           session.idleDurationSeconds.toStringAsFixed(1),
         ),
       ),
+    );
+  }
+}
+
+String _failureMessage(ApiFailure failure, AppLocalizations l10n) =>
+    switch (failure) {
+      ApiFailureTimeout() => l10n.connectionTimeout,
+      ApiFailureUnavailable() => l10n.connectionUnavailableBody,
+      ApiFailureMalformedPayload() => l10n.connectionMalformedPayload,
+      ApiFailureServerError(:final error) =>
+        error.toJson()['message'] as String? ?? l10n.connectionUnavailableBody,
+    };
+
+enum _ExplainStage { idle, loading, loaded, error }
+
+/// Unit U47: `core::ai`'s DB-side explanation (`/analysis/db/explain`,
+/// U46/ADR 0051), mirroring `host_analysis_screen.dart`'s own
+/// `_ExplanationSection` (ADR 0050) exactly — deliberately on-demand
+/// (a button tap fires the request exactly once), never a background-
+/// polled `StreamProvider`, since a real AI inference round-trip is
+/// genuinely expensive.
+class _ExplanationSection extends ConsumerStatefulWidget {
+  const _ExplanationSection();
+
+  @override
+  ConsumerState<_ExplanationSection> createState() =>
+      _ExplanationSectionState();
+}
+
+class _ExplanationSectionState extends ConsumerState<_ExplanationSection> {
+  _ExplainStage _stage = _ExplainStage.idle;
+  GatedValueForAiExplanation? _gated;
+  String? _error;
+
+  Future<void> _explain() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() {
+      _stage = _ExplainStage.loading;
+      _error = null;
+    });
+    final client = ref.read(apiClientProvider);
+    final result = await client.getDbExplanation();
+    if (!mounted) return;
+
+    switch (result) {
+      case ApiOk(:final value):
+        setState(() {
+          _gated = value;
+          _stage = _ExplainStage.loaded;
+        });
+      case ApiErr(:final failure):
+        setState(() {
+          _error = _failureMessage(failure, l10n);
+          _stage = _ExplainStage.error;
+        });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.analysisExplanationHeading,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        switch (_stage) {
+          _ExplainStage.idle => OutlinedButton(
+            onPressed: _explain,
+            child: Text(l10n.analysisExplainButton),
+          ),
+          _ExplainStage.loading => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+          _ExplainStage.error => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Keyed: this section's own transport-failure text uses the
+              // same generic `AsyncResultView`-style wording every other
+              // (independently-polled) DBMS zone on this screen already
+              // shows for its own unrelated real failure — a `Key` lets
+              // tests target this section's own message precisely, not
+              // an accidental collision with a sibling zone's real text.
+              Text(
+                _error ?? '',
+                key: const Key('dbExplanationError'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: _explain,
+                child: Text(l10n.analysisExplainButton),
+              ),
+            ],
+          ),
+          _ExplainStage.loaded => _GatedExplanation(
+            gated: _gated!,
+            onRetry: _explain,
+          ),
+        },
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+}
+
+class _GatedExplanation extends StatelessWidget {
+  final GatedValueForAiExplanation gated;
+  final VoidCallback onRetry;
+  const _GatedExplanation({required this.gated, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (gated) {
+      GatedValueForAiExplanationSupported(:final value) =>
+        _ExplanationContent(explanation: value, onRefresh: onRetry),
+      GatedValueForAiExplanationLimited(:final reason) => _ExplainGatedMessage(
+        icon: Icons.info_outline,
+        title: l10n.metricStateLimitedTitle,
+        reason: reason,
+        onRetry: onRetry,
+      ),
+      GatedValueForAiExplanationUnavailable(:final reason) => _ExplainGatedMessage(
+        icon: Icons.remove_circle_outline,
+        title: l10n.metricStateUnavailableTitle,
+        reason: reason,
+        onRetry: onRetry,
+      ),
+      GatedValueForAiExplanationPermissionRequired(:final reason) =>
+        _ExplainGatedMessage(
+          icon: Icons.lock_outline,
+          title: l10n.metricStatePermissionRequiredTitle,
+          reason: reason,
+          onRetry: onRetry,
+        ),
+    };
+  }
+}
+
+class _ExplainGatedMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String reason;
+  final VoidCallback onRetry;
+  const _ExplainGatedMessage({
+    required this.icon,
+    required this.title,
+    required this.reason,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: muted),
+            const SizedBox(width: 8),
+            Text(title, style: TextStyle(color: muted)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(reason, style: TextStyle(color: muted)),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: onRetry,
+          child: Text(l10n.analysisExplainButton),
+        ),
+      ],
+    );
+  }
+}
+
+class _ExplanationContent extends StatelessWidget {
+  final AiExplanation explanation;
+  final VoidCallback onRefresh;
+  const _ExplanationContent({
+    required this.explanation,
+    required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(explanation.summary),
+        const SizedBox(height: 4),
+        Text(
+          l10n.analysisExplanationRiskAndConfidence(
+            explanation.risk.wireValue,
+            (explanation.confidence * 100).round(),
+          ),
+          style: TextStyle(color: muted),
+        ),
+        for (final observation in explanation.observations)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('•  ${observation.text}'),
+          ),
+        for (final recommendation in explanation.recommendations)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text('→  ${recommendation.text}'),
+          ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: onRefresh,
+          child: Text(l10n.analysisExplainButton),
+        ),
+      ],
     );
   }
 }

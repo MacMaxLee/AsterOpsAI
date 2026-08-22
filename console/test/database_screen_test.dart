@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:console/api/api_failure.dart';
 import 'package:console/api/api_result.dart';
 import 'package:console/generated/models/models.dart';
 import 'package:console/screens/database_screen.dart';
@@ -105,6 +106,22 @@ IdleInTransactionSession fakeIdleInTransactionSession() =>
       username: 'app',
       idleDurationSeconds: 90.2,
     );
+
+AiExplanation fakeAiExplanation() => const AiExplanation(
+  summary: 'The database looks healthy.',
+  observations: [
+    Observation(text: 'No sustained lock contention.', metrics: []),
+  ],
+  recommendations: [
+    Recommendation(
+      text: 'No action needed.',
+      metrics: [],
+      candidateRef: null,
+    ),
+  ],
+  risk: RiskLevel.low,
+  confidence: 0.91,
+);
 
 Future<void> pumpScreen(WidgetTester tester, dynamic transport) => pumpApp(
   tester,
@@ -467,6 +484,172 @@ void main() {
       expect(find.textContaining('7002'), findsOneWidget);
       expect(find.textContaining('app'), findsWidgets);
       expect(find.textContaining('90.2'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping Explain with AI fires the real DB explain request and renders '
+    'a real Supported explanation',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/analysis/db/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              GatedValueForAiExplanationSupported(
+                value: fakeAiExplanation(),
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      expect(find.text('Explain with AI'), findsOneWidget);
+      // `DatabaseScreen` genuinely no longer fits an 800x600 test
+      // viewport (ADR 0047's own overflow lesson) — `tester.tap()`
+      // doesn't auto-scroll a target into view, so this section's own
+      // button must be scrolled to first, the same real requirement a
+      // production user would face on a small window.
+      await tester.ensureVisible(find.text('Explain with AI'));
+      await tester.tap(find.text('Explain with AI'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('The database looks healthy.'), findsOneWidget);
+      expect(
+        find.text('•  No sustained lock contention.'),
+        findsOneWidget,
+      );
+      expect(find.text('→  No action needed.'), findsOneWidget);
+      expect(find.textContaining('LOW'), findsOneWidget);
+      expect(find.textContaining('91%'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a real Unavailable gated DB explanation shows the real reason via the '
+    'shared vocabulary',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/analysis/db/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              const GatedValueForAiExplanationUnavailable(
+                reason: 'AI explanation unavailable',
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      // `DatabaseScreen` genuinely no longer fits an 800x600 test
+      // viewport (ADR 0047's own overflow lesson) — `tester.tap()`
+      // doesn't auto-scroll a target into view, so this section's own
+      // button must be scrolled to first, the same real requirement a
+      // production user would face on a small window.
+      await tester.ensureVisible(find.text('Explain with AI'));
+      await tester.tap(find.text('Explain with AI'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Not available'), findsOneWidget);
+      expect(find.text('AI explanation unavailable'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a real transport-level error on DB explain shows the real failure '
+    'message with a working retry',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/analysis/db/explain',
+        const ApiErr(ApiFailureUnavailable('connection refused')),
+      );
+      transport.queue(
+        '/api/v1/dbms/sessions',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      transport.queue(
+        '/api/v1/dbms/locks',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      // `DatabaseScreen` genuinely no longer fits an 800x600 test
+      // viewport (ADR 0047's own overflow lesson) — `tester.tap()`
+      // doesn't auto-scroll a target into view, so this section's own
+      // button must be scrolled to first, the same real requirement a
+      // production user would face on a small window.
+      await tester.ensureVisible(find.text('Explain with AI'));
+      await tester.tap(find.text('Explain with AI'));
+      await tester.pump();
+      await tester.pump();
+
+      // Keyed, not `find.text(...)`: every other (independently-polled)
+      // DBMS zone on this screen also renders this exact generic
+      // wording for its own unrelated, genuinely-unscripted failure —
+      // the `Key` targets this section's own message precisely.
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.key == const Key('dbExplanationError') &&
+              widget is Text &&
+              widget.data ==
+                  "The AsterOpsAI core service isn't reachable. It may "
+                      'have stopped, or the socket may be missing. The '
+                      'console will keep retrying automatically.',
+        ),
+        findsOneWidget,
+      );
+
+      transport.queue(
+        '/api/v1/analysis/db/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              GatedValueForAiExplanationSupported(
+                value: fakeAiExplanation(),
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      // `DatabaseScreen` genuinely no longer fits an 800x600 test
+      // viewport (ADR 0047's own overflow lesson) — `tester.tap()`
+      // doesn't auto-scroll a target into view, so this section's own
+      // button must be scrolled to first, the same real requirement a
+      // production user would face on a small window.
+      await tester.ensureVisible(find.text('Explain with AI'));
+      await tester.tap(find.text('Explain with AI'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('The database looks healthy.'), findsOneWidget);
     },
   );
 }

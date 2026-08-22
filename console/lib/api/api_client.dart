@@ -207,6 +207,10 @@ final class ApiClient {
   Future<ApiResult<GatedValueForAiExplanation>> getHostExplanation() =>
       _get('/api/v1/analysis/host/explain', GatedValueForAiExplanation.fromJson);
 
+  /// Unit U47: same on-demand-only reasoning as `getHostExplanation`.
+  Future<ApiResult<GatedValueForAiExplanation>> getDbExplanation() =>
+      _get('/api/v1/analysis/db/explain', GatedValueForAiExplanation.fromJson);
+
   Future<ApiResult<CorrelationResult>> getCorrelation() =>
       _get('/api/v1/analysis/correlation', CorrelationResult.fromJson);
 
