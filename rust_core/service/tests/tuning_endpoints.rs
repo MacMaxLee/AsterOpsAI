@@ -249,23 +249,19 @@ async fn recommend_only_returns_real_candidates_and_touches_nothing_else() {
 /// `Environment::Development` hardcoded (this unit),
 /// `core::policy::risk::decide` always resolves Low risk to `AutoAllow`
 /// in Development — so `ASK_BEFORE_CHANGES` can never actually produce a
-/// `PENDING_APPROVAL` candidate through this endpoint today; every
-/// candidate lands on `AUTO_ALLOWED_PENDING` instead (matching core's own
+/// `PENDING_APPROVAL` candidate through this endpoint; every candidate
+/// lands on `AUTO_ALLOWED_PENDING` instead (matching core's own
 /// `tuning_plan_recommend_and_ask_test.rs::ask_before_changes_proposes_
-/// for_real_but_never_authorizes`). That row is real, audited, and has a
-/// real `row_id` — but it is genuinely orphaned from every existing HTTP
-/// surface: `list_pending_approval` only selects `status =
-/// 'PENDING_APPROVAL'`, so it never appears in `/api/v1/policy/pending`,
-/// and unit U22's grant endpoint's first step (`approval::grant`) has its
-/// own CAS require `PENDING_APPROVAL`, so granting it is a real, correct
-/// `400` — not a bug in this endpoint, and not something this unit's
-/// scope (pure wiring, no `core::policy` changes) closes. See
-/// docs/adr/0028's "known gap" section: the full propose -> inbox ->
-/// grant -> execute loop is not reachable over HTTP for any action type
-/// registered today, and won't be until either a Medium/High-risk action
-/// type exists or `Environment` stops being hardcoded to `Development`.
+/// for_real_but_never_authorizes`). ADR 0028 originally documented this
+/// row as genuinely orphaned from every HTTP surface; unit U50 (ADR
+/// 0028/0055) closes that gap for the default `Development` environment
+/// specifically (ADR 0030/U25 already closed the `Production` case,
+/// proven by the test below) — the row is now visible in the real inbox
+/// with `status: "AUTO_ALLOWED"`, and granting it now genuinely executes
+/// it, the same loop the `Production` test already proves, just under
+/// the real default environment instead of a configured one.
 #[tokio::test]
-async fn ask_before_changes_creates_a_real_row_the_existing_inbox_cannot_yet_reach() {
+async fn ask_before_changes_creates_an_auto_allowed_row_now_reachable_from_the_inbox() {
     let repo = open_repo().await;
     let target = SpawnedTarget::spawn();
 
@@ -290,43 +286,41 @@ async fn ask_before_changes_creates_a_real_row_the_existing_inbox_cannot_yet_rea
         .as_i64()
         .expect("row_id is an integer");
 
-    // Real, audited row — but genuinely invisible to the inbox: Low risk
-    // auto-allows in Development, so it never becomes PENDING_APPROVAL.
+    // Genuinely visible in the real Policy inbox, distinguishable via
+    // the new `status` field.
     let app = build_app(Some(repo.clone())).await;
     let (_, body) = get_json(app, "/api/v1/policy/pending").await;
-    assert_eq!(
-        body["data"],
-        json!([]),
-        "an AUTO_ALLOWED_PENDING row must not appear in the PENDING_APPROVAL-only inbox"
-    );
+    let item = body["data"]
+        .as_array()
+        .expect("data is an array")
+        .iter()
+        .find(|item| item["id"] == affinity_row_id)
+        .unwrap_or_else(|| {
+            panic!("the real auto-allowed candidate must be visible in the inbox: {body:?}")
+        });
+    assert_eq!(item["status"], "AUTO_ALLOWED");
 
-    // The existing grant endpoint genuinely cannot reach it either — a
-    // real, correct 400, not a panic or a silent no-op.
-    let app = build_app(Some(repo.clone())).await;
+    // Grant it for real — genuinely succeeds now.
+    let app = build_app(Some(repo)).await;
     let (status, body) = post_json(
         app,
         &format!("/api/v1/policy/{affinity_row_id}/grant"),
         json!({ "granted_by": "approver" }),
     )
     .await;
-    assert_eq!(status, StatusCode::BAD_REQUEST, "body: {body:?}");
-    assert!(
-        body["error"]["message"]
-            .as_str()
-            .expect("message is a string")
-            .contains("AUTO_ALLOWED"),
-        "expected the real status-mismatch message naming the row's actual status, got {body:?}"
-    );
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
 
-    // Real proof nothing on the live target changed either.
+    // Real proof: the target's actual CPU affinity changed.
     let platform = platform::current_platform_adapter();
     let affinity = platform
         .get_process_cpu_affinity(target.pid as u32)
         .expect("get_process_cpu_affinity");
-    assert_ne!(
+    assert_eq!(
         affinity.cpus,
         std::collections::BTreeSet::from([0]),
-        "an AUTO_ALLOWED_PENDING row must never have touched live state"
+        "the real process affinity must now be exactly {{0}}, proving the full \
+         propose -> inbox -> grant -> execute loop now runs for real under \
+         the default Development environment too"
     );
 }
 

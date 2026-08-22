@@ -156,7 +156,8 @@
         "requested_by",
         "resource_kind",
         "resource_name",
-        "risk_classification"
+        "risk_classification",
+        "status"
       ],
       "properties": {
         "action_type": {
@@ -187,6 +188,10 @@
           "type": "string"
         },
         "risk_classification": {
+          "type": "string"
+        },
+        "status": {
+          "description": "Unit U50: `\"PENDING_APPROVAL\"` or `\"AUTO_ALLOWED\"` — the latter reachable in the inbox for the first time this unit, closing ADR 0028's own named gap for the default `Development` environment. Same plain-`String` convention as `ActionProposalOutcome.status` below, not a new enum type.",
           "type": "string"
         }
       }

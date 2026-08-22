@@ -10,6 +10,7 @@ final class PendingActionSummary {
   final String resourceKind;
   final String resourceName;
   final String riskClassification;
+  final String status;
 
   const PendingActionSummary({
     required this.actionType,
@@ -20,6 +21,7 @@ final class PendingActionSummary {
     required this.resourceKind,
     required this.resourceName,
     required this.riskClassification,
+    required this.status,
   });
 
   static PendingActionSummary fromJson(dynamic json) {
@@ -35,6 +37,7 @@ final class PendingActionSummary {
       resourceKind: map['resource_kind'] as String,
       resourceName: map['resource_name'] as String,
       riskClassification: map['risk_classification'] as String,
+      status: map['status'] as String,
     );
   }
 
@@ -47,5 +50,6 @@ final class PendingActionSummary {
     'resource_kind': resourceKind,
     'resource_name': resourceName,
     'risk_classification': riskClassification,
+    'status': status,
   };
 }

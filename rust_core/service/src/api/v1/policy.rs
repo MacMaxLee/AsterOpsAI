@@ -5,8 +5,10 @@
 //! applies it, not just marks it approved. See docs/adr/0027.
 
 use ai_ops_core::actions;
-use ai_ops_core::policy::{approval, ResourceDescriptor, TargetIdentity};
-use ai_ops_core::repository::{self, get_action, PolicyActionRow};
+use ai_ops_core::policy::{approval, ActionStatus, ResourceDescriptor, TargetIdentity};
+use ai_ops_core::repository::{
+    self, get_action, record_audit_event, NewAuditEvent, PolicyActionRow,
+};
 use axum::extract::{Extension, Path, State};
 use axum::Json;
 use chrono::Utc;
@@ -41,6 +43,7 @@ fn to_summary(row: &PolicyActionRow) -> Result<PendingActionSummary, ApiError> {
         resource_name: resource.name,
         requested_by: row.requested_by.clone(),
         approval_expires_at: row.approval_expires_at,
+        status: row.status.clone(),
     })
 }
 
@@ -94,9 +97,44 @@ pub async fn grant(
                 "policy inbox not available: repository layer did not start".to_string(),
             )
         })?;
-        approval::grant(&repo, id, body.granted_by, Utc::now())
+
+        // Unit U50 (ADR 0028/0055): an AUTO_ALLOWED row is already
+        // policy-authorized — `approval::grant`'s own CAS only ever
+        // accepts a PENDING_APPROVAL row, so calling it here would
+        // always fail. `authorize()` below already accepts AUTO_ALLOWED
+        // directly (its own doc comment says so); skipping `grant` also
+        // skips its `policy.granted` audit event, so a distinct event is
+        // recorded here instead, for the same FR-POL-005 parity. Any
+        // other status (including PENDING_APPROVAL) falls through to
+        // the unchanged `approval::grant` call, with unchanged errors.
+        let pre_check = get_action(&repo, id)
             .await
-            .map_err(policy_error_to_api)?;
+            .map_err(|err| {
+                tracing::error!(error = %err, "get_action failed before grant");
+                ApiError::Internal
+            })?
+            .ok_or(ApiError::NotFound)?;
+        if pre_check.status == ActionStatus::AutoAllowed.as_str() {
+            record_audit_event(
+                &repo,
+                NewAuditEvent {
+                    ts: Utc::now(),
+                    event_type: "policy.auto_allowed_executed".to_string(),
+                    actor: body.granted_by.clone(),
+                    summary: format!("auto-allowed action {id} run"),
+                    detail_json: serde_json::json!({ "row_id": id }).to_string(),
+                },
+            )
+            .await
+            .map_err(|err| {
+                tracing::error!(error = %err, "record_audit_event failed for auto-allowed run");
+                ApiError::Internal
+            })?;
+        } else {
+            approval::grant(&repo, id, body.granted_by, Utc::now())
+                .await
+                .map_err(policy_error_to_api)?;
+        }
 
         // The row itself already carries exactly what was proposed —
         // `authorize()` re-checks the caller-supplied copy against it

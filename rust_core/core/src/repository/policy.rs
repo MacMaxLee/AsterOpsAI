@@ -46,10 +46,16 @@ fn must_get_by_id(conn: &Connection, id: i64) -> Result<PolicyActionRow, Reposit
 
 /// Unit U13's policy approval inbox: every row still awaiting a human
 /// decision, oldest first — a real inbox drains from the front, not an
-/// arbitrary default.
+/// arbitrary default. Unit U50 (ADR 0028/0055): also includes
+/// `AUTO_ALLOWED` rows — a real, audited row policy already authorized
+/// but that (outside `core::tuning::plan.rs`'s own narrower
+/// auto-execution gate) nothing ever executes on its own; a human still
+/// needs a real trigger to run it, so it belongs in the same inbox, not
+/// a separate surface.
 pub fn list_pending_approval(conn: &Connection) -> Result<Vec<PolicyActionRow>, RepositoryError> {
     let sql = format!(
-        "SELECT {SELECT_COLUMNS} FROM actions WHERE status = 'PENDING_APPROVAL' \
+        "SELECT {SELECT_COLUMNS} FROM actions \
+         WHERE status IN ('PENDING_APPROVAL', 'AUTO_ALLOWED') \
          ORDER BY created_at ASC"
     );
     let mut stmt = conn.prepare(&sql)?;

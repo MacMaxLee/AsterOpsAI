@@ -281,6 +281,84 @@ async fn proposing_malformed_parameters_is_a_real_bad_request_not_an_internal_er
     );
 }
 
+/// Unit U50 (ADR 0028/0055's own named gap, closed): a real,
+/// *unforced* `PolicyOutcome::AutoAllowed` outcome — `host.set_process_
+/// cpu_affinity` is genuinely `RiskLevel::Low`, and this file's own
+/// `build_app` already hardcodes the real default `Environment::
+/// Development`, so `core::policy::risk::decide` really returns
+/// `AutoAllow` for this exact propose call, with zero test-only status
+/// manipulation. Before this unit, the resulting row was invisible to
+/// `/api/v1/policy/pending` and permanently unreachable; this proves
+/// the whole gap is closed end-to-end, over real HTTP, under the real
+/// default environment: propose -> real AUTO_ALLOWED row -> now visible
+/// in the inbox -> "grant" really changes the real target's CPU
+/// affinity.
+#[tokio::test]
+async fn proposing_a_low_risk_action_under_development_auto_allows_and_is_reachable_from_the_inbox()
+{
+    let repo = open_repo().await;
+    let mut target = SpawnedTarget::spawn();
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        "/api/v1/actions/propose",
+        json!({
+            "action_type": "host.set_process_cpu_affinity",
+            "pid": target.pid,
+            "start_time_ticks": target.start_time_ticks,
+            "resource_name": "sleep-test-target",
+            "parameters": { "cpus": [0] },
+            "requested_by": "tester",
+        }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(
+        body["data"]["status"], "AUTO_ALLOWED",
+        "a real Low-risk action under the real default Development environment \
+         must genuinely auto-allow, not require approval"
+    );
+    assert!(body["data"]["approval_expires_at"].is_null());
+    let row_id = body["data"]["row_id"]
+        .as_i64()
+        .expect("row_id is an integer");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (_, body) = get_json(app, "/api/v1/policy/pending").await;
+    let item = body["data"]
+        .as_array()
+        .expect("data is an array")
+        .iter()
+        .find(|item| item["id"] == row_id)
+        .unwrap_or_else(|| {
+            panic!("the real auto-allowed action must be visible in the inbox: {body:?}")
+        });
+    assert_eq!(item["status"], "AUTO_ALLOWED");
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "grant body: {body:?}");
+
+    let platform = platform::current_platform_adapter();
+    let affinity = platform
+        .get_process_cpu_affinity(target.pid as u32)
+        .expect("get_process_cpu_affinity");
+    assert_eq!(
+        affinity.cpus,
+        std::collections::BTreeSet::from([0]),
+        "the real process affinity must now be exactly {{0}}, proving the \
+         auto-allowed row was genuinely executed, not just marked as such"
+    );
+
+    target.kill_and_reap();
+}
+
 /// Unit U43 (ADR 0034's own named "double-suspend" gap, closed;
 /// ADR 0048): proposing `security.suspend_process` twice against the
 /// same real spawned target — the first genuinely reaches

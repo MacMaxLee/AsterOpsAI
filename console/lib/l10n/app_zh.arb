@@ -119,6 +119,7 @@
   "policyColumnExpires": "到期時間",
   "policyGrant": "核准",
   "policyReject": "拒絕",
+  "policyRunNow": "立即执行",
   "tuningCompletedAt": "已於 {completedAt} 完成",
   "@tuningCompletedAt": {
     "placeholders": {

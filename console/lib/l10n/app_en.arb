@@ -121,6 +121,7 @@
   "policyColumnExpires": "Expires",
   "policyGrant": "Grant",
   "policyReject": "Reject",
+  "policyRunNow": "Run now",
 
   "tuningCompletedAt": "completed {completedAt}",
   "@tuningCompletedAt": {

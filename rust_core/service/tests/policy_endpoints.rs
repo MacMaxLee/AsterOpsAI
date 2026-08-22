@@ -129,6 +129,41 @@ async fn insert_pending_for(
         .id
 }
 
+/// Unit U50: mirrors `insert_pending_for` exactly, but for a real
+/// `AUTO_ALLOWED` row — `approval_expires_at: None`, matching
+/// `core::policy::evaluate::evaluate`'s own real `AutoAllow` branch
+/// (never sets an expiry for a row that needs no approval).
+async fn insert_auto_allowed_for(
+    repo: &repository::RepositoryHandle,
+    requested_by: &str,
+    action_type: &str,
+    target: &SpawnedTarget,
+    parameters: Value,
+) -> i64 {
+    let now = Utc::now();
+    let parameters_json = parameters.to_string();
+    let parameters_hash = compute_parameters_hash(&parameters).expect("compute_parameters_hash");
+    let new = NewProposedAction {
+        created_at: now,
+        action_type: action_type.to_string(),
+        target_identity_json: target.target_identity_json(),
+        target_start_time: target.start_time_ticks,
+        risk_classification: "LOW".to_string(),
+        status: ActionStatus::AutoAllowed.as_str().to_string(),
+        evidence_json: "{}".to_string(),
+        requested_by: requested_by.to_string(),
+        parameters_json,
+        parameters_hash,
+        resource_descriptor_json: serde_json::to_string(&resource()).expect("serialize resource"),
+        approval_expires_at: None,
+        rollback_of: None,
+    };
+    repository::propose_action(repo, new)
+        .await
+        .expect("propose_action")
+        .id
+}
+
 #[tokio::test]
 async fn an_empty_repository_has_no_pending_actions() {
     let repo = open_repo().await;
@@ -164,6 +199,7 @@ async fn a_pending_action_appears_in_the_inbox_with_the_right_fields() {
     assert_eq!(item["resource_name"], "sleep-test-target");
     assert_eq!(item["requested_by"], "tester");
     assert!(!item["approval_expires_at"].is_null());
+    assert_eq!(item["status"], "PENDING_APPROVAL");
 }
 
 #[tokio::test]
@@ -325,6 +361,101 @@ async fn granting_an_already_granted_action_is_a_bad_request_not_a_panic() {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(body["error"]["code"], "BAD_REQUEST");
+}
+
+/// Unit U50 (ADR 0028/0055): the gap being closed — a real
+/// `AUTO_ALLOWED` row genuinely appears in the inbox for the first
+/// time, distinguishable from a `PENDING_APPROVAL` row via the new
+/// `status` field.
+#[tokio::test]
+async fn an_auto_allowed_action_appears_in_the_inbox_with_status_auto_allowed() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_auto_allowed_for(
+        &repo,
+        "tuning-engine",
+        "host.set_process_cpu_affinity",
+        &target,
+        json!({ "cpus": [0] }),
+    )
+    .await;
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = get_json(app, "/api/v1/policy/pending").await;
+    assert_eq!(status, StatusCode::OK);
+    let items = body["data"].as_array().expect("data is an array");
+    let item = items
+        .iter()
+        .find(|item| item["id"] == row_id)
+        .unwrap_or_else(|| panic!("the real AUTO_ALLOWED row must appear, got {body:?}"));
+    assert_eq!(item["status"], "AUTO_ALLOWED");
+    assert!(
+        item["approval_expires_at"].is_null(),
+        "an auto-allowed row never carries an approval expiry"
+    );
+}
+
+/// Unit U50: granting an `AUTO_ALLOWED` row skips `approval::grant`
+/// (its CAS would always reject a non-`PENDING_APPROVAL` row) and goes
+/// straight to real execution — proven the same way
+/// `granting_a_reversible_action_really_executes_it` already proves a
+/// `PENDING_APPROVAL` grant: a real change to the target's own CPU
+/// affinity mask, not just a row-status assertion. Also proves the new
+/// `policy.auto_allowed_executed` audit event fires instead of
+/// `policy.granted`.
+#[tokio::test]
+async fn granting_an_auto_allowed_action_really_executes_it_and_audits_distinctly() {
+    let repo = open_repo().await;
+    let target = SpawnedTarget::spawn();
+    let row_id = insert_auto_allowed_for(
+        &repo,
+        "tuning-engine",
+        "host.set_process_cpu_affinity",
+        &target,
+        json!({ "cpus": [0] }),
+    )
+    .await;
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/policy/{row_id}/grant"),
+        json!({ "granted_by": "approver" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+
+    let platform = platform::current_platform_adapter();
+    let affinity = platform
+        .get_process_cpu_affinity(target.pid as u32)
+        .expect("get_process_cpu_affinity");
+    assert_eq!(
+        affinity.cpus,
+        std::collections::BTreeSet::from([0]),
+        "the real process affinity must now be exactly {{0}}"
+    );
+
+    let row = repository::get_action(&repo, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(row.status, "EXECUTED");
+
+    // `actions::execute` itself records its own trailing `policy.executed`
+    // event, so `latest_audit_event_type` (most-recent-only) can't prove
+    // this event exists — a real, direct read of the audit trail instead.
+    let conn = repository::reader::checkout(&repo.read_pool).expect("checkout reader");
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM audit_events WHERE event_type = 'policy.auto_allowed_executed'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("query audit_events");
+    assert_eq!(
+        count, 1,
+        "an auto-allowed run must be audited distinctly from a human grant"
+    );
 }
 
 /// Unit U28's own capstone at the service level: a real

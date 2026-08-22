@@ -9,15 +9,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fixtures.dart';
 import 'support/pump_app.dart';
 
-PendingActionSummary fakeAction({int id = 1}) => PendingActionSummary(
+PendingActionSummary fakeAction({
+  int id = 1,
+  String status = 'PENDING_APPROVAL',
+}) => PendingActionSummary(
   actionType: 'host.set_process_priority',
-  approvalExpiresAt: DateTime.utc(2026, 1, 1, 12),
+  approvalExpiresAt: status == 'AUTO_ALLOWED'
+      ? null
+      : DateTime.utc(2026, 1, 1, 12),
   createdAt: DateTime.utc(2026, 1, 1, 11),
   id: id,
   requestedBy: 'tuning-engine',
   resourceKind: 'PROCESS',
   resourceName: 'sleep-test-target',
   riskClassification: 'MEDIUM',
+  status: status,
 );
 
 void main() {
@@ -144,6 +150,52 @@ void main() {
       );
       // The row is never silently dropped just because the call failed.
       expect(find.text('host.set_process_priority'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an AUTO_ALLOWED row shows Run now with no Reject, and tapping it '
+    'posts to the same grant endpoint',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/policy/pending',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson([
+              fakeAction(id: 9, status: 'AUTO_ALLOWED').toJson(),
+            ]),
+          ),
+        ),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: PolicyInboxScreen()),
+        transport: transport,
+      );
+      await tester.pump();
+
+      expect(find.text('Run now'), findsOneWidget);
+      expect(find.text('Grant'), findsNothing);
+      expect(find.text('Reject'), findsNothing);
+
+      transport.queuePost(
+        '/api/v1/policy/9/grant',
+        ApiOk(jsonEncode(okEnvelopeJson(null))),
+      );
+      transport.queue(
+        '/api/v1/policy/pending',
+        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+      );
+
+      await tester.tap(find.text('Run now'));
+      await tester.pump();
+      await tester.pump();
+
+      final posted = transport.postedRequests.single;
+      expect(posted.requestedPath, '/api/v1/policy/9/grant');
+      expect(jsonDecode(posted.body), {'granted_by': 'console-operator'});
+      expect(find.text('Nothing to show'), findsOneWidget);
     },
   );
 }

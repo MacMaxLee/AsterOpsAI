@@ -20,6 +20,12 @@ pub struct PendingActionSummary {
     pub resource_name: String,
     pub requested_by: String,
     pub approval_expires_at: Option<DateTime<Utc>>,
+    /// Unit U50: `"PENDING_APPROVAL"` or `"AUTO_ALLOWED"` — the latter
+    /// reachable in the inbox for the first time this unit, closing
+    /// ADR 0028's own named gap for the default `Development`
+    /// environment. Same plain-`String` convention as
+    /// `ActionProposalOutcome.status` below, not a new enum type.
+    pub status: String,
 }
 
 /// Unit U26's real, immediate result of proposing an action outside the
