@@ -32,6 +32,13 @@ is_test_reference() {
   local file="$1" line="$2"
   case "$file" in
     */tests/*|console/test/*) return 0 ;;
+    # The `#[cfg(test)]`-fallback below only makes sense for real Rust
+    # source — unit U62's own real discovery: an ADR that merely
+    # *describes* this exact heuristic in prose (quoting the literal
+    # string `#[cfg(test)]`) otherwise makes every later FR-ID reference
+    # in that same doc misclassify as "after the test marker."
+    *.rs) : ;;
+    *) return 1 ;;
   esac
   local last_cfg
   last_cfg=$(grep -n '#\[cfg(test)\]' "$file" 2>/dev/null | tail -1 | cut -d: -f1 || true)

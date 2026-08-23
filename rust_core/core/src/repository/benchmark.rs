@@ -71,15 +71,28 @@ pub fn insert_benchmark_run(
     must_get_by_id(conn, conn.last_insert_rowid())
 }
 
+/// Unit U62 (SRS FR-HIST-002, narrowed — see docs/adr/0067): a real
+/// compare-and-swap guard, the same shape `policy::transition` already
+/// uses for `actions` rows — `rolled_back = 0` in the `WHERE` clause
+/// means a second call against an already-rolled-back run affects zero
+/// rows rather than silently overwriting `rollback_action_id`.
+/// `must_get_by_id` itself reports a genuinely missing id (via `?`); a
+/// row that's found here despite `affected == 0` can only have failed
+/// the `rolled_back = 0` guard, i.e. it was already rolled back once.
 pub fn mark_rolled_back(
     conn: &Connection,
     id: i64,
     rollback_action_id: i64,
 ) -> Result<BenchmarkRunRow, RepositoryError> {
-    conn.execute(
-        "UPDATE benchmark_runs SET rolled_back = 1, rollback_action_id = ?1 WHERE id = ?2",
+    let affected = conn.execute(
+        "UPDATE benchmark_runs SET rolled_back = 1, rollback_action_id = ?1 \
+         WHERE id = ?2 AND rolled_back = 0",
         params![rollback_action_id, id],
     )?;
+    if affected == 0 {
+        must_get_by_id(conn, id)?;
+        return Err(RepositoryError::BenchmarkRunAlreadyRolledBack(id));
+    }
     must_get_by_id(conn, id)
 }
 

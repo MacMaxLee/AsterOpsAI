@@ -3,10 +3,10 @@
 //! health check"). Sampling happens on a background interval so the
 //! health handler never blocks on a syscall per request.
 //!
-//! `service/tests/health_endpoint.rs`'s own test exercises this wiring
-//! end-to-end but doesn't currently assert on the resulting
-//! `self_cpu_percent`/`self_rss_bytes` values — real wiring, thin
-//! verification, a real gap worth a small follow-up assertion.
+//! `service/tests/health_endpoint.rs` (unit U62, SRS FR-SYS-002) now
+//! asserts on the resulting `self_cpu_percent`/`self_rss_bytes` values
+//! for real, using [`spawn_with_interval`]'s test-only short interval to
+//! observe a genuine `Supported` CPU% without a real 5-second wait.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -93,12 +93,25 @@ impl SelfMetricsSampler {
 /// Takes an immediate first sample (so `/health` has data right away), then
 /// spawns a background task that keeps refreshing it every [`SAMPLE_INTERVAL`].
 pub fn spawn(platform: Arc<dyn PlatformAdapter>) -> Arc<RwLock<SelfMetricsSnapshot>> {
+    spawn_with_interval(platform, SAMPLE_INTERVAL)
+}
+
+/// Unit U62 (SRS FR-SYS-002): test-only override of the otherwise-fixed
+/// sample interval — lets a test observe a real, non-placeholder
+/// `cpu_percent` in milliseconds instead of waiting a genuine 5 real
+/// seconds, the same `with_activity_thresholds`-style precedent unit U53
+/// established for `PostgresAdapter`. `service` production code always
+/// calls plain `spawn` above, never this directly.
+pub fn spawn_with_interval(
+    platform: Arc<dyn PlatformAdapter>,
+    interval_duration: Duration,
+) -> Arc<RwLock<SelfMetricsSnapshot>> {
     let mut sampler = SelfMetricsSampler::new(platform);
     let snapshot = Arc::new(RwLock::new(sampler.sample()));
 
     let shared = snapshot.clone();
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(SAMPLE_INTERVAL);
+        let mut interval = tokio::time::interval(interval_duration);
         interval.tick().await; // first tick fires immediately; we already sampled above
         loop {
             interval.tick().await;

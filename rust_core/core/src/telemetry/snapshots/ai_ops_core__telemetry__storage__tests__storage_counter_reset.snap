@@ -1,0 +1,46 @@
+---
+source: rust_core/core/src/telemetry/storage.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "volumes": [
+    {
+      "device": "8:2",
+      "mount_point": "/",
+      "filesystem": "ext4",
+      "capacity_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "free_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "available_bytes": {
+        "state": "UNAVAILABLE",
+        "reason": "resolved by caller via statvfs"
+      },
+      "read_bytes_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 11075585024 to 1024000"
+      },
+      "write_bytes_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 14303748096 to 1536000"
+      },
+      "read_ops_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 939286 to 100"
+      },
+      "write_ops_per_sec": {
+        "state": "COUNTER_RESET",
+        "reason": "counter decreased from 394440 to 80"
+      },
+      "io_latency_ms": {
+        "state": "COUNTER_RESET",
+        "reason": "disk I/O counter decreased"
+      }
+    }
+  ]
+}

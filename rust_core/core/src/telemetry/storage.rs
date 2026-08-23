@@ -251,4 +251,36 @@ mod tests {
         let (snapshot, _prev) = parse_storage_snapshot(&source, &fixed_ctx(), None).unwrap();
         insta::assert_json_snapshot!(snapshot);
     }
+
+    /// SRS FR-STO-001: per-volume I/O rates, and a disk counter reset
+    /// must never present as a fabricated negative rate — mirrors
+    /// `network.rs::nic_counter_reset`'s exact two-phase shape, the
+    /// first test in this file to pass a real `prev` sample (every
+    /// other storage test here only ever sees `prev: None`, so the
+    /// `CounterReset` branch was genuinely untested until now).
+    #[test]
+    fn storage_counter_reset() {
+        let before = FixtureProcSource::scenario_phase("storage-counter-reset", "before");
+        let after = FixtureProcSource::scenario_phase("storage-counter-reset", "after");
+        let (_, prev) = parse_storage_snapshot(&before, &fixed_ctx(), None).unwrap();
+        let (snapshot, _) = parse_storage_snapshot(&after, &fixed_ctx(), Some(&prev)).unwrap();
+        let root = snapshot
+            .volumes
+            .iter()
+            .find(|v| v.mount_point == "/")
+            .unwrap();
+        assert!(matches!(
+            root.read_bytes_per_sec,
+            MetricValue::CounterReset { .. }
+        ));
+        assert!(matches!(
+            root.write_bytes_per_sec,
+            MetricValue::CounterReset { .. }
+        ));
+        assert!(matches!(
+            root.io_latency_ms,
+            MetricValue::CounterReset { .. }
+        ));
+        insta::assert_json_snapshot!(snapshot);
+    }
 }

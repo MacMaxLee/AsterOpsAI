@@ -58,6 +58,13 @@ pub enum RepositoryError {
     #[error("no tuning plan row with id {0}")]
     TuningPlanNotFound(i64),
 
+    /// Unit U62 (SRS FR-HIST-002, narrowed — see docs/adr/0067):
+    /// `repository::benchmark::mark_rolled_back`'s own CAS guard —
+    /// mirrors `TuningPlanAlreadyInFlight`'s own "a real, durable
+    /// rejection, not an in-memory check" precedent.
+    #[error("benchmark run {0} was already rolled back")]
+    BenchmarkRunAlreadyRolledBack(i64),
+
     #[error("no security event row with id {0}")]
     SecurityEventNotFound(i64),
 

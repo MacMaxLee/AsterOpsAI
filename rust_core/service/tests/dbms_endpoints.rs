@@ -249,6 +249,9 @@ async fn setup_query_stats_fixture(pg: &support::TestPostgres) {
     }
 }
 
+/// SRS FR-DB-005: the `Gated::Supported` happy path — `pg_stat_
+/// statements` actually loaded and populated, not just the absent-
+/// extension degrade path `dbms_no_pg_stat_statements_test.rs` covers.
 #[tokio::test]
 async fn query_stats_returns_real_populated_data() {
     let mut pg = support::TestPostgres::start_with_extra_options(

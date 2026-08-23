@@ -117,12 +117,12 @@ pub async fn pg_stat_statements_available(
 }
 
 /// SRS FR-DB-005: query-level statistics where `pg_stat_statements` is
-/// present. The `Gated::Unavailable` degrade path below is real and
-/// tested (`dbms_no_pg_stat_statements_test.rs`); the `Gated::Supported`
-/// happy path — the extension actually loaded — has no test in this repo
-/// yet, since no fixture loads it via `shared_preload_libraries`
-/// (`TestPostgres::start_with_extra_options`, unit U51, makes this
-/// possible but nothing currently uses it for this).
+/// present. Both branches are real and tested: the `Gated::Unavailable`
+/// degrade path (`dbms_no_pg_stat_statements_test.rs`), and the
+/// `Gated::Supported` happy path — the extension actually loaded via
+/// `TestPostgres::start_with_extra_options`'s `shared_preload_libraries`
+/// (unit U51) — by `dbms_endpoints.rs::query_stats_returns_real_
+/// populated_data`.
 pub async fn query_stats(
     client: &tokio_postgres::Client,
 ) -> Result<Gated<Vec<QueryStat>>, DbmsError> {
