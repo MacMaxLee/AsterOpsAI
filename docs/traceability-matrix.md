@@ -62,7 +62,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-DB-007 | Table and index size and statistics, dead-tuple/bloat proxies, and | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |
 | FR-CORR-001 | Given host telemetry (§6–§13) and database telemetry (§26–§34) over | U12 | `rust_core/core/src/correlation/confidence.rs` | `rust_core/core/tests/correlation_test.rs` | OK |
 | FR-CORR-002 | The hypothesis set distinguishes, at minimum: DB locks, DB | n/a | `rust_core/contracts/src/correlation.rs` | `rust_core/core/tests/correlation_test.rs` | OK |
-| FR-CORR-003 | Correlation output uses the same contract types the console and the | n/a | `rust_core/core/src/correlation/mod.rs` | none | NEEDS-VERIFICATION |
+| FR-CORR-003 | Correlation output uses the same contract types the console and the | U66 | `rust_core/core/src/correlation/mod.rs` | none | NEEDS-VERIFICATION |
 | FR-DB-008 | Primary/standby topology, LSN positions (sent/write/flush/replay), lag | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_replica_test.rs` | OK |
 | FR-DB-009 | A curated set of operationally relevant GUCs (not the full | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |
 | FR-DBSEC-001 | Deterministic detection of repeated authentication failure, newly | U56 | `rust_core/core/src/dbms/adapters/postgresql/queries.rs` | `rust_core/core/tests/security_detector_auth_failure_test.rs` | OK |
