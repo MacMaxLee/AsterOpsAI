@@ -21,7 +21,7 @@ use ai_ops_core::repository::{self, RepositoryConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
-use service::{api, self_metrics, state::AppState, telemetry};
+use service::{api, dbms_security_sweep, self_metrics, state::AppState, telemetry};
 use tower::ServiceExt;
 
 async fn build_app(dbms_adapter: Option<Arc<dyn DbmsAdapter>>) -> axum::Router {
@@ -90,6 +90,28 @@ async fn get_json(app: axum::Router, path: &str) -> (StatusCode, Value) {
         .expect("body reads");
     let json: Value = serde_json::from_slice(&body).expect("body is valid json");
     (status, json)
+}
+
+/// Unit U72: `gucs`'s HTTP handler no longer triggers the security/
+/// config sweep as a side effect of being polled —
+/// `dbms_security_sweep::spawn` now owns that on its own real,
+/// independent schedule (docs/adr/0078). Every test below that used to
+/// rely on `GET /gucs` synchronously running the sweep now triggers one
+/// directly and deterministically instead, the same way `spawn`'s own
+/// background loop would eventually, just without waiting on a real
+/// timer.
+async fn poll_gucs_and_sweep(
+    app: axum::Router,
+    adapter: &Arc<dyn DbmsAdapter>,
+    repo: &repository::RepositoryHandle,
+) -> (StatusCode, Value) {
+    let result = get_json(app, "/api/v1/dbms/gucs").await;
+    let gucs = adapter
+        .relevant_gucs()
+        .await
+        .expect("relevant_gucs for sweep");
+    dbms_security_sweep::run_security_config_sweep(repo, adapter, &gucs).await;
+    result
 }
 
 fn adapter_for(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
@@ -486,8 +508,8 @@ async fn gucs_polling_a_real_changed_sighup_guc_produces_a_real_security_inciden
     let setup = pg.superuser_client().await;
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
 
     // Two separate statements, not one batch: PostgreSQL's simple-query
@@ -503,8 +525,8 @@ async fn gucs_polling_a_real_changed_sighup_guc_produces_a_real_security_inciden
         .expect("pg_reload_conf");
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
     let gucs = body["data"].as_array().expect("data is an array");
     let autovacuum = gucs
@@ -565,8 +587,8 @@ async fn gucs_polling_a_real_new_superuser_grant_produces_a_real_security_incide
         .expect("CREATE ROLE");
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
 
     setup
@@ -575,8 +597,8 @@ async fn gucs_polling_a_real_new_superuser_grant_produces_a_real_security_incide
         .expect("ALTER ROLE ... SUPERUSER");
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
 
     let adapter = adapter_for(&pg);
@@ -623,8 +645,8 @@ async fn gucs_polling_a_real_new_role_membership_grant_produces_a_real_security_
         .expect("GRANT admins TO alice");
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
 
     let adapter = adapter_for(&pg);
@@ -674,8 +696,8 @@ async fn gucs_polling_a_real_table_grant_produces_a_real_security_incident_but_o
     // Poll once with zero explicit grants yet — the owner's own real,
     // implicit privileges must not be mistaken for a human's grant.
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, _) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "baseline poll must succeed");
 
     let adapter = adapter_for(&pg);
@@ -696,8 +718,8 @@ async fn gucs_polling_a_real_table_grant_produces_a_real_security_incident_but_o
         .expect("GRANT SELECT ON widgets TO alice");
 
     let adapter = adapter_for(&pg);
-    let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-    let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
     assert_eq!(status, StatusCode::OK, "body: {body:?}");
 
     let adapter = adapter_for(&pg);
@@ -791,8 +813,8 @@ async fn gucs_polling_a_real_auth_failure_produces_a_real_security_incident() {
     let mut found_incident: Option<Value> = None;
     for _ in 0..25 {
         let adapter = adapter_for(&pg);
-        let app = build_app_with_repository(Some(adapter), repo.clone()).await;
-        let (status, body) = get_json(app, "/api/v1/dbms/gucs").await;
+        let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+        let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
         assert_eq!(status, StatusCode::OK, "gucs poll body: {body:?}");
 
         let adapter = adapter_for(&pg);
@@ -1413,4 +1435,70 @@ async fn idle_in_transaction_sessions_reports_a_real_idle_session() {
             >= 0.0
     );
     assert_eq!(session["username"], "postgres");
+}
+
+/// Unit U72 (docs/adr/0078): the actual point of giving this its own
+/// schedule — a real security event is detected even though `/api/v1/
+/// dbms/gucs` is never once called in this test. Every other test in
+/// this file proves the *detection* pipeline via `poll_gucs_and_sweep`'s
+/// direct, deterministic trigger; this one proves the *scheduling*
+/// itself, via `spawn_with_interval`'s real background loop on a short
+/// test-only interval (real time, not `tokio::time::pause` — matching
+/// `gucs_polling_a_real_auth_failure_produces_a_real_security_incident`'s
+/// own real-timing retry-loop precedent).
+#[tokio::test]
+async fn a_real_independent_schedule_detects_a_security_event_without_ever_polling_gucs() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    // Must exist before the scheduler's own first sweep, so that sweep
+    // seeds a real baseline rather than the later SUPERUSER grant being
+    // treated as a first observation (the same precondition
+    // `gucs_polling_a_real_new_superuser_grant_produces_a_real_security_
+    // incident` documents for its own manual baseline poll).
+    setup
+        .execute("CREATE ROLE app_user", &[])
+        .await
+        .expect("CREATE ROLE");
+
+    let adapter = adapter_for(&pg);
+    dbms_security_sweep::spawn_with_interval(
+        repo.clone(),
+        adapter.clone(),
+        StdDuration::from_millis(20),
+    );
+    // One real interval tick to let the scheduler's own baseline sweep
+    // run before the grant below.
+    tokio::time::sleep(StdDuration::from_millis(60)).await;
+
+    setup
+        .execute("ALTER ROLE app_user SUPERUSER", &[])
+        .await
+        .expect("ALTER ROLE ... SUPERUSER");
+
+    let mut found_incident: Option<Value> = None;
+    for _ in 0..25 {
+        let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+        let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+        assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+        let incidents = body["data"].as_array().expect("data is an array").clone();
+        if let Some(incident) = incidents
+            .into_iter()
+            .find(|i| i["summary"].as_str().unwrap_or("").contains("app_user"))
+        {
+            found_incident = Some(incident);
+            break;
+        }
+        tokio::time::sleep(StdDuration::from_millis(20)).await;
+    }
+    pg.stop().await;
+
+    let incident = found_incident.unwrap_or_else(|| {
+        panic!(
+            "expected the real background schedule to detect app_user's superuser grant \
+             within the retry budget, with /gucs never having been polled"
+        )
+    });
+    assert_eq!(incident["severity"], "HIGH");
 }

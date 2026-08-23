@@ -8,7 +8,7 @@ use ai_ops_core::repository::{self, RepositoryConfig};
 use clap::{Parser, Subcommand};
 use service::{
     actions::build_action_registry, ai_config, api, config, dbms_config, dbms_connect,
-    policy_config, retention, self_metrics, state::AppState, telemetry,
+    dbms_security_sweep, policy_config, retention, self_metrics, state::AppState, telemetry,
 };
 
 #[derive(Parser)]
@@ -85,6 +85,13 @@ async fn serve() -> anyhow::Result<()> {
         }
         None => None,
     };
+
+    // Both a repository (somewhere to record what's found) and a real
+    // adapter (something to poll) are required — matches the same
+    // precondition `gucs`'s own former inline sweep always had.
+    if let (Some(handle), Some(adapter)) = (repository.clone(), dbms_adapter.clone()) {
+        dbms_security_sweep::spawn(handle, adapter);
+    }
 
     let action_registry = Arc::new(build_action_registry());
     let protected_resources = Arc::new(ProtectedResourceRegistry::new());

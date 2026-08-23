@@ -8,6 +8,7 @@ pub mod api;
 pub mod config;
 pub mod dbms_config;
 pub mod dbms_connect;
+pub mod dbms_security_sweep;
 pub mod middleware;
 pub mod policy_config;
 pub mod response;
