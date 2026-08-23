@@ -22,8 +22,8 @@ use std::time::Duration;
 
 use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
 use ai_ops_core::dbms::{
-    ConnectionMetadata, CredentialStore, DbmsAdapter, Environment, KeyringCredentialStore,
-    PasswordRef, TlsMode,
+    ConnectionMetadata, CredentialStore, CredentialStoreError, DbmsAdapter, Environment,
+    KeyringCredentialStore, PasswordRef, TlsMode,
 };
 use common::TestPostgres;
 
@@ -35,9 +35,18 @@ async fn exactly_one_idle_connection_between_polls() {
     let password_ref = PasswordRef(format!("dbms-footprint-test-{}", pg.port));
     // Trust auth on this fixture ignores the password's actual content —
     // this exercises the real store/fetch round-trip, not the value.
-    credential_store
-        .store(&password_ref, "unused-under-trust-auth")
-        .expect("store test credential");
+    // Skips itself (mirrors dbms_credential_store_test.rs) rather than
+    // failing when no OS credential store is available — a headless CI
+    // runner commonly has no Secret Service provider, which is an
+    // environment fact, not a bug in this code.
+    match credential_store.store(&password_ref, "unused-under-trust-auth") {
+        Ok(()) => {}
+        Err(CredentialStoreError::NoStore(reason)) => {
+            eprintln!("SKIPPED: no OS credential store available in this environment: {reason}");
+            return;
+        }
+        Err(other) => panic!("unexpected error storing a credential: {other}"),
+    }
 
     let metadata = ConnectionMetadata {
         name: "footprint-test".to_string(),
