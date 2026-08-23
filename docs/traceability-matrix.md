@@ -8,7 +8,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 |---|---|---|---|---|---|
 | FR-SYS-001 | The core exposes a single local API surface, versioned, over a | U64 | `docs/adr/0001-transport-uds-named-pipe-not-tcp.md` | `rust_core/service/tests/unix_transport_test.rs` | OK |
 | FR-SYS-002 | The core reports its own resource usage on every health check. | U62 | `rust_core/service/src/self_metrics.rs` | `rust_core/service/tests/health_endpoint.rs` | OK |
-| FR-SYS-003 | The core degrades sampling frequency under host resource pressure | n/a | `rust_core/core/src/analysis/host.rs` | none | NEEDS-VERIFICATION |
+| FR-SYS-003 | The core degrades sampling frequency under host resource pressure | U65 | `rust_core/core/src/analysis/host.rs` | `rust_core/service/tests/host_sampler_backoff_test.rs` | OK |
 | FR-CPU-001 | Per-core and aggregate utilization, load averages, frequency where | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/cpu.rs` | OK |
 | FR-CPU-002 | Utilization must be computed from a monotonic clock delta, not wall | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/cpu.rs` | OK |
 | FR-MEM-001 | Total, used, available, cached/buffered, swap, and a deterministic | n/a | `rust_core/contracts/src/telemetry/pressure.rs` | `rust_core/core/src/telemetry/pressure.rs` | OK |
@@ -70,4 +70,4 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-FLEET-002 | The coordinator never performs automatic replica promotion or | n/a | n/a | n/a | MISSING |
 | FR-FLEET-003 | Role-based access control (see TRS §46) is enforced server-side; | n/a | n/a | n/a | MISSING |
 
-**Summary**: 58 OK, 2 NEEDS-VERIFICATION, 3 MISSING (of 63 total FR-IDs).
+**Summary**: 59 OK, 1 NEEDS-VERIFICATION, 3 MISSING (of 63 total FR-IDs).

@@ -35,7 +35,7 @@ const PROCESS_DEVICE_REFRESH_EVERY_N_TICKS: u64 = 5;
 const PERSIST_EVERY_N_TICKS: u64 = 10;
 
 #[cfg(target_os = "linux")]
-mod linux_impl {
+pub mod linux_impl {
     use std::collections::HashSet;
 
     use ai_ops_core::telemetry::{
@@ -47,12 +47,12 @@ mod linux_impl {
         CpuPressure, DeviceInfo, DeviceKind, DeviceSnapshot, MetricValue, ProcessSnapshot,
     };
     use contracts::{Capability, CapabilityFamily};
-    use platform::linux::{volume_capacity, RealProcSource};
+    use platform::linux::{volume_capacity, ProcSource, RealProcSource};
 
     use super::*;
 
     pub struct HostTelemetrySampler {
-        source: RealProcSource,
+        source: Box<dyn ProcSource>,
         last_instant: Option<Instant>,
         prev_cpu: Option<PrevCpuState>,
         prev_net: Option<PrevNetState>,
@@ -65,10 +65,27 @@ mod linux_impl {
         pub interval: Duration,
     }
 
+    impl Default for HostTelemetrySampler {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl HostTelemetrySampler {
         pub fn new() -> Self {
+            Self::with_source(Box::new(RealProcSource))
+        }
+
+        /// Unit U65 (SRS FR-SYS-003): test-only injection point — lets a
+        /// test drive a scripted `ProcSource` fixture through `tick()` to
+        /// observe a real `CpuPressure::Critical`-triggered backoff
+        /// instead of depending on the live machine's actual CPU load,
+        /// the same `spawn_with_interval`-style precedent unit U62
+        /// established for `self_metrics`. Service production code
+        /// always calls plain `new()` above, never this directly.
+        pub fn with_source(source: Box<dyn ProcSource>) -> Self {
             Self {
-                source: RealProcSource,
+                source,
                 last_instant: None,
                 prev_cpu: None,
                 prev_net: None,
@@ -96,7 +113,7 @@ mod linux_impl {
                 configured_interval: self.interval,
             };
 
-            let cpu = match parse_cpu_snapshot(&self.source, &ctx, self.prev_cpu.as_ref()) {
+            let cpu = match parse_cpu_snapshot(self.source.as_ref(), &ctx, self.prev_cpu.as_ref()) {
                 Ok((snapshot, prev)) => {
                     self.prev_cpu = Some(prev);
                     snapshot
@@ -108,7 +125,7 @@ mod linux_impl {
                 }
             };
 
-            let memory = match parse_memory_snapshot(&self.source, &ctx) {
+            let memory = match parse_memory_snapshot(self.source.as_ref(), &ctx) {
                 Ok(snapshot) => snapshot,
                 Err(err) => {
                     tracing::error!(error = %err, "failed to parse memory telemetry");
@@ -117,7 +134,7 @@ mod linux_impl {
             };
 
             let mut storage =
-                match parse_storage_snapshot(&self.source, &ctx, self.prev_disk.as_ref()) {
+                match parse_storage_snapshot(self.source.as_ref(), &ctx, self.prev_disk.as_ref()) {
                     Ok((snapshot, prev)) => {
                         self.prev_disk = Some(prev);
                         snapshot
@@ -154,17 +171,18 @@ mod linux_impl {
                 }
             }
 
-            let network = match parse_network_snapshot(&self.source, &ctx, self.prev_net.as_ref()) {
-                Ok((snapshot, prev)) => {
-                    self.prev_net = Some(prev);
-                    snapshot
-                }
-                Err(err) => {
-                    tracing::error!(error = %err, "failed to parse network telemetry");
-                    self.prev_net = None;
-                    HostTelemetrySnapshot::unavailable(&err.to_string()).network
-                }
-            };
+            let network =
+                match parse_network_snapshot(self.source.as_ref(), &ctx, self.prev_net.as_ref()) {
+                    Ok((snapshot, prev)) => {
+                        self.prev_net = Some(prev);
+                        snapshot
+                    }
+                    Err(err) => {
+                        tracing::error!(error = %err, "failed to parse network telemetry");
+                        self.prev_net = None;
+                        HostTelemetrySnapshot::unavailable(&err.to_string()).network
+                    }
+                };
 
             let refresh_processes_and_devices = self
                 .tick_count
@@ -175,7 +193,7 @@ mod linux_impl {
                 (false, Some(previous)) => previous.clone(),
                 _ => {
                     let snapshot = match parse_process_snapshot(
-                        &self.source,
+                        self.source.as_ref(),
                         &ctx,
                         Some(&self.prev_processes),
                     ) {
@@ -197,7 +215,7 @@ mod linux_impl {
             let devices = match (refresh_processes_and_devices, &self.last_devices) {
                 (false, Some(previous)) => previous.clone(),
                 _ => {
-                    let snapshot = match parse_devices(&self.source) {
+                    let snapshot = match parse_devices(self.source.as_ref()) {
                         Ok(candidates) => {
                             let devices = candidates
                                 .into_iter()
@@ -252,7 +270,7 @@ mod linux_impl {
             );
 
             let system_status = match build_system_status_response(
-                &self.source,
+                self.source.as_ref(),
                 &ctx,
                 containerized,
                 cpu_pressure,
