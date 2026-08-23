@@ -68,6 +68,15 @@ struct Window {
     gaps: Vec<SampleGap>,
 }
 
+/// Unit U67: a real, confirmed invariant, not merely assumed — the only
+/// way out of the loop below is the `break`, gated on
+/// `samples.len() >= config.min_samples`, so every `Ok(Window)` this
+/// returns already satisfies that bound. `run_benchmark` used to
+/// separately re-check `baseline.samples.len() < config.min_samples`
+/// after calling this and return `BenchmarkError::InsufficientSamples`
+/// — genuinely unreachable dead code (confirmed: the variant was never
+/// matched anywhere else in the codebase either), removed rather than
+/// left as a misleading "this can happen" signal.
 async fn collect_window(
     sampler: &dyn MetricSampler,
     config: &BenchmarkConfig,
@@ -138,13 +147,6 @@ pub async fn run_benchmark(
     let process_count_before = read_process_count();
 
     let baseline = collect_window(request.sampler, &request.config).await?;
-    if baseline.samples.len() < request.config.min_samples {
-        return Err(BenchmarkError::InsufficientSamples {
-            got: baseline.samples.len(),
-            need: request.config.min_samples,
-        });
-    }
-
     let baseline_cv = super::stats::coefficient_of_variation(&baseline.samples);
     let now = Utc::now();
 
