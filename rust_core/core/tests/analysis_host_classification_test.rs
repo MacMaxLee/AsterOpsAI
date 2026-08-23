@@ -13,6 +13,7 @@
 //! `ai_ops_core::ai`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use ai_ops_core::analysis::thresholds::SUSTAINED_FRACTION;
 use ai_ops_core::analysis::{classify_host, HostBottleneck};
 use ai_ops_core::repository::TelemetrySnapshotRow;
 use chrono::{DateTime, Duration, Utc};
@@ -275,7 +276,11 @@ fn thermal_and_power_are_never_produced_by_any_fixture_in_this_suite() {
     }
 }
 
-/// SRS FR-PERF-002: evidence carries a real time window, not a placeholder.
+/// SRS FR-PERF-002: evidence carries a real time window, not a
+/// placeholder — and the item names its real metric, observed value,
+/// and threshold by value, not just by non-emptiness (every 5/5 rows
+/// here are CPU HIGH, so the first evidence item is deterministically
+/// the CPU domain's own real fraction: 5 crossed of 5 samples).
 #[test]
 fn evidence_window_spans_the_supplied_history() {
     let history = rows_with_pressure(5, "HIGH", "NORMAL");
@@ -286,4 +291,8 @@ fn evidence_window_spans_the_supplied_history() {
         .expect("at least one evidence item");
     assert_eq!(evidence.window_start, base_time());
     assert_eq!(evidence.window_end, base_time() + Duration::seconds(20));
+    assert_eq!(evidence.metric, "cpu_pressure_sustained_fraction");
+    assert_eq!(evidence.observed, 1.0, "5/5 samples were HIGH");
+    assert_eq!(evidence.threshold, SUSTAINED_FRACTION);
+    assert_eq!(evidence.unit, None);
 }
