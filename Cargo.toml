@@ -5,7 +5,10 @@ members = [
     "rust_core/platform",
     "rust_core/core",
     "rust_core/service",
-    # U13 adds: "rust_core/agent", "rust_core/coordinator"
+    # v2 adds: "rust_core/agent", "rust_core/coordinator" (see ADR 0003,
+    # ADR 0071) -- unit numbering shifted since ADR 0003 was written
+    # (U13 was reused for policy-approval-inbox wiring, ADR 0018), so
+    # this is deliberately not pinned to a specific future unit number.
 ]
 
 [workspace.package]

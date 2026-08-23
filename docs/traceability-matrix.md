@@ -66,8 +66,8 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-DB-008 | Primary/standby topology, LSN positions (sent/write/flush/replay), lag | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_replica_test.rs` | OK |
 | FR-DB-009 | A curated set of operationally relevant GUCs (not the full | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |
 | FR-DBSEC-001 | Deterministic detection of repeated authentication failure, newly | U56 | `rust_core/core/src/dbms/adapters/postgresql/queries.rs` | `rust_core/core/tests/security_detector_auth_failure_test.rs` | OK |
-| FR-FLEET-001 | An agent operates headlessly and continues local buffering when | n/a | n/a | n/a | MISSING |
-| FR-FLEET-002 | The coordinator never performs automatic replica promotion or | n/a | n/a | n/a | MISSING |
-| FR-FLEET-003 | Role-based access control (see TRS §46) is enforced server-side; | n/a | n/a | n/a | MISSING |
+| FR-FLEET-001 | An agent operates headlessly and continues local buffering when | n/a | `docs/adr/0071-v2-fleet-coordinator-architecture-proposal.md` | none | NEEDS-VERIFICATION |
+| FR-FLEET-002 | The coordinator never performs automatic replica promotion or | n/a | `docs/adr/0071-v2-fleet-coordinator-architecture-proposal.md` | none | NEEDS-VERIFICATION |
+| FR-FLEET-003 | Role-based access control (see TRS §46) is enforced server-side; | n/a | `docs/adr/0071-v2-fleet-coordinator-architecture-proposal.md` | none | NEEDS-VERIFICATION |
 
-**Summary**: 59 OK, 1 NEEDS-VERIFICATION, 3 MISSING (of 63 total FR-IDs).
+**Summary**: 59 OK, 4 NEEDS-VERIFICATION, 0 MISSING (of 63 total FR-IDs).
