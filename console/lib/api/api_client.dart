@@ -219,6 +219,13 @@ final class ApiClient {
   Future<ApiResult<CorrelationResult>> getCorrelation() =>
       _get('/api/v1/analysis/correlation', CorrelationResult.fromJson);
 
+  /// Unit U70: same on-demand-only reasoning as `getHostExplanation`.
+  Future<ApiResult<GatedValueForAiExplanation>> getCorrelationExplanation() =>
+      _get(
+        '/api/v1/analysis/correlation/explain',
+        GatedValueForAiExplanation.fromJson,
+      );
+
   /// Unlike grant/reject/suppress, starting a plan returns real,
   /// meaningful data (unit U24) — each candidate's real outcome, which
   /// per ADR 0028 is often not what a caller might assume (e.g.

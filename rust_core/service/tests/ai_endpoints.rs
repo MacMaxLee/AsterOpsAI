@@ -261,3 +261,66 @@ async fn explain_db_returns_a_real_supported_explanation_from_a_real_provider_an
     assert_eq!(body["data"]["value"]["risk"], "LOW");
     assert_eq!(body["data"]["value"]["confidence"], 0.85);
 }
+
+/// Unit U70: `explain_host`/`explain_db`'s third sibling. Mirrors
+/// `explain_host_is_unavailable_without_an_ai_provider` exactly — the
+/// provider check happens before `correlate()` is ever computed, so no
+/// repository is needed here either.
+#[tokio::test]
+async fn explain_correlation_is_unavailable_without_an_ai_provider() {
+    let app = build_app(None, None, None).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/correlation/explain").await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body["error"]["code"], "UNAVAILABLE");
+}
+
+#[tokio::test]
+async fn explain_correlation_reports_a_real_unavailable_state_as_200_ok_when_the_provider_is_unreachable(
+) {
+    let repo = open_repo().await;
+    let port = closed_port().await;
+    let app = build_app(Some(repo), Some(provider_for_port(port)), None).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/correlation/explain").await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["state"], "UNAVAILABLE");
+    assert!(
+        !body["data"]["reason"]
+            .as_str()
+            .expect("reason is a string")
+            .is_empty(),
+        "expected a real, non-empty reason, got: {body:?}"
+    );
+}
+
+/// SRS FR-CORR-003: correlation output reaches the AI explanation layer
+/// through the same `contracts` wire types the console renders — a real
+/// end-to-end round trip through `/api/v1/analysis/correlation/explain`,
+/// not just a unit test of `build_correlation_bundle` in isolation.
+#[tokio::test]
+async fn explain_correlation_returns_a_real_supported_explanation_from_a_real_provider_round_trip()
+{
+    let repo = open_repo().await;
+    let inner = serde_json::json!({
+        "summary": "No sustained root cause identified.",
+        "observations": [],
+        "recommendations": [],
+        "risk": "LOW",
+        "confidence": 0.7,
+    })
+    .to_string();
+    let response_body = http_ok_json_body(&ollama_envelope(&inner));
+    let port = one_shot_server(response_body).await;
+
+    let app = build_app(Some(repo), Some(provider_for_port(port)), None).await;
+    let (status, body) = get_json(app, "/api/v1/analysis/correlation/explain").await;
+
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["state"], "SUPPORTED");
+    assert_eq!(
+        body["data"]["value"]["summary"],
+        "No sustained root cause identified."
+    );
+    assert_eq!(body["data"]["value"]["risk"], "LOW");
+    assert_eq!(body["data"]["value"]["confidence"], 0.7);
+}

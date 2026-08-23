@@ -8,6 +8,7 @@
 use contracts::telemetry::{MetricValue, ProcessCategory, ProcessInfo};
 
 use crate::analysis::{DbEvidenceBundle, DbHealthVerdict, Evidence, HostBottleneck, HostVerdict};
+use crate::correlation::CorrelationResult;
 use crate::dbms::SessionState;
 
 #[derive(Debug, Clone)]
@@ -180,5 +181,52 @@ pub fn build_db_bundle(
         verdict_label: db_category_label(verdict),
         evidence: evidence_items(&evidence),
         candidates: db_candidates(source),
+    }
+}
+
+/// Candidates for a correlation result: each ranked hypothesis itself,
+/// not an incidental entity like `host_candidates`/`db_candidates` pick
+/// — the AI needs to name *which cause* it's discussing precisely
+/// (`RootCause::as_str()`, the same literal label the wire type already
+/// serializes), not invent its own wording for one.
+fn correlation_candidates(result: &CorrelationResult) -> Vec<Candidate> {
+    result
+        .ranked
+        .iter()
+        .enumerate()
+        .map(|(i, hypothesis)| Candidate {
+            id: i as u32,
+            kind: "cause".to_string(),
+            label: format!(
+                "{} (confidence {:.2})",
+                hypothesis.cause.as_str(),
+                hypothesis.confidence
+            ),
+        })
+        .collect()
+}
+
+/// Unit U70: `build_host_bundle`/`build_db_bundle`'s third sibling —
+/// `correlate`'s own ranked-hypothesis output flattened into the same
+/// numbered, referenceable shape. Only `ranked` contributes evidence and
+/// candidates (`ruled_out` carries a reason string, not `Evidence`
+/// items) — matching what an explanation is actually for: naming which
+/// live hypothesis the evidence supports, not restating what's already
+/// been dismissed.
+pub fn build_correlation_bundle(result: &CorrelationResult, subject: &str) -> EvidenceBundle {
+    let evidence: Vec<Evidence> = result
+        .ranked
+        .iter()
+        .flat_map(|h| h.evidence.clone())
+        .collect();
+    EvidenceBundle {
+        subject: subject.to_string(),
+        verdict_label: result
+            .ranked
+            .first()
+            .map(|h| h.cause.as_str().to_string())
+            .unwrap_or_else(|| "NONE".to_string()),
+        evidence: evidence_items(&evidence),
+        candidates: correlation_candidates(result),
     }
 }

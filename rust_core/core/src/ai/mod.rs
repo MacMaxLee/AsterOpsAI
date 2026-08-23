@@ -29,7 +29,10 @@ pub mod provider;
 pub mod schema;
 pub mod validator;
 
-pub use bundle::{build_db_bundle, build_host_bundle, Candidate, EvidenceBundle, EvidenceItem};
+pub use bundle::{
+    build_correlation_bundle, build_db_bundle, build_host_bundle, Candidate, EvidenceBundle,
+    EvidenceItem,
+};
 pub use ollama::OllamaProvider;
 pub use provider::{try_explain, AiError, AiProvider, AiProviderConfig};
 pub use schema::{

@@ -12,20 +12,20 @@
 //! unit with ("Cross-layer correlation... is a distinct, later unit that
 //! consumes this module's output types as input").
 //!
-//! **FR-CORR-003 note (updated, unit U66 — this note was stale)**: unit
-//! U20 did promote a wire mirror of this module's types into
-//! `contracts::correlation` (`CorrelationResult`, `Hypothesis`,
-//! `RuledOut`, `RootCause`), and `service::api::v1::analysis`'s real
-//! `/api/v1/analysis/correlation` endpoint converts this module's own
-//! `CorrelationResult` into that wire type before returning it — the
-//! same one representation the console's generated Dart model and l10n
-//! strings render. The console half of FR-CORR-003 is real and wired.
-//! What's still genuinely missing: FR-CORR-003 also names "the AI
-//! explanation layer" as a consumer, and no `build_correlation_bundle`-
-//! style AI-explanation feature for correlation output exists yet
-//! (unlike `ai::bundle::build_host_bundle`/`build_db_bundle`) — a real,
-//! separate, not-yet-built feature, named here rather than left as a
-//! stale claim that nothing was wired (see docs/adr/0072).
+//! **FR-CORR-003 note (updated, unit U70 — SRS FR-CORR-003)**: both
+//! named consumers are now real. Unit U20 promoted a wire mirror of
+//! this module's types into `contracts::correlation`
+//! (`CorrelationResult`, `Hypothesis`, `RuledOut`, `RootCause`), and
+//! `service::api::v1::analysis`'s `/api/v1/analysis/correlation`
+//! endpoint converts this module's own `CorrelationResult` into that
+//! wire type before returning it — the console's generated Dart model
+//! and l10n strings render exactly that one representation. Unit U70
+//! closed the remaining gap: `ai::bundle::build_correlation_bundle`
+//! (`build_host_bundle`/`build_db_bundle`'s own sibling) turns this same
+//! `CorrelationResult` into the AI provider's evidence bundle, and
+//! `service::api::v1::analysis::explain_correlation` wires it to a real
+//! `/api/v1/analysis/correlation/explain` endpoint — see docs/adr/0072
+//! (named the gap) and docs/adr/0076 (closed it).
 //!
 //! **Scope note**: no `service`/console wiring happens in this module
 //! itself — `core::correlation::CorrelationResult` stays the pure

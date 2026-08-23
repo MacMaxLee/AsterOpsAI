@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:console/api/api_failure.dart';
 import 'package:console/api/api_result.dart';
 import 'package:console/generated/models/models.dart';
 import 'package:console/screens/correlation_screen.dart';
@@ -17,6 +18,18 @@ CorrelationResult fakeCorrelationResult({
   ruledOut: ruledOut,
   windowEnd: DateTime.utc(2026, 1, 1, 10),
   windowStart: DateTime.utc(2026, 1, 1, 9, 55),
+);
+
+AiExplanation fakeAiExplanation() => const AiExplanation(
+  summary: 'No sustained root cause identified.',
+  observations: [
+    Observation(text: 'Every domain is within its normal range.', metrics: []),
+  ],
+  recommendations: [
+    Recommendation(text: 'No action needed.', metrics: [], candidateRef: null),
+  ],
+  risk: RiskLevel.low,
+  confidence: 0.8,
 );
 
 void main() {
@@ -203,6 +216,155 @@ void main() {
       expect(find.text('Database locks'), findsOneWidget);
       expect(find.text('Client-side application'), findsOneWidget);
       expect(find.text('Network'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping Explain with AI opens a dialog and renders a real Supported '
+    'explanation',
+    (tester) async {
+      final transport = createFakeTransport();
+      // `/explain` is queued first: `FakeTransport` matches by path
+      // *prefix*, first-inserted-key-wins, and `/analysis/correlation/
+      // explain` also starts with `/analysis/correlation` — queuing the
+      // more specific path first is this codebase's own established
+      // convention for exactly this collision (see
+      // `host_analysis_screen_test.dart`'s own explain tests).
+      transport.queue(
+        '/api/v1/analysis/correlation/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              GatedValueForAiExplanationSupported(value: fakeAiExplanation())
+                  .toJson(),
+            ),
+          ),
+        ),
+      );
+      transport.queue(
+        '/api/v1/analysis/correlation',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeCorrelationResult().toJson()))),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: CorrelationScreen()),
+        transport: transport,
+      );
+      await tester.pump();
+
+      expect(find.text('Explain with AI'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('correlationExplainTrigger')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('No sustained root cause identified.'), findsOneWidget);
+      expect(
+        find.text('•  Every domain is within its normal range.'),
+        findsOneWidget,
+      );
+      expect(find.text('→  No action needed.'), findsOneWidget);
+      expect(find.textContaining('LOW'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a real Unavailable gated correlation explanation shows the real reason '
+    'via the shared vocabulary',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/analysis/correlation/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              const GatedValueForAiExplanationUnavailable(
+                reason: 'AI explanation unavailable',
+              ).toJson(),
+            ),
+          ),
+        ),
+      );
+      transport.queue(
+        '/api/v1/analysis/correlation',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeCorrelationResult().toJson()))),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: CorrelationScreen()),
+        transport: transport,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('correlationExplainTrigger')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Not available'), findsOneWidget);
+      expect(find.text('AI explanation unavailable'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a real transport-level error on correlation explain shows the real '
+    'failure message with a working retry',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/analysis/correlation/explain',
+        const ApiErr(ApiFailureUnavailable('connection refused')),
+      );
+      transport.queue(
+        '/api/v1/analysis/correlation',
+        ApiOk(jsonEncode(okEnvelopeJson(fakeCorrelationResult().toJson()))),
+      );
+      await pumpApp(
+        tester,
+        const Scaffold(body: CorrelationScreen()),
+        transport: transport,
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('correlationExplainTrigger')));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.text(
+          "The AsterOpsAI core service isn't reachable. It may have "
+          'stopped, or the socket may be missing. The console will keep '
+          'retrying automatically.',
+        ),
+        findsOneWidget,
+      );
+
+      transport.queue(
+        '/api/v1/analysis/correlation/explain',
+        ApiOk(
+          jsonEncode(
+            okEnvelopeJson(
+              GatedValueForAiExplanationSupported(value: fakeAiExplanation())
+                  .toJson(),
+            ),
+          ),
+        ),
+      );
+      // Two matches now: the outer trigger (behind the still-open
+      // dialog) and the dialog's own retry button — scoped to the
+      // dialog specifically, since that's the one under test here.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Dialog),
+          matching: find.text('Explain with AI'),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('No sustained root cause identified.'), findsOneWidget);
     },
   );
 }

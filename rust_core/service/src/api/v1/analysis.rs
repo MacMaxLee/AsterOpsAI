@@ -6,9 +6,10 @@
 //! configured is not an error").
 
 use ai_ops_core::ai::{
-    build_db_bundle, build_host_bundle, try_explain, AiExplanation as CoreAiExplanation,
-    MetricClaim as CoreMetricClaim, Observation as CoreObservation,
-    Recommendation as CoreRecommendation, RiskLevel as CoreAiRiskLevel,
+    build_correlation_bundle, build_db_bundle, build_host_bundle, try_explain,
+    AiExplanation as CoreAiExplanation, MetricClaim as CoreMetricClaim,
+    Observation as CoreObservation, Recommendation as CoreRecommendation,
+    RiskLevel as CoreAiRiskLevel,
 };
 use ai_ops_core::analysis::thresholds::Tier as CoreTier;
 use ai_ops_core::analysis::{
@@ -404,6 +405,43 @@ pub async fn correlation(
         let since = now - Duration::minutes(LOOKBACK_MINUTES);
         let result = correlation::correlate(&host_verdict, &db_verdict, since, now);
         Ok::<_, ApiError>(to_wire_correlation(result))
+    }
+    .await;
+
+    ApiResponse::new(request_id, result)
+}
+
+/// Unit U70: `explain_host`/`explain_db`'s third sibling —
+/// `build_correlation_bundle`'s own real `correlate()` output, run
+/// through the identical `try_explain` degrade contract (absent/
+/// unreachable/timeout/garbage/an unresolved citation all collapse to
+/// the same honest `Unavailable`, SRS FR-AI-001). Recomputes
+/// `correlate()` fresh rather than reusing `correlation`'s handler
+/// above — the same "no caching a stale verdict across two independent
+/// requests" precedent every other explain endpoint already follows.
+pub async fn explain_correlation(
+    State(state): State<AppState>,
+    Extension(RequestId(request_id)): Extension<RequestId>,
+) -> ApiResponse<GatedValue<WireAiExplanation>> {
+    let now = Utc::now();
+    let result = async {
+        let provider = state
+            .ai_provider
+            .clone()
+            .ok_or_else(|| ApiError::Unavailable("no AI provider configured".to_string()))?;
+        let host_verdict = compute_host_verdict(&state, now).await?;
+        let db_verdict = compute_db_verdict(&state, now).await;
+        let since = now - Duration::minutes(LOOKBACK_MINUTES);
+        let result = correlation::correlate(&host_verdict, &db_verdict, since, now);
+        let bundle = build_correlation_bundle(&result, "CORRELATION");
+        Ok(match try_explain(provider.as_ref(), &bundle).await {
+            Some(explanation) => GatedValue::Supported {
+                value: to_wire_ai_explanation(explanation),
+            },
+            None => GatedValue::Unavailable {
+                reason: "AI explanation unavailable".to_string(),
+            },
+        })
     }
     .await;
 
