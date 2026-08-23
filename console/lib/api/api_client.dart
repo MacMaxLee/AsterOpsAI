@@ -139,12 +139,14 @@ final class ApiClient {
 
   Future<ApiResult<List<TableStat>>> getDbmsTableStats() => _get(
     '/api/v1/dbms/table-stats',
-    (json) => (json as List<dynamic>).map((e) => TableStat.fromJson(e)).toList(),
+    (json) =>
+        (json as List<dynamic>).map((e) => TableStat.fromJson(e)).toList(),
   );
 
   Future<ApiResult<List<IndexStat>>> getDbmsIndexStats() => _get(
     '/api/v1/dbms/index-stats',
-    (json) => (json as List<dynamic>).map((e) => IndexStat.fromJson(e)).toList(),
+    (json) =>
+        (json as List<dynamic>).map((e) => IndexStat.fromJson(e)).toList(),
   );
 
   /// Unlike every other `/dbms/*` endpoint, the envelope's `data` is a
@@ -165,8 +167,9 @@ final class ApiClient {
 
   Future<ApiResult<List<LongTransaction>>> getDbmsLongTransactions() => _get(
     '/api/v1/dbms/long-transactions',
-    (json) =>
-        (json as List<dynamic>).map((e) => LongTransaction.fromJson(e)).toList(),
+    (json) => (json as List<dynamic>)
+        .map((e) => LongTransaction.fromJson(e))
+        .toList(),
   );
 
   Future<ApiResult<List<IdleInTransactionSession>>>
@@ -204,8 +207,10 @@ final class ApiClient {
   /// Unit U45: deliberately called on-demand (a button tap), never
   /// polled — a real AI inference round-trip is expensive, unlike
   /// every other endpoint this client polls on a 1-10s cadence.
-  Future<ApiResult<GatedValueForAiExplanation>> getHostExplanation() =>
-      _get('/api/v1/analysis/host/explain', GatedValueForAiExplanation.fromJson);
+  Future<ApiResult<GatedValueForAiExplanation>> getHostExplanation() => _get(
+    '/api/v1/analysis/host/explain',
+    GatedValueForAiExplanation.fromJson,
+  );
 
   /// Unit U47: same on-demand-only reasoning as `getHostExplanation`.
   Future<ApiResult<GatedValueForAiExplanation>> getDbExplanation() =>

@@ -58,12 +58,9 @@ IndexStat fakeIndexStat() => const IndexStat(
   sizeBytes: 8192,
 );
 
-ReplicationStatus fakeReplicationStatus({List<StandbyInfo> standbys = const []}) =>
-    ReplicationStatus(
-      isPrimary: true,
-      inRecovery: false,
-      standbys: standbys,
-    );
+ReplicationStatus fakeReplicationStatus({
+  List<StandbyInfo> standbys = const [],
+}) => ReplicationStatus(isPrimary: true, inRecovery: false, standbys: standbys);
 
 StandbyInfo fakeStandby() => const StandbyInfo(
   clientAddr: '10.0.0.9',
@@ -113,11 +110,7 @@ AiExplanation fakeAiExplanation() => const AiExplanation(
     Observation(text: 'No sustained lock contention.', metrics: []),
   ],
   recommendations: [
-    Recommendation(
-      text: 'No action needed.',
-      metrics: [],
-      candidateRef: null,
-    ),
+    Recommendation(text: 'No action needed.', metrics: [], candidateRef: null),
   ],
   risk: RiskLevel.low,
   confidence: 0.91,
@@ -343,30 +336,29 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a scripted GUC renders its real name/setting/source',
-    (tester) async {
-      final transport = createFakeTransport();
-      transport.queue(
-        '/api/v1/dbms/sessions',
-        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
-      );
-      transport.queue(
-        '/api/v1/dbms/locks',
-        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
-      );
-      transport.queue(
-        '/api/v1/dbms/gucs',
-        ApiOk(jsonEncode(okEnvelopeJson([fakeGucValue().toJson()]))),
-      );
-      await pumpScreen(tester, transport);
-      await tester.pump();
+  testWidgets('a scripted GUC renders its real name/setting/source', (
+    tester,
+  ) async {
+    final transport = createFakeTransport();
+    transport.queue(
+      '/api/v1/dbms/sessions',
+      ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+    );
+    transport.queue(
+      '/api/v1/dbms/locks',
+      ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+    );
+    transport.queue(
+      '/api/v1/dbms/gucs',
+      ApiOk(jsonEncode(okEnvelopeJson([fakeGucValue().toJson()]))),
+    );
+    await pumpScreen(tester, transport);
+    await tester.pump();
 
-      expect(find.text('max_connections'), findsOneWidget);
-      expect(find.textContaining('100'), findsOneWidget);
-      expect(find.textContaining('configuration file'), findsOneWidget);
-    },
-  );
+    expect(find.text('max_connections'), findsOneWidget);
+    expect(find.textContaining('100'), findsOneWidget);
+    expect(find.textContaining('configuration file'), findsOneWidget);
+  });
 
   testWidgets(
     'a scripted temp file activity renders its real file count/bytes and a '
@@ -386,9 +378,8 @@ void main() {
         ApiOk(
           jsonEncode(
             okEnvelopeJson(
-              fakeTempFileActivity(
-                statsReset: DateTime.utc(2026, 1, 1, 9),
-              ).toJson(),
+              fakeTempFileActivity(statsReset: DateTime.utc(2026, 1, 1, 9))
+                  .toJson(),
             ),
           ),
         ),
@@ -417,9 +408,7 @@ void main() {
       );
       transport.queue(
         '/api/v1/dbms/deadlock-history',
-        ApiOk(
-          jsonEncode(okEnvelopeJson(fakeDeadlockInfo().toJson())),
-        ),
+        ApiOk(jsonEncode(okEnvelopeJson(fakeDeadlockInfo().toJson()))),
       );
       await pumpScreen(tester, transport);
       await tester.pump();
@@ -429,33 +418,30 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a scripted long transaction renders its real pid/username/state/'
-    'duration/query',
-    (tester) async {
-      final transport = createFakeTransport();
-      transport.queue(
-        '/api/v1/dbms/sessions',
-        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
-      );
-      transport.queue(
-        '/api/v1/dbms/locks',
-        ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
-      );
-      transport.queue(
-        '/api/v1/dbms/long-transactions',
-        ApiOk(jsonEncode(okEnvelopeJson([fakeLongTransaction().toJson()]))),
-      );
-      await pumpScreen(tester, transport);
-      await tester.pump();
+  testWidgets('a scripted long transaction renders its real pid/username/state/'
+      'duration/query', (tester) async {
+    final transport = createFakeTransport();
+    transport.queue(
+      '/api/v1/dbms/sessions',
+      ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+    );
+    transport.queue(
+      '/api/v1/dbms/locks',
+      ApiOk(jsonEncode(okEnvelopeJson(<dynamic>[]))),
+    );
+    transport.queue(
+      '/api/v1/dbms/long-transactions',
+      ApiOk(jsonEncode(okEnvelopeJson([fakeLongTransaction().toJson()]))),
+    );
+    await pumpScreen(tester, transport);
+    await tester.pump();
 
-      expect(find.textContaining('7001'), findsOneWidget);
-      expect(find.textContaining('app'), findsWidgets);
-      expect(find.textContaining('ACTIVE'), findsOneWidget);
-      expect(find.textContaining('125.4'), findsOneWidget);
-      expect(find.textContaining('UPDATE t SET x = 1'), findsOneWidget);
-    },
-  );
+    expect(find.textContaining('7001'), findsOneWidget);
+    expect(find.textContaining('app'), findsWidgets);
+    expect(find.textContaining('ACTIVE'), findsOneWidget);
+    expect(find.textContaining('125.4'), findsOneWidget);
+    expect(find.textContaining('UPDATE t SET x = 1'), findsOneWidget);
+  });
 
   testWidgets(
     'a scripted idle-in-transaction session renders its real pid/username/'
@@ -473,9 +459,7 @@ void main() {
       transport.queue(
         '/api/v1/dbms/idle-in-transaction-sessions',
         ApiOk(
-          jsonEncode(
-            okEnvelopeJson([fakeIdleInTransactionSession().toJson()]),
-          ),
+          jsonEncode(okEnvelopeJson([fakeIdleInTransactionSession().toJson()])),
         ),
       );
       await pumpScreen(tester, transport);
@@ -497,9 +481,8 @@ void main() {
         ApiOk(
           jsonEncode(
             okEnvelopeJson(
-              GatedValueForAiExplanationSupported(
-                value: fakeAiExplanation(),
-              ).toJson(),
+              GatedValueForAiExplanationSupported(value: fakeAiExplanation())
+                  .toJson(),
             ),
           ),
         ),
@@ -527,10 +510,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('The database looks healthy.'), findsOneWidget);
-      expect(
-        find.text('•  No sustained lock contention.'),
-        findsOneWidget,
-      );
+      expect(find.text('•  No sustained lock contention.'), findsOneWidget);
       expect(find.text('→  No action needed.'), findsOneWidget);
       expect(find.textContaining('LOW'), findsOneWidget);
       expect(find.textContaining('91%'), findsOneWidget);
@@ -632,9 +612,8 @@ void main() {
         ApiOk(
           jsonEncode(
             okEnvelopeJson(
-              GatedValueForAiExplanationSupported(
-                value: fakeAiExplanation(),
-              ).toJson(),
+              GatedValueForAiExplanationSupported(value: fakeAiExplanation())
+                  .toJson(),
             ),
           ),
         ),

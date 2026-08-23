@@ -118,9 +118,8 @@ void main() {
         ApiOk(
           jsonEncode(
             okEnvelopeJson(
-              GatedValueForAiExplanationSupported(
-                value: fakeExplanation(),
-              ).toJson(),
+              GatedValueForAiExplanationSupported(value: fakeExplanation())
+                  .toJson(),
             ),
           ),
         ),
@@ -142,10 +141,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('The host looks CPU-bound.'), findsOneWidget);
-      expect(
-        find.text('•  CPU pressure has been sustained.'),
-        findsOneWidget,
-      );
+      expect(find.text('•  CPU pressure has been sustained.'), findsOneWidget);
       expect(
         find.text('→  Consider closing background processes.'),
         findsOneWidget,
@@ -155,42 +151,39 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a real Unavailable gated response shows the real reason via the '
-    'shared vocabulary',
-    (tester) async {
-      final transport = createFakeTransport();
-      transport.queue(
-        '/api/v1/analysis/host/explain',
-        ApiOk(
-          jsonEncode(
-            okEnvelopeJson(
-              const GatedValueForAiExplanationUnavailable(
-                reason: 'AI explanation unavailable',
-              ).toJson(),
-            ),
+  testWidgets('a real Unavailable gated response shows the real reason via the '
+      'shared vocabulary', (tester) async {
+    final transport = createFakeTransport();
+    transport.queue(
+      '/api/v1/analysis/host/explain',
+      ApiOk(
+        jsonEncode(
+          okEnvelopeJson(
+            const GatedValueForAiExplanationUnavailable(
+              reason: 'AI explanation unavailable',
+            ).toJson(),
           ),
         ),
-      );
-      transport.queue(
-        '/api/v1/analysis/host',
-        ApiOk(jsonEncode(okEnvelopeJson(fakeVerdict().toJson()))),
-      );
-      await pumpApp(
-        tester,
-        const Scaffold(body: HostAnalysisScreen()),
-        transport: transport,
-      );
-      await tester.pump();
+      ),
+    );
+    transport.queue(
+      '/api/v1/analysis/host',
+      ApiOk(jsonEncode(okEnvelopeJson(fakeVerdict().toJson()))),
+    );
+    await pumpApp(
+      tester,
+      const Scaffold(body: HostAnalysisScreen()),
+      transport: transport,
+    );
+    await tester.pump();
 
-      await tester.tap(find.text('Explain with AI'));
-      await tester.pump();
-      await tester.pump();
+    await tester.tap(find.text('Explain with AI'));
+    await tester.pump();
+    await tester.pump();
 
-      expect(find.text('Not available'), findsOneWidget);
-      expect(find.text('AI explanation unavailable'), findsOneWidget);
-    },
-  );
+    expect(find.text('Not available'), findsOneWidget);
+    expect(find.text('AI explanation unavailable'), findsOneWidget);
+  });
 
   testWidgets(
     'a real transport-level error shows the real failure message with a '
@@ -230,9 +223,8 @@ void main() {
         ApiOk(
           jsonEncode(
             okEnvelopeJson(
-              GatedValueForAiExplanationSupported(
-                value: fakeExplanation(),
-              ).toJson(),
+              GatedValueForAiExplanationSupported(value: fakeExplanation())
+                  .toJson(),
             ),
           ),
         ),

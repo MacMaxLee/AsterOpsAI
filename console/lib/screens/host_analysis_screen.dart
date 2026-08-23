@@ -239,8 +239,10 @@ class _GatedExplanation extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     return switch (gated) {
-      GatedValueForAiExplanationSupported(:final value) =>
-        _ExplanationContent(explanation: value, onRefresh: onRetry),
+      GatedValueForAiExplanationSupported(:final value) => _ExplanationContent(
+        explanation: value,
+        onRefresh: onRetry,
+      ),
       GatedValueForAiExplanationLimited(:final reason) => _GatedMessage(
         icon: Icons.info_outline,
         title: l10n.metricStateLimitedTitle,
@@ -305,7 +307,10 @@ class _GatedMessage extends StatelessWidget {
 class _ExplanationContent extends StatelessWidget {
   final AiExplanation explanation;
   final VoidCallback onRefresh;
-  const _ExplanationContent({required this.explanation, required this.onRefresh});
+  const _ExplanationContent({
+    required this.explanation,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
