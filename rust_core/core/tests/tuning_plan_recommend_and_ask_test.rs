@@ -108,6 +108,8 @@ async fn recommend_only_never_touches_the_policy_engine() {
     target.ensure_reaped();
 }
 
+/// SRS FR-TUNE-001: a profile's candidates are proposed for real but
+/// realized only through policy, never auto-authorized.
 #[tokio::test]
 async fn ask_before_changes_proposes_for_real_but_never_authorizes() {
     let repo = TestRepo::open();

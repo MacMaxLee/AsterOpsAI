@@ -1,4 +1,4 @@
-//! Real coverage of `correlation::correlate` (SRS FR-CORR-001..002, unit
+//! Real coverage of `correlation::correlate` (SRS FR-CORR-001, FR-CORR-002, unit
 //! U12): hand-built `HostVerdict`/`DbHealthVerdict` fixtures (every field
 //! is `pub` — the same real production output types `analysis::
 //! classify_host`/`classify_db` themselves produce, constructed directly

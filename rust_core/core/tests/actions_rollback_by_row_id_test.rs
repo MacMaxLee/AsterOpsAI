@@ -122,6 +122,9 @@ async fn execute_for_real(
 /// nothing else from the original chain — `rollback_by_row_id` really
 /// resumes it. This is the exact gap found after U27: nothing could do
 /// this before this unit.
+///
+/// SRS FR-BENCH-003: rollback re-verifies target identity via a real
+/// verifier before acting.
 #[tokio::test]
 async fn rollback_by_row_id_really_resumes_a_really_suspended_process() {
     let repo = TestRepo::open();

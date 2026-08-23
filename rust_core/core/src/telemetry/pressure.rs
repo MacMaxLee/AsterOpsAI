@@ -108,6 +108,8 @@ pub fn classify_cpu_pressure(aggregate_utilization_percent: f64) -> CpuPressure 
 mod tests {
     use super::*;
 
+    /// SRS FR-MEM-001: deterministic pressure classification across all
+    /// four tiers (NORMAL/ELEVATED/HIGH/CRITICAL).
     #[test]
     fn memory_boundaries() {
         assert_eq!(

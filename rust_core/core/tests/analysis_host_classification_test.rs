@@ -1,6 +1,16 @@
 //! Fixture-based coverage of `analysis::classify_host` (SRS FR-PERF-001/
 //! 002). Integration tests are already test-only code; the workspace's
 //! unwrap/expect deny targets production code paths, not `tests/*.rs`.
+//!
+//! SRS FR-PERF-005 ("no component of host or database scoring, or of
+//! bottleneck classification, may be produced or influenced by an AI
+//! model") isn't provable by a unit test in this file — it's a real,
+//! CI-enforced dependency-graph invariant: see
+//! `scripts/check-no-ai-reachable-from-analysis-or-correlation.sh`
+//! (unit U64), which BFS-searches the real compiler-resolved module
+//! graph from every item under `ai_ops_core::analysis` (and
+//! `ai_ops_core::correlation`, TRS §20) for anything reaching
+//! `ai_ops_core::ai`.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use ai_ops_core::analysis::{classify_host, HostBottleneck};
@@ -265,6 +275,7 @@ fn thermal_and_power_are_never_produced_by_any_fixture_in_this_suite() {
     }
 }
 
+/// SRS FR-PERF-002: evidence carries a real time window, not a placeholder.
 #[test]
 fn evidence_window_spans_the_supplied_history() {
     let history = rows_with_pressure(5, "HIGH", "NORMAL");

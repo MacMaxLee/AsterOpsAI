@@ -44,6 +44,7 @@ fn medium_and_high_always_require_approval() {
     }
 }
 
+/// SRS FR-POL-002: risk level plus environment determines the decision.
 #[test]
 fn low_risk_requires_approval_only_in_production() {
     assert_eq!(
@@ -60,6 +61,7 @@ fn low_risk_requires_approval_only_in_production() {
     );
 }
 
+/// SRS FR-POL-004: production is never more permissive than development.
 #[test]
 fn production_is_never_more_permissive_than_development_fr_pol_004() {
     for risk in ALL_RISK {

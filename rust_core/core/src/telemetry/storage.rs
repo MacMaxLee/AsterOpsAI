@@ -112,11 +112,12 @@ fn parse_diskstats(raw: &str) -> HashMap<String, DiskCounters> {
 
 pub type PrevDiskState = HashMap<String, DiskCounters>;
 
-/// SRS FR-STO-002: I/O latency where the platform exposes it. Unlike
-/// `parse_storage_snapshot`'s own rate/counter-reset branches (FR-STO-001),
-/// no existing test currently drives this with a real before/after
-/// fixture pair — every test calls it via a `prev: None` first sample, so
-/// the counter-reset/decrease branch below is implemented but unverified.
+/// SRS FR-STO-002: I/O latency where the platform exposes it. Unit U62's
+/// `storage_counter_reset` test (below) now drives the `CounterReset`
+/// branch with a real before/after fixture pair; the `Supported`
+/// (real value computed), `Unavailable` (`delta_ops == 0`), and
+/// `SampleGap` branches remain implemented but unverified — every other
+/// existing test calls this via a `prev: None` first sample.
 fn latency_ms(prev: &DiskCounters, curr: &DiskCounters, ctx: &SampleContext) -> MetricValue<f64> {
     if ctx.elapsed > ctx.configured_interval * 2 {
         return MetricValue::SampleGap {
@@ -282,5 +283,41 @@ mod tests {
             MetricValue::CounterReset { .. }
         ));
         insta::assert_json_snapshot!(snapshot);
+    }
+
+    fn counters(reads: u64, writes: u64, ms_reading: u64, ms_writing: u64) -> DiskCounters {
+        DiskCounters {
+            reads_completed: reads,
+            sectors_read: 0,
+            ms_reading,
+            writes_completed: writes,
+            sectors_written: 0,
+            ms_writing,
+        }
+    }
+
+    /// SRS FR-STO-002, remaining half of the branch coverage the module
+    /// doc comment names as still open after `storage_counter_reset`
+    /// (above) closed the `CounterReset` branch: the real computed value
+    /// (`Supported`) and the no-activity case (`Unavailable`).
+    #[test]
+    fn latency_ms_supported_computes_average_ms_per_op() {
+        let prev = counters(10, 5, 100, 50);
+        let curr = counters(15, 8, 150, 80);
+        let result = latency_ms(&prev, &curr, &fixed_ctx());
+        match result {
+            MetricValue::Supported { value } => assert_eq!(value, 10.0),
+            other => panic!("expected Supported, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn latency_ms_unavailable_when_no_operations_occurred() {
+        let prev = counters(10, 5, 100, 50);
+        let curr = counters(10, 5, 100, 50);
+        assert!(matches!(
+            latency_ms(&prev, &curr, &fixed_ctx()),
+            MetricValue::Unavailable { .. }
+        ));
     }
 }

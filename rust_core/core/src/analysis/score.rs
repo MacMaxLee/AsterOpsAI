@@ -67,3 +67,72 @@ pub fn score_db(checks: &[DbHealthCheck]) -> u8 {
         .sum();
     100u32.saturating_sub(total_penalty).min(100) as u8
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::analysis::host::HostDomain;
+
+    fn signal(domain: HostDomain, tier: Tier, sample_count: usize) -> DomainSignal {
+        DomainSignal {
+            domain,
+            tier,
+            sample_count,
+            crossed_count: 0,
+        }
+    }
+
+    /// SRS FR-PERF-004: the actual weighted-penalty arithmetic for a
+    /// partial-degradation case — every existing test elsewhere only
+    /// asserted the two boundaries (100 healthy, 0 fully critical), never
+    /// a real mixed-tier sum.
+    #[test]
+    fn score_host_sums_penalties_across_domains_with_data() {
+        let signals = [
+            signal(HostDomain::Cpu, Tier::Elevated, 10),
+            signal(HostDomain::Memory, Tier::Critical, 10),
+        ];
+        assert_eq!(
+            score_host(&signals),
+            100 - HOST_TIER_PENALTY_ELEVATED as u8 - HOST_TIER_PENALTY_CRITICAL as u8
+        );
+    }
+
+    #[test]
+    fn score_host_ignores_a_domain_with_zero_samples_even_if_its_tier_is_critical() {
+        let signals = [
+            signal(HostDomain::Cpu, Tier::Normal, 10),
+            signal(HostDomain::Network, Tier::Critical, 0),
+        ];
+        assert_eq!(score_host(&signals), 100);
+    }
+
+    fn check(category: DbHealthCategory, status: DbHealthStatus) -> DbHealthCheck {
+        DbHealthCheck {
+            category,
+            status,
+            evidence: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn score_db_sums_penalties_across_non_availability_categories() {
+        let checks = [
+            check(DbHealthCategory::Latency, DbHealthStatus::Warning),
+            check(DbHealthCategory::LockWaits, DbHealthStatus::Critical),
+        ];
+        assert_eq!(
+            score_db(&checks),
+            100 - DB_CHECK_PENALTY_WARNING as u8 - DB_CHECK_PENALTY_CRITICAL as u8
+        );
+    }
+
+    #[test]
+    fn score_db_is_zero_when_availability_itself_is_critical_regardless_of_other_categories() {
+        let checks = [
+            check(DbHealthCategory::Availability, DbHealthStatus::Critical),
+            check(DbHealthCategory::Latency, DbHealthStatus::Ok),
+        ];
+        assert_eq!(score_db(&checks), 0);
+    }
+}

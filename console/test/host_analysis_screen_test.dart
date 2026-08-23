@@ -37,6 +37,9 @@ AiExplanation fakeExplanation() => const AiExplanation(
   confidence: 0.82,
 );
 
+/// SRS FR-CONSOLE-001: renders the server's own computed verdict
+/// verbatim — score, tier, and bottleneck domain are never recomputed
+/// or reclassified client-side.
 void main() {
   testWidgets('a scripted CPU-bottleneck verdict renders bottleneck/score/'
       'domain rows', (tester) async {

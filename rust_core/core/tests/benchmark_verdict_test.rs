@@ -69,6 +69,7 @@ fn clearly_higher_post_change_is_regressed_when_lower_is_better() {
     assert_eq!(verdict, BenchmarkVerdict::Regressed);
 }
 
+/// SRS FR-BENCH-002: the honest default outcome is INCONCLUSIVE.
 #[test]
 fn overlapping_distributions_are_inconclusive() {
     // Same underlying distribution, just interleaved noise — no

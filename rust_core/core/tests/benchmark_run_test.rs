@@ -160,6 +160,7 @@ async fn regressed_verdict_triggers_a_real_rollback() {
     target.ensure_reaped();
 }
 
+/// SRS FR-BENCH-001: the baseline window's own stability check aborts before applying anything.
 #[tokio::test]
 async fn baseline_unstable_never_applies_the_action() {
     let repo = TestRepo::open();

@@ -170,3 +170,22 @@ pub fn suspend_process_entry() -> ActionTypeEntry {
         construct: construct_suspend_process,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// SRS FR-SEC-004: the closed-enum guarantee itself — this module's
+    /// own doc comment explains why a dynamic test can only pin what the
+    /// compiler's exhaustive match already enforces (adding a firewall/
+    /// AV-disabling variant requires touching this exact enum), but a pin
+    /// test still catches an accidental action-string change going
+    /// unnoticed, which a match's exhaustiveness alone wouldn't.
+    #[test]
+    fn suspend_process_is_the_only_security_response_action_type() {
+        assert_eq!(
+            SecurityResponseAction::SuspendProcess.action_type(),
+            "security.suspend_process"
+        );
+    }
+}

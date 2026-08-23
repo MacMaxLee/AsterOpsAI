@@ -85,13 +85,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-fr-id-traceability.sh
 
-  # TRS §20 (unit U15 per TRS's own numbering): "no AI call is reachable
-  # from [the correlation engine's] code path" verified by a real
-  # dependency-graph check, not just review. cargo-modules has no prebuilt
-  # binary distribution (checked: no release assets, not in taiki-e/
-  # install-action's manifest), so it's compiled from source once and
-  # cached by the pinned-version cache key below rather than rebuilt on
-  # every run.
+  # TRS §20 and SRS FR-PERF-005 share the identical "no AI call reachable"
+  # shape (correlation engine, and host/DB scoring + bottleneck
+  # classification respectively) — one dependency-graph check covers both,
+  # verified by a real check, not just review. cargo-modules has no
+  # prebuilt binary distribution (checked: no release assets, not in
+  # taiki-e/install-action's manifest), so it's compiled from source once
+  # and cached by the pinned-version cache key below rather than rebuilt
+  # on every run.
   ai-reachability:
     runs-on: ubuntu-latest
     steps:
@@ -105,7 +106,7 @@ jobs:
           key: cargo-modules-0.27.0-${{ runner.os }}
       - if: steps.cache-cargo-modules.outputs.cache-hit != 'true'
         run: cargo install cargo-modules --locked --version 0.27.0
-      - run: bash scripts/check-no-ai-reachable-from-correlation.sh
+      - run: bash scripts/check-no-ai-reachable-from-analysis-or-correlation.sh
 
   # Native runners, not cross-compiled from ubuntu-latest: unit U2 added
   # rusqlite's "bundled" feature, which compiles SQLite's C sources via

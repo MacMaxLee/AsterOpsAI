@@ -77,6 +77,8 @@ pub fn classify_process(input: &ProcessClassifyInput<'_>) -> ProcessCategory {
 mod tests {
     use super::*;
 
+    /// SRS FR-PRO-003: fixed-rule-set classification into a deterministic
+    /// category enum, unit-testable without a live process table.
     #[test]
     fn kernel_thread() {
         // Real signal confirmed against a live kernel: kthreadd (pid 2) has

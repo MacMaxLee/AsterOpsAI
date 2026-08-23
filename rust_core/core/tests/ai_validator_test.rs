@@ -69,6 +69,26 @@ fn well_formed_response_validates() {
     assert_eq!(explanation.confidence, 0.75);
 }
 
+/// SRS FR-AI-003: any field outside the closed schema is discarded, not
+/// an error — a real `serde_json::from_str` round-trip, not just a struct
+/// literal, since that's the only way to prove deserialization actually
+/// tolerates the extra field rather than merely never being given one.
+#[test]
+fn a_field_outside_the_closed_schema_is_discarded_not_an_error() {
+    let json = r#"{
+        "summary": "CPU is under sustained pressure.",
+        "observations": [],
+        "recommendations": [],
+        "risk": "MEDIUM",
+        "confidence": 0.75,
+        "root_cause_pid": 1234
+    }"#;
+    let parsed: RawAiExplanation =
+        serde_json::from_str(json).expect("unknown field must not fail parsing");
+    assert_eq!(parsed.confidence, 0.75);
+}
+
+/// SRS FR-AI-005: an unresolved numeric evidence_ref discards the whole response.
 #[test]
 fn unresolvable_evidence_ref_in_observation_rejects_whole_response() {
     let mut raw = well_formed_response();
