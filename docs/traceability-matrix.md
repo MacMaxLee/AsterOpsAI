@@ -13,7 +13,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-CPU-002 | Utilization must be computed from a monotonic clock delta, not wall | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/cpu.rs` | OK |
 | FR-MEM-001 | Total, used, available, cached/buffered, swap, and a deterministic | n/a | `rust_core/contracts/src/telemetry/pressure.rs` | `rust_core/core/src/telemetry/pressure.rs` | OK |
 | FR-MEM-002 | Inside a container, report the cgroup limit as the ceiling, not the | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/memory.rs` | OK |
-| FR-STO-001 | Per-volume capacity, free space, and I/O rates (read/write bytes and | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/storage.rs` | OK |
+| FR-STO-001 | Per-volume capacity, free space, and I/O rates (read/write bytes and | U62 | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/storage.rs` | OK |
 | FR-STO-002 | I/O latency where the platform exposes it; otherwise Unavailable with | U62 | `rust_core/core/src/telemetry/storage.rs` | `rust_core/core/src/telemetry/storage.rs` | OK |
 | FR-NET-001 | Per-interface throughput, packet counts, and error/drop counts, with | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/network.rs` | OK |
 | FR-PRO-001 | Enumerate running processes with CPU%, memory (RSS), owner, and | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/src/telemetry/process.rs` | OK |
@@ -57,7 +57,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-DB-002 | The tool's own footprint against the monitored instance is minimized — | n/a | `rust_core/core/tests/dbms_footprint_test.rs` | `rust_core/core/tests/dbms_footprint_test.rs` | OK |
 | FR-DB-003 | Extensions the tool depends on for a capability (e.g. | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |
 | FR-DB-004 | Active sessions with a state classification (active, idle, | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/analysis_db_health_test.rs` | OK |
-| FR-DB-005 | Query-level statistics where `pg_stat_statements` is present, | n/a | `rust_core/core/src/dbms/adapters/postgresql/queries.rs` | `rust_core/service/tests/dbms_endpoints.rs` | OK |
+| FR-DB-005 | Query-level statistics where `pg_stat_statements` is present, | U62 | `rust_core/core/src/dbms/adapters/postgresql/queries.rs` | `rust_core/service/tests/dbms_endpoints.rs` | OK |
 | FR-DB-006 | Lock waits and blocking chains, sufficient to identify the blocking | U64 | `rust_core/core/src/dbms/adapters/postgresql/queries.rs` | `rust_core/core/tests/dbms_lock_contention_test.rs` | OK |
 | FR-DB-007 | Table and index size and statistics, dead-tuple/bloat proxies, and | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |
 | FR-CORR-001 | Given host telemetry (§6–§13) and database telemetry (§26–§34) over | U12 | `rust_core/core/src/correlation/confidence.rs` | `rust_core/core/tests/correlation_test.rs` | OK |
