@@ -550,14 +550,31 @@ async fn check_auth_failures(repo: &repository::RepositoryHandle, adapter: &Arc<
     }
 }
 
-/// Unit U60 note: this handler has grown, one unit at a time (U55-
-/// U60), into a de facto "DB-wide security/config sweep" — it now
-/// does meaningfully more than its name ("read the relevant GUCs")
-/// suggests, since no dedicated poll/scheduler infrastructure exists
-/// in `service` yet for these five best-effort checks to live on
-/// instead. A real, named design debt: a future unit should probably
-/// extract this into its own dedicated internal sweep function/poll
-/// point, not keep growing this one. Not attempted here.
+/// Unit U71 (ADR 0065's own named follow-up): the five best-effort
+/// checks `gucs` piggybacked one unit at a time (U55-U60), extracted
+/// into their own named function — same checks, same order, same
+/// inputs, no behavior change. `gucs` still owns the doc comment
+/// explaining *why* this lives here (no dedicated poll/scheduler
+/// infrastructure exists in `service` yet), just no longer inlines the
+/// five-call body itself.
+async fn run_security_config_sweep(
+    repo: &repository::RepositoryHandle,
+    adapter: &Arc<dyn DbmsAdapter>,
+    gucs: &[CoreGucValue],
+) {
+    check_guc_changes(repo, gucs).await;
+    check_role_superuser_grants(repo, adapter).await;
+    check_role_membership_grants(repo, adapter).await;
+    check_table_privilege_grants(repo, adapter).await;
+    check_auth_failures(repo, adapter).await;
+}
+
+/// This handler has grown, one unit at a time (U55-U60), into a de
+/// facto "DB-wide security/config sweep" — it now does meaningfully
+/// more than its name ("read the relevant GUCs") suggests, since no
+/// dedicated poll/scheduler infrastructure exists in `service` yet for
+/// `run_security_config_sweep`'s five best-effort checks to live on
+/// instead.
 pub async fn gucs(
     State(state): State<AppState>,
     Extension(RequestId(request_id)): Extension<RequestId>,
@@ -572,11 +589,7 @@ pub async fn gucs(
         })?;
 
         if let Some(repo) = state.repository.as_ref() {
-            check_guc_changes(repo, &gucs).await;
-            check_role_superuser_grants(repo, &adapter).await;
-            check_role_membership_grants(repo, &adapter).await;
-            check_table_privilege_grants(repo, &adapter).await;
-            check_auth_failures(repo, &adapter).await;
+            run_security_config_sweep(repo, &adapter, &gucs).await;
         }
 
         Ok(gucs.into_iter().map(to_wire_guc).collect())
