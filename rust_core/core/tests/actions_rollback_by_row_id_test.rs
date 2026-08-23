@@ -30,7 +30,7 @@ use ai_ops_core::policy::{
 };
 use ai_ops_core::security::response::suspend_process_entry;
 use chrono::Utc;
-use common::{test_action_context, SpawnedTarget};
+use common::{test_action_context, AlwaysMismatchVerifier, SpawnedTarget};
 use repo_common::TestRepo;
 
 fn registry() -> ActionTypeRegistry {
@@ -168,6 +168,69 @@ async fn rollback_by_row_id_really_resumes_a_really_suspended_process() {
         !stopped_after,
         "the real process must be resumed after rollback_by_row_id — the exact \
          capability that was missing before this unit"
+    );
+
+    target.ensure_reaped();
+}
+
+/// SRS FR-BENCH-003, the refusal half: every other rollback test here
+/// only exercises the success path (identity matches). Mirrors
+/// `actions_executor_pipeline_test.rs`'s own
+/// `target_identity_mismatch_aborts_before_apply` for the forward path —
+/// `rollback()`'s own `verifier.verify(...)?` is the very first thing it
+/// does, before anything is persisted, so a mismatch here must leave
+/// the real process exactly as `execute()` left it (still stopped) and
+/// the row's own status untouched (`EXECUTED`, not `ROLLED_BACK`).
+#[tokio::test]
+async fn rollback_by_row_id_refuses_when_target_identity_has_changed() {
+    let repo = TestRepo::open();
+    let registry = registry();
+    let target = SpawnedTarget::spawn();
+    let context = test_action_context();
+
+    let row_id = execute_for_real(
+        &repo,
+        &registry,
+        "security.suspend_process",
+        &target,
+        serde_json::json!({}),
+    )
+    .await;
+
+    let stopped = context
+        .platform
+        .is_process_stopped(target.pid)
+        .expect("is_process_stopped after suspend");
+    assert!(stopped, "the real process must be stopped after execute()");
+
+    let result = rollback_by_row_id(
+        row_id,
+        &registry,
+        &context,
+        &AlwaysMismatchVerifier,
+        "tester",
+        &repo.handle,
+    )
+    .await;
+
+    assert!(matches!(result, Err(ActionError::TargetChanged)));
+
+    let stopped_after = context
+        .platform
+        .is_process_stopped(target.pid)
+        .expect("is_process_stopped after refused rollback");
+    assert!(
+        stopped_after,
+        "rollback() must never have run — the process must still be stopped"
+    );
+
+    let row = ai_ops_core::repository::get_action(&repo.handle, row_id)
+        .await
+        .expect("get_action")
+        .expect("row exists");
+    assert_eq!(
+        row.status, "EXECUTED",
+        "the original row's status must be untouched by a refused rollback"
     );
 
     target.ensure_reaped();
