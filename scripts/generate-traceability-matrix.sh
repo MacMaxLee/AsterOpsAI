@@ -69,7 +69,20 @@ is_test_reference() {
     text=$(echo "$reqline" | sed -E "s/^${fr}:[[:space:]]*//")
     total=$((total + 1))
 
-    matches=$(grep -rn "$fr" "${SEARCH_DIRS[@]}" "${GREP_FILTERS[@]}" 2>/dev/null || true)
+    # Per-directory, not a single global sort: grep already visits
+    # SEARCH_DIRS in the given argument order (deterministic — real code
+    # dirs listed before docs/adr), which is what lets an actual source
+    # file win over an ADR that merely mentions the FR-ID in prose. But
+    # *within* one directory, grep -r's traversal follows filesystem
+    # directory-entry order, which differs between a long-lived local
+    # checkout and a fresh CI clone — sorting each directory's matches
+    # before concatenating fixes that non-determinism without disturbing
+    # the deliberate cross-directory priority.
+    matches=""
+    for d in "${SEARCH_DIRS[@]}"; do
+      d_matches=$(grep -rn "$fr" "$d" "${GREP_FILTERS[@]}" 2>/dev/null | sort || true)
+      [ -n "$d_matches" ] && matches="${matches:+$matches$'\n'}$d_matches"
+    done
 
     if [ -z "$matches" ]; then
       echo "| $fr | $text | n/a | n/a | n/a | MISSING |"
