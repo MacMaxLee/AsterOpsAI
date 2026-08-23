@@ -50,7 +50,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-BENCH-001 | No "improved" or "regressed" verdict may be issued from a single | U9 | `rust_core/core/src/benchmark/mod.rs` | none | NEEDS-VERIFICATION |
 | FR-BENCH-002 | The honest default outcome is INCONCLUSIVE, and it is displayed with | n/a | `rust_core/core/src/benchmark/verdict.rs` | none | NEEDS-VERIFICATION |
 | FR-BENCH-003 | Any action applied for benchmarking purposes is reversible or | n/a | `rust_core/core/src/actions/kind.rs` | none | NEEDS-VERIFICATION |
-| FR-TUNE-001 | A tuning profile is a declarative desired-state description, never an | U10 | `rust_core/core/src/tuning/mode.rs` | none | NEEDS-VERIFICATION |
+| FR-TUNE-001 | A tuning profile is a declarative desired-state description, never an | U10 | `rust_core/core/src/tuning/mod.rs` | none | NEEDS-VERIFICATION |
 | FR-TUNE-002 | At most one tuning plan may be in flight per target at a time. | U10 | `rust_core/core/src/repository/error.rs` | `rust_core/core/tests/tuning_plan_concurrency_test.rs` | OK |
 | FR-TUNE-003 | Fully-automatic action (AUTO_LOW_RISK) is limited to actions that are | U10 | `rust_core/core/src/policy/registry.rs` | `rust_core/core/tests/tuning_plan_auto_low_risk_test.rs` | OK |
 | FR-DB-001 | Version, uptime, and reachability of each configured PostgreSQL | n/a | `docs/adr/0066-fr-id-traceability-matrix.md` | `rust_core/core/tests/dbms_adapter_smoke_test.rs` | OK |

@@ -77,10 +77,13 @@ is_test_reference() {
     # directory-entry order, which differs between a long-lived local
     # checkout and a fresh CI clone — sorting each directory's matches
     # before concatenating fixes that non-determinism without disturbing
-    # the deliberate cross-directory priority.
+    # the deliberate cross-directory priority. `LC_ALL=C`: plain `sort`
+    # collates by the active locale, and this environment's en_US.UTF-8
+    # ordered these same paths differently than a CI runner's default
+    # C/POSIX locale — byte-order sort is the only one both agree on.
     matches=""
     for d in "${SEARCH_DIRS[@]}"; do
-      d_matches=$(grep -rn "$fr" "$d" "${GREP_FILTERS[@]}" 2>/dev/null | sort || true)
+      d_matches=$(grep -rn "$fr" "$d" "${GREP_FILTERS[@]}" 2>/dev/null | LC_ALL=C sort || true)
       [ -n "$d_matches" ] && matches="${matches:+$matches$'\n'}$d_matches"
     done
 
