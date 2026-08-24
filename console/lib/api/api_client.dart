@@ -120,6 +120,18 @@ final class ApiClient {
         .toList(),
   );
 
+  /// Unit U76: real data back (the updated, now-`CLOSED` incident),
+  /// unlike grant/reject/rollback/suppress which return `()` — uses
+  /// `_post`, not `_postForSuccess`.
+  Future<ApiResult<SecurityIncidentSummary>> closeIncident(
+    int id,
+    String closedBy,
+  ) => _post(
+    '/api/v1/security/incidents/$id/close',
+    jsonEncode({'closed_by': closedBy}),
+    SecurityIncidentSummary.fromJson,
+  );
+
   Future<ApiResult<List<SessionInfo>>> getDbmsSessions() => _get(
     '/api/v1/dbms/sessions',
     (json) =>

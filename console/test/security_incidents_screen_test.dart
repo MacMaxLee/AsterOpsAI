@@ -101,6 +101,42 @@ void main() {
     expect(find.text('Detector suppressed'), findsOneWidget);
   });
 
+  testWidgets('closing an incident posts the real close request', (
+    tester,
+  ) async {
+    final transport = createFakeTransport();
+    transport.queue(
+      '/api/v1/security/incidents',
+      ApiOk(jsonEncode(okEnvelopeJson([fakeIncident().toJson()]))),
+    );
+    await pumpScreen(tester, transport);
+    await tester.pump();
+
+    final closedIncident = SecurityIncidentSummary(
+      closedAt: DateTime.utc(2026, 1, 1, 10),
+      eventCount: 3,
+      id: 1,
+      openedAt: DateTime.utc(2026, 1, 1, 9),
+      severity: 'HIGH',
+      status: 'CLOSED',
+      summary: 'previously-unseen removable device attached',
+    );
+    transport.queuePost(
+      '/api/v1/security/incidents/1/close',
+      ApiOk(jsonEncode(okEnvelopeJson(closedIncident.toJson()))),
+    );
+
+    await tester.tap(find.byIcon(Icons.check_circle_outline));
+    await tester.pumpAndSettle();
+
+    final posted = transport.postedRequests.single;
+    expect(posted.requestedPath, '/api/v1/security/incidents/1/close');
+    final body = jsonDecode(posted.body) as Map<String, dynamic>;
+    expect(body['closed_by'], 'console-operator');
+
+    expect(find.text('Incident closed'), findsOneWidget);
+  });
+
   testWidgets('a half-filled resource (kind but no name) blocks submission', (
     tester,
   ) async {

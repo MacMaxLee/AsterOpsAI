@@ -16,6 +16,10 @@ import '../widgets/async_result_view.dart';
 /// info to build one from (the summary is an event *count*, not the
 /// events themselves); suppression here targets a detector rule
 /// directly, the same real, pre-emptive use ADR 0020 already described.
+///
+/// Unit U76 (docs/adr/0081) adds a real per-row close action —
+/// unlike suppress, this needs only the `id` every summary already
+/// carries, so no incident-detail endpoint was needed to unblock it.
 class SecurityIncidentsScreen extends ConsumerWidget {
   const SecurityIncidentsScreen({super.key});
 
@@ -67,13 +71,45 @@ class _SecurityIncidentsBody extends StatelessWidget {
   }
 }
 
-class _IncidentRow extends StatelessWidget {
+class _IncidentRow extends ConsumerStatefulWidget {
   final SecurityIncidentSummary incident;
   const _IncidentRow({required this.incident});
 
   @override
+  ConsumerState<_IncidentRow> createState() => _IncidentRowState();
+}
+
+class _IncidentRowState extends ConsumerState<_IncidentRow> {
+  bool _closing = false;
+
+  // No auth/session system exists yet (ADR 0021's own flagged
+  // limitation) — same plain operator name every console mutation uses.
+  static const _operator = 'console-operator';
+
+  Future<void> _close() async {
+    final l10n = AppLocalizations.of(context)!;
+    setState(() => _closing = true);
+
+    final client = ref.read(apiClientProvider);
+    final result = await client.closeIncident(widget.incident.id, _operator);
+    if (!mounted) return;
+
+    switch (result) {
+      case ApiOk():
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.securityIncidentClosed)));
+      case ApiErr(:final failure):
+        setState(() => _closing = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(_failureMessage(failure, l10n))));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final incident = widget.incident;
     final dateFormat = DateFormat.yMd().add_Hm();
     final subtitle = [
       incident.status,
@@ -85,6 +121,17 @@ class _IncidentRow extends StatelessWidget {
       leading: _SeverityIcon(severity: incident.severity),
       title: Text(incident.summary),
       subtitle: Text(subtitle),
+      trailing: _closing
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : IconButton(
+              icon: const Icon(Icons.check_circle_outline),
+              tooltip: l10n.securityIncidentCloseAction,
+              onPressed: _close,
+            ),
     );
   }
 }

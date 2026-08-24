@@ -118,6 +118,51 @@ async fn a_later_milder_correlated_event_never_lowers_the_incidents_own_severity
     );
 }
 
+/// Unit U76 (ADR 0016/0020's own named gap, resolved to manual-only —
+/// docs/adr/0081): the repository-level `close_security_incident`
+/// itself, distinct from `security_endpoints.rs`'s own HTTP-level
+/// proof of the same behavior.
+#[tokio::test]
+async fn close_security_incident_marks_it_closed_with_a_real_timestamp() {
+    let repo = TestRepo::open();
+    let recorded = incident::record_event(&repo.handle, event("sdb"))
+        .await
+        .expect("record_event");
+    let id = incident_id(&recorded);
+
+    // `closed_at` is persisted with millisecond precision (`repository::
+    // time::format_ts`), so compare against a millisecond-truncated
+    // `now`, not `Utc::now()`'s own sub-millisecond value.
+    let now = Utc::now();
+    let (closed, event_count) =
+        ai_ops_core::repository::close_security_incident(&repo.handle, id, now)
+            .await
+            .expect("close_security_incident")
+            .expect("incident exists");
+    assert_eq!(closed.status, "CLOSED");
+    assert_eq!(
+        closed
+            .closed_at
+            .expect("closed_at is set")
+            .timestamp_millis(),
+        now.timestamp_millis()
+    );
+    assert_eq!(event_count, 1);
+}
+
+#[tokio::test]
+async fn close_security_incident_on_an_unknown_id_returns_none() {
+    let repo = TestRepo::open();
+    let result =
+        ai_ops_core::repository::close_security_incident(&repo.handle, 999_999, Utc::now())
+            .await
+            .expect("close_security_incident");
+    assert!(
+        result.is_none(),
+        "an unknown incident id must return None, not an error"
+    );
+}
+
 #[tokio::test]
 async fn a_different_resource_opens_a_distinct_incident() {
     let repo = TestRepo::open();

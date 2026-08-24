@@ -356,6 +356,31 @@ pub async fn record_security_suppression(
         .map_err(|_| RepositoryError::WriterDidNotReply)?
 }
 
+/// Unit U76 (ADR 0016/0020's own named "genuinely un-designed" gap,
+/// resolved to manual-only — docs/adr/0081): closes incident `id` if
+/// it exists and is still `OPEN`. `Ok(None)` means no incident with
+/// that id exists at all — the caller (`api::v1::security::close`)
+/// maps that to `ApiError::NotFound`.
+pub async fn close_security_incident(
+    handle: &RepositoryHandle,
+    id: i64,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<Option<(SecurityIncidentRow, i64)>, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::CloseSecurityIncident {
+            id,
+            now,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
 /// Unit U55: returns the previous setting for `name`, if any (`None`
 /// means this is the first observation, a baseline seed rather than a
 /// change) — the caller (`security::detect_guc_change`) decides

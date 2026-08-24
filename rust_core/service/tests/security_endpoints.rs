@@ -141,6 +141,101 @@ async fn a_second_correlated_event_increases_the_same_incidents_event_count() {
     assert_eq!(items[0]["event_count"], 2);
 }
 
+/// Unit U76 (ADR 0016/0020's own named gap, resolved to manual-only —
+/// docs/adr/0081): closing an incident sets it to `CLOSED` (real
+/// `closed_at`) and it must stop appearing in the open-incidents list.
+#[tokio::test]
+async fn closing_an_open_incident_marks_it_closed_and_removes_it_from_the_open_list() {
+    let repo = open_repo().await;
+    incident::record_event(&repo, event("test.detector", "sdb"))
+        .await
+        .expect("record_event");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (_, body) = get_json(app, "/api/v1/security/incidents").await;
+    let incident_id = body["data"][0]["id"].as_i64().expect("id");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, body) = post_json(
+        app,
+        &format!("/api/v1/security/incidents/{incident_id}/close"),
+        json!({ "closed_by": "tester" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    assert_eq!(body["data"]["status"], "CLOSED");
+    assert!(
+        !body["data"]["closed_at"].is_null(),
+        "closed_at must be set: {body:?}"
+    );
+
+    assert_eq!(
+        repository::latest_audit_event_type(&repo)
+            .await
+            .expect("latest_audit_event_type"),
+        Some("security.incident_closed".to_string()),
+        "closing an incident must leave a real audit trail, same as policy grant/reject"
+    );
+
+    let app = build_app(Some(repo)).await;
+    let (_, body) = get_json(app, "/api/v1/security/incidents").await;
+    assert_eq!(
+        body["data"],
+        json!([]),
+        "a closed incident must no longer appear in the open-incidents list"
+    );
+}
+
+/// Closing an already-`CLOSED` incident is a harmless, idempotent
+/// no-op — it must not overwrite the original `closed_at`.
+#[tokio::test]
+async fn closing_an_already_closed_incident_is_idempotent() {
+    let repo = open_repo().await;
+    incident::record_event(&repo, event("test.detector", "sdb"))
+        .await
+        .expect("record_event");
+    let app = build_app(Some(repo.clone())).await;
+    let (_, body) = get_json(app, "/api/v1/security/incidents").await;
+    let incident_id = body["data"][0]["id"].as_i64().expect("id");
+
+    let app = build_app(Some(repo.clone())).await;
+    let (status, first) = post_json(
+        app,
+        &format!("/api/v1/security/incidents/{incident_id}/close"),
+        json!({ "closed_by": "tester" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    let first_closed_at = first["data"]["closed_at"].clone();
+
+    let app = build_app(Some(repo)).await;
+    let (status, second) = post_json(
+        app,
+        &format!("/api/v1/security/incidents/{incident_id}/close"),
+        json!({ "closed_by": "tester-again" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "body: {second:?}");
+    assert_eq!(second["data"]["status"], "CLOSED");
+    assert_eq!(
+        second["data"]["closed_at"], first_closed_at,
+        "re-closing an already-closed incident must not overwrite its original closed_at"
+    );
+}
+
+#[tokio::test]
+async fn closing_a_nonexistent_incident_returns_not_found() {
+    let repo = open_repo().await;
+    let app = build_app(Some(repo)).await;
+    let (status, body) = post_json(
+        app,
+        "/api/v1/security/incidents/999999/close",
+        json!({ "closed_by": "tester" }),
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "body: {body:?}");
+}
+
 #[tokio::test]
 async fn suppressing_a_detector_and_resource_blocks_only_that_pair() {
     let repo = open_repo().await;

@@ -295,6 +295,8 @@
   "securitySuppressReason": "Reason",
   "securitySuppressSubmit": "Suppress",
   "securitySuppressSuccess": "Detector suppressed",
+  "securityIncidentCloseAction": "Close incident",
+  "securityIncidentClosed": "Incident closed",
   "genericCancel": "Cancel",
   "genericClose": "Close",
 

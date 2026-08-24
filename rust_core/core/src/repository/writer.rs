@@ -26,7 +26,7 @@ use super::policy::{insert_proposed_action, transition};
 use super::retention::run_sweep;
 use super::role_history;
 use super::role_membership_history;
-use super::security::{insert_suppression, record_event_checked};
+use super::security::{close_incident, insert_suppression, record_event_checked};
 use super::table_privilege_history;
 use super::telemetry_store::insert_raw_snapshot;
 use super::tuning::{insert_tuning_plan, mark_plan_completed};
@@ -123,6 +123,13 @@ pub enum WriteCommand {
     RecordSuppression {
         new: NewSecuritySuppression,
         reply: oneshot::Sender<Result<(), RepositoryError>>,
+    },
+    /// Closes a security incident (unit U76, ADR 0016/0020's own named
+    /// gap) — `Ok(None)` means no incident with that id exists at all.
+    CloseSecurityIncident {
+        id: i64,
+        now: DateTime<Utc>,
+        reply: oneshot::Sender<Result<Option<(SecurityIncidentRow, i64)>, RepositoryError>>,
     },
     /// Records that a device identifier has been observed (unit U11) —
     /// replaces the service sampler's own ephemeral in-process `HashSet`.
@@ -302,6 +309,9 @@ pub fn spawn(
                     }
                     WriteCommand::RecordSuppression { new, reply } => {
                         drop(reply.send(insert_suppression(&conn, &new)));
+                    }
+                    WriteCommand::CloseSecurityIncident { id, now, reply } => {
+                        drop(reply.send(close_incident(&conn, id, now)));
                     }
                     WriteCommand::RecordDeviceSeen {
                         identifier,

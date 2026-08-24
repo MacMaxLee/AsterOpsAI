@@ -42,6 +42,7 @@ pub fn router() -> Router<AppState> {
         .route("/tuning/plans", get(tuning::plans))
         .route("/tuning/start", post(tuning::start))
         .route("/security/incidents", get(security::incidents))
+        .route("/security/incidents/:id/close", post(security::close))
         .route("/security/suppress", post(security::suppress))
         .route("/analysis/host", get(analysis::host))
         .route("/analysis/host/explain", get(analysis::explain_host))

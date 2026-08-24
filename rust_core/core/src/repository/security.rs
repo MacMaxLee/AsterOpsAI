@@ -200,6 +200,46 @@ pub fn resource_is_flagged(
     .map_err(Into::into)
 }
 
+/// Unit U76 (ADR 0016/0020's own named "genuinely un-designed" gap,
+/// resolved to manual-only — see docs/adr/0081): closes `id` if it
+/// exists, setting `status = 'CLOSED'` and `closed_at = now` only if
+/// it's currently `OPEN`. Idempotent — closing an already-`CLOSED`
+/// incident is a harmless no-op (its original `closed_at` is left
+/// alone), not an error. Returns `None` if no incident with that id
+/// exists at all, so the caller (`api::v1::security::close`) can map
+/// that to a real 404 instead of silently doing nothing. The event
+/// count alongside it mirrors `list_open_incidents`'s own shape, so
+/// both endpoints build a `SecurityIncidentSummary` the same way.
+pub fn close_incident(
+    conn: &Connection,
+    id: i64,
+    now: DateTime<Utc>,
+) -> Result<Option<(SecurityIncidentRow, i64)>, RepositoryError> {
+    let status: Option<String> = conn
+        .query_row(
+            "SELECT status FROM security_incidents WHERE id = ?1",
+            params![id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(status) = status else {
+        return Ok(None);
+    };
+    if status == "OPEN" {
+        conn.execute(
+            "UPDATE security_incidents SET status = 'CLOSED', closed_at = ?1 WHERE id = ?2",
+            params![format_ts(now), id],
+        )?;
+    }
+    let incident = must_get_incident(conn, id)?;
+    let event_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM security_events WHERE incident_id = ?1",
+        params![id],
+        |row| row.get(0),
+    )?;
+    Ok(Some((incident, event_count)))
+}
+
 /// Unit U75 (ADR 0065's own named remainder): how many `detector_id`
 /// events already exist for the exact same `resource_descriptor_json`
 /// at or after `since` — `security::detect_auth_failure`'s own

@@ -290,6 +290,8 @@
   "securitySuppressReason": "原因",
   "securitySuppressSubmit": "抑制",
   "securitySuppressSuccess": "偵測器已抑制",
+  "securityIncidentCloseAction": "關閉事件",
+  "securityIncidentClosed": "事件已關閉",
   "genericCancel": "取消",
   "genericClose": "關閉",
   "analysisScore": "分數 {score}（{scoreVersion}）",
