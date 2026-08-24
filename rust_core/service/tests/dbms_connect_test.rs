@@ -32,6 +32,7 @@ fn cfg(
         Some("disable".to_string()),
         environment.map(|s| s.to_string()),
         allow_superuser_override.map(|s| s.to_string()),
+        None,
     )
     .expect("host+password were both given")
 }

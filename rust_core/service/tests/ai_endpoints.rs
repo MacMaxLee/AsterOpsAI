@@ -72,6 +72,7 @@ fn adapter_for(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
         Some("disable".to_string()),
         None,
         None,
+        None,
     )
     .expect("host+password were both given");
     let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds");

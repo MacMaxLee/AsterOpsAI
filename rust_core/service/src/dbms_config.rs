@@ -35,6 +35,8 @@ fn parse_tls_mode(v: Option<String>) -> TlsMode {
     match v.as_deref() {
         Some("require") => TlsMode::Require,
         Some("disable") => TlsMode::Disable,
+        Some("verify-ca") => TlsMode::VerifyCa,
+        Some("verify-full") => TlsMode::VerifyFull,
         _ => TlsMode::Prefer,
     }
 }
@@ -77,6 +79,7 @@ pub fn resolve_db_connection_from(
     sslmode: Option<String>,
     environment: Option<String>,
     allow_superuser_override: Option<String>,
+    ca_bundle_path: Option<String>,
 ) -> Option<DbConnectionConfig> {
     let host = non_empty(host)?;
     let password = non_empty(password)?;
@@ -88,6 +91,7 @@ pub fn resolve_db_connection_from(
     let tls_mode = parse_tls_mode(sslmode);
     let environment = resolve_db_environment_from(environment);
     let allow_superuser_override = resolve_allow_superuser_override_from(allow_superuser_override);
+    let ca_bundle_path = non_empty(ca_bundle_path).map(std::path::PathBuf::from);
 
     Some(DbConnectionConfig {
         metadata: ConnectionMetadata {
@@ -99,6 +103,7 @@ pub fn resolve_db_connection_from(
             tls_mode,
             environment,
             password_ref: PasswordRef("service-env-var-unused".to_string()),
+            ca_bundle_path,
             allow_superuser_override,
             capture_raw_sql: false,
         },
@@ -116,6 +121,7 @@ pub fn resolve_db_connection() -> Option<DbConnectionConfig> {
         std::env::var("ASTEROPS_DB_SSLMODE").ok(),
         std::env::var("ASTEROPS_DB_ENVIRONMENT").ok(),
         std::env::var("ASTEROPS_DB_ALLOW_SUPERUSER_OVERRIDE").ok(),
+        std::env::var("ASTEROPS_DB_CA_BUNDLE_PATH").ok(),
     )
 }
 
@@ -133,7 +139,8 @@ mod tests {
             Some("secret".into()),
             None,
             None,
-            None
+            None,
+            None,
         )
         .is_none());
     }
@@ -148,7 +155,8 @@ mod tests {
             None,
             None,
             None,
-            None
+            None,
+            None,
         )
         .is_none());
     }
@@ -163,7 +171,8 @@ mod tests {
             Some(String::new()),
             None,
             None,
-            None
+            None,
+            None,
         )
         .is_none());
     }
@@ -179,6 +188,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.metadata.host, "db.local");
@@ -189,6 +199,7 @@ mod tests {
         assert_eq!(cfg.password, "secret");
         assert_eq!(cfg.metadata.environment, Environment::Development);
         assert!(!cfg.metadata.allow_superuser_override);
+        assert_eq!(cfg.metadata.ca_bundle_path, None);
     }
 
     #[test]
@@ -200,6 +211,7 @@ mod tests {
             Some("dba".into()),
             Some("secret".into()),
             Some("disable".into()),
+            None,
             None,
             None,
         )
@@ -221,6 +233,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.metadata.port, 5432);
@@ -237,9 +250,82 @@ mod tests {
             Some("require".into()),
             None,
             None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.metadata.tls_mode, TlsMode::Require);
+    }
+
+    /// Unit U77 (ADR 0009's own named gap, closed by docs/adr/0082).
+    #[test]
+    fn verify_ca_sslmode_is_recognized() {
+        let cfg = resolve_db_connection_from(
+            Some("db.local".into()),
+            None,
+            None,
+            None,
+            Some("secret".into()),
+            Some("verify-ca".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(cfg.metadata.tls_mode, TlsMode::VerifyCa);
+    }
+
+    #[test]
+    fn verify_full_sslmode_is_recognized() {
+        let cfg = resolve_db_connection_from(
+            Some("db.local".into()),
+            None,
+            None,
+            None,
+            Some("secret".into()),
+            Some("verify-full".into()),
+            None,
+            None,
+            None,
+        )
+        .unwrap();
+        assert_eq!(cfg.metadata.tls_mode, TlsMode::VerifyFull);
+    }
+
+    #[test]
+    fn a_ca_bundle_path_is_resolved_when_given() {
+        let cfg = resolve_db_connection_from(
+            Some("db.local".into()),
+            None,
+            None,
+            None,
+            Some("secret".into()),
+            Some("verify-full".into()),
+            None,
+            None,
+            Some("/etc/asterops/ca.pem".into()),
+        )
+        .unwrap();
+        assert_eq!(
+            cfg.metadata.ca_bundle_path,
+            Some(std::path::PathBuf::from("/etc/asterops/ca.pem"))
+        );
+    }
+
+    #[test]
+    fn an_empty_ca_bundle_path_is_treated_as_unset() {
+        let cfg = resolve_db_connection_from(
+            Some("db.local".into()),
+            None,
+            None,
+            None,
+            Some("secret".into()),
+            None,
+            None,
+            None,
+            Some(String::new()),
+        )
+        .unwrap();
+        assert_eq!(cfg.metadata.ca_bundle_path, None);
     }
 
     #[test]
@@ -250,6 +336,7 @@ mod tests {
             None,
             None,
             Some("secret".into()),
+            None,
             None,
             None,
             None,
@@ -269,6 +356,7 @@ mod tests {
             None,
             Some("not-a-real-environment".into()),
             None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.metadata.environment, Environment::Development);
@@ -284,6 +372,7 @@ mod tests {
             Some("secret".into()),
             None,
             Some("production".into()),
+            None,
             None,
         )
         .unwrap();
@@ -301,6 +390,7 @@ mod tests {
             None,
             Some("staging".into()),
             None,
+            None,
         )
         .unwrap();
         assert_eq!(cfg.metadata.environment, Environment::Staging);
@@ -314,6 +404,7 @@ mod tests {
             None,
             None,
             Some("secret".into()),
+            None,
             None,
             None,
             None,
@@ -333,6 +424,7 @@ mod tests {
             None,
             None,
             Some("true".into()),
+            None,
         )
         .unwrap();
         assert!(cfg.metadata.allow_superuser_override);
@@ -349,6 +441,7 @@ mod tests {
             None,
             None,
             Some("1".into()),
+            None,
         )
         .unwrap();
         assert!(cfg.metadata.allow_superuser_override);
@@ -365,6 +458,7 @@ mod tests {
             None,
             None,
             Some("yes-please".into()),
+            None,
         )
         .unwrap();
         assert!(!cfg.metadata.allow_superuser_override);

@@ -5,23 +5,29 @@
 //! only in the OS credential store (`credential_store.rs`) and is fetched
 //! at connect time.
 
-/// Mirrors `tokio_postgres::config::SslMode` exactly — that type has only
-/// these three variants (`Disable`/`Prefer`/`Require`), not the full six-mode
-/// `libpq` `sslmode` set. `verify-ca`/`verify-full` need a CA bundle path
-/// plus a certificate-verifying TLS connector wired in on top of this
-/// (`tokio-postgres` is connector-agnostic; cert verification is configured
-/// on whatever connector you hand `connect()`, not on this enum) — real,
-/// separate work with its own config surface (a CA path field
-/// `ConnectionMetadata` doesn't have yet), not something to fake by adding
-/// variants this code can't actually honor. Deliberately scoped down to what
-/// `pool.rs` genuinely implements this unit; TRS §17's "an explicit sslmode"
-/// requirement is about never silently defaulting/omitting one, which
-/// `Disable`/`Require` already satisfy for real.
+use std::path::PathBuf;
+
+/// `tokio_postgres::config::SslMode` only has three variants (`Disable`/
+/// `Prefer`/`Require`) — it governs the startup-handshake TLS *requirement*
+/// only, not certificate verification (`tokio-postgres` is connector-
+/// agnostic; verification is configured on whatever connector you hand
+/// `connect()`). `VerifyCa`/`VerifyFull` (unit U77, closing ADR 0009's own
+/// named gap) both map to `Require` there — real verification behavior
+/// lives entirely in `pool::build_pool`'s own choice of TLS connector, not
+/// in this handshake-mode flag. `VerifyCa` requires a real, current CA
+/// chain trust check but deliberately tolerates a hostname mismatch;
+/// `VerifyFull` requires both — matching `libpq`'s own documented
+/// `sslmode` semantics for these two modes exactly. Both require
+/// `ca_bundle_path` to be set (see `ConnectionMetadata`); `pool::
+/// build_pool` returns a real, explicit error rather than silently
+/// downgrading verification if it's missing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TlsMode {
     Disable,
     Prefer,
     Require,
+    VerifyCa,
+    VerifyFull,
 }
 
 impl From<TlsMode> for tokio_postgres::config::SslMode {
@@ -29,7 +35,7 @@ impl From<TlsMode> for tokio_postgres::config::SslMode {
         match mode {
             TlsMode::Disable => Self::Disable,
             TlsMode::Prefer => Self::Prefer,
-            TlsMode::Require => Self::Require,
+            TlsMode::Require | TlsMode::VerifyCa | TlsMode::VerifyFull => Self::Require,
         }
     }
 }
@@ -60,6 +66,11 @@ pub struct ConnectionMetadata {
     pub tls_mode: TlsMode,
     pub environment: Environment,
     pub password_ref: PasswordRef,
+    /// Required (and read) only for `TlsMode::VerifyCa`/`VerifyFull` — a
+    /// PEM file of one or more CA certificates to trust, mirroring
+    /// `libpq`'s own `sslrootcert`. Unused (may be `None`) for every other
+    /// mode.
+    pub ca_bundle_path: Option<PathBuf>,
     /// Refuses a superuser connection in `Production` unless set —
     /// `role_check.rs` audits every connection made with this set to true.
     pub allow_superuser_override: bool,

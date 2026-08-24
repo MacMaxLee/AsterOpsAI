@@ -42,6 +42,7 @@ deadpool-postgres = { workspace = true }
 keyring = { workspace = true }
 tokio-postgres-rustls = { workspace = true }
 rustls = { workspace = true }
+rustls-pki-types = { workspace = true }
 regex = { workspace = true }
 csv = { workspace = true }
 # Plain HTTP/1.1 client for the Ollama AI provider (unit U6) — no TLS

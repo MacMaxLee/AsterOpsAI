@@ -57,6 +57,7 @@ async fn exactly_one_idle_connection_between_polls() {
         tls_mode: TlsMode::Disable,
         environment: Environment::Development,
         password_ref: password_ref.clone(),
+        ca_bundle_path: None,
         allow_superuser_override: false,
         capture_raw_sql: false,
     };

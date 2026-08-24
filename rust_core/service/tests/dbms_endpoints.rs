@@ -134,6 +134,7 @@ fn adapter_for(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
         Some("disable".to_string()),
         None,
         None,
+        None,
     )
     .expect("host+password were both given");
     let pg_pool = pool::build_pool(&cfg.metadata, &cfg.password).expect("pool builds");
@@ -1564,6 +1565,7 @@ fn adapter_for_with_zero_activity_thresholds(pg: &support::TestPostgres) -> Arc<
         Some("postgres".to_string()),
         Some("trust-auth-ignores-this".to_string()),
         Some("disable".to_string()),
+        None,
         None,
         None,
     )

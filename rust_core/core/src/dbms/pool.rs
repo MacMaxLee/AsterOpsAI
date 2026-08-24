@@ -3,13 +3,18 @@
 //! `statement_timeout=5s`, `idle_in_transaction_session_timeout=10s`, and
 //! an explicit `sslmode` — never a bare, unconfigured connection.
 
+use std::path::Path;
 use std::sync::Arc;
 
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
+use rustls::client::WebPkiServerVerifier;
 use rustls::crypto::WebPkiSupportedAlgorithms;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme};
+use rustls::{
+    CertificateError, DigitallySignedStruct, Error as TlsError, RootCertStore, SignatureScheme,
+};
+use rustls_pki_types::pem::PemObject;
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 use super::connection_metadata::{ConnectionMetadata, TlsMode};
@@ -69,6 +74,112 @@ impl ServerCertVerifier for EncryptOnlyVerifier {
     }
 }
 
+/// Unit U77 (ADR 0009's own named `verify-ca`/`verify-full` gap, closed by
+/// docs/adr/0082): a `WebPkiServerVerifier`'s chain-trust check is real and
+/// unmodified — only its hostname check is deliberately tolerant of a
+/// mismatch, exactly matching `libpq`'s own documented `verify-ca`
+/// semantics ("verify the server certificate is trusted, but don't verify
+/// its name matches the host"). Any *other* verification failure (expired,
+/// unknown issuer, revoked, malformed, ...) is never swallowed — only the
+/// specific hostname-mismatch error is converted to success.
+#[derive(Debug)]
+struct ChainOnlyVerifier {
+    inner: Arc<WebPkiServerVerifier>,
+}
+
+impl ServerCertVerifier for ChainOnlyVerifier {
+    fn verify_server_cert(
+        &self,
+        end_entity: &CertificateDer<'_>,
+        intermediates: &[CertificateDer<'_>],
+        server_name: &ServerName<'_>,
+        ocsp_response: &[u8],
+        now: UnixTime,
+    ) -> Result<ServerCertVerified, TlsError> {
+        match self.inner.verify_server_cert(
+            end_entity,
+            intermediates,
+            server_name,
+            ocsp_response,
+            now,
+        ) {
+            Err(TlsError::InvalidCertificate(
+                CertificateError::NotValidForName | CertificateError::NotValidForNameContext { .. },
+            )) => Ok(ServerCertVerified::assertion()),
+            other => other,
+        }
+    }
+
+    fn verify_tls12_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        self.inner.verify_tls12_signature(message, cert, dss)
+    }
+
+    fn verify_tls13_signature(
+        &self,
+        message: &[u8],
+        cert: &CertificateDer<'_>,
+        dss: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, TlsError> {
+        self.inner.verify_tls13_signature(message, cert, dss)
+    }
+
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.inner.supported_verify_schemes()
+    }
+}
+
+/// Real, explicit failure for every way a CA bundle can be unusable —
+/// missing, unreadable, containing no PEM certificate section, or
+/// containing a certificate `RootCertStore` itself rejects — never a
+/// silent empty trust store (which would make every server cert fail
+/// closed, or worse, invite "just fall back to unverified" pressure).
+fn load_root_cert_store(ca_bundle_path: &Path) -> Result<RootCertStore, DbmsError> {
+    let iter = CertificateDer::pem_file_iter(ca_bundle_path).map_err(|err| {
+        DbmsError::Other(format!(
+            "reading CA bundle {}: {err}",
+            ca_bundle_path.display()
+        ))
+    })?;
+    let mut roots = RootCertStore::empty();
+    let mut certs_added = 0usize;
+    for cert in iter {
+        let cert = cert.map_err(|err| {
+            DbmsError::Other(format!(
+                "parsing CA bundle {}: {err}",
+                ca_bundle_path.display()
+            ))
+        })?;
+        roots.add(cert).map_err(|err| {
+            DbmsError::Other(format!(
+                "CA bundle {} contains an unusable certificate: {err}",
+                ca_bundle_path.display()
+            ))
+        })?;
+        certs_added += 1;
+    }
+    if certs_added == 0 {
+        return Err(DbmsError::Other(format!(
+            "CA bundle {} contains no PEM certificates",
+            ca_bundle_path.display()
+        )));
+    }
+    Ok(roots)
+}
+
+fn require_ca_bundle_path(metadata: &ConnectionMetadata) -> Result<&Path, DbmsError> {
+    metadata.ca_bundle_path.as_deref().ok_or_else(|| {
+        DbmsError::Other(format!(
+            "{:?} requires ca_bundle_path to be set",
+            metadata.tls_mode
+        ))
+    })
+}
+
 fn build_deadpool_config(
     metadata: &ConnectionMetadata,
     password: &str,
@@ -116,6 +227,28 @@ pub fn build_pool(metadata: &ConnectionMetadata, password: &str) -> Result<Pool,
             cfg.create_pool(Some(Runtime::Tokio1), connector)
                 .map_err(|e| DbmsError::Other(e.to_string()))
         }
+        TlsMode::VerifyFull => {
+            let roots = load_root_cert_store(require_ca_bundle_path(metadata)?)?;
+            let tls_config = rustls::ClientConfig::builder()
+                .with_root_certificates(roots)
+                .with_no_client_auth();
+            let connector = MakeRustlsConnect::new(tls_config);
+            cfg.create_pool(Some(Runtime::Tokio1), connector)
+                .map_err(|e| DbmsError::Other(e.to_string()))
+        }
+        TlsMode::VerifyCa => {
+            let roots = load_root_cert_store(require_ca_bundle_path(metadata)?)?;
+            let inner = WebPkiServerVerifier::builder(Arc::new(roots))
+                .build()
+                .map_err(|err| DbmsError::Other(format!("building CA verifier: {err}")))?;
+            let tls_config = rustls::ClientConfig::builder()
+                .dangerous()
+                .with_custom_certificate_verifier(Arc::new(ChainOnlyVerifier { inner }))
+                .with_no_client_auth();
+            let connector = MakeRustlsConnect::new(tls_config);
+            cfg.create_pool(Some(Runtime::Tokio1), connector)
+                .map_err(|e| DbmsError::Other(e.to_string()))
+        }
     }
 }
 
@@ -124,7 +257,7 @@ impl From<TlsMode> for deadpool_postgres::SslMode {
         match mode {
             TlsMode::Disable => Self::Disable,
             TlsMode::Prefer => Self::Prefer,
-            TlsMode::Require => Self::Require,
+            TlsMode::Require | TlsMode::VerifyCa | TlsMode::VerifyFull => Self::Require,
         }
     }
 }

@@ -193,6 +193,21 @@ impl TestPostgres {
             .arg("-out")
             .arg(&cert_path)
             .args(["-days", "1", "-subj", "/CN=localhost"])
+            // Unit U77: openssl's own `req -x509` default sets
+            // `basicConstraints=CA:TRUE` (a legacy compatibility default,
+            // confirmed empirically) — real chain validation
+            // (`rustls-webpki`) rejects any end-entity/leaf certificate
+            // that claims to be a CA (`Error::CaUsedAsEndEntity`), which
+            // this server cert always is. Explicit `CA:FALSE` makes this
+            // a genuine leaf cert, matching real-world server certs.
+            .args(["-addext", "basicConstraints=critical,CA:FALSE"])
+            // `rustls-webpki` requires a real `subjectAltName` for
+            // hostname matching — it never falls back to the legacy `CN`
+            // field the way older verifiers did (confirmed empirically:
+            // without this, hostname verification fails even for a
+            // genuinely matching `localhost`, reporting zero presented
+            // names). `/CN=localhost` alone is therefore not enough.
+            .args(["-addext", "subjectAltName=DNS:localhost"])
             .status()
             .expect("spawn openssl req");
         assert!(
@@ -254,6 +269,15 @@ impl TestPostgres {
         cfg.user(user);
         cfg.dbname(dbname);
         cfg
+    }
+
+    /// The real self-signed cert `start_with_tls` generated for this
+    /// instance (unit U77) — since it's self-signed, this same file is
+    /// its own trust anchor, usable directly as a `verify-ca`/`verify-
+    /// full` CA bundle in tests. Only meaningful for an instance started
+    /// via `start_with_tls`.
+    pub fn tls_server_cert_path(&self) -> PathBuf {
+        self.socket_dir.join("data").join("server.crt")
     }
 
     async fn wait_until_ready(&self) {
