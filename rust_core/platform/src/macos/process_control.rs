@@ -124,30 +124,18 @@ pub fn resume(pid: u32) -> Result<(), CapabilityError> {
 
 /// Checks if a process is stopped (suspended).
 ///
-/// On macOS (no /proc), we parse `ps -o state= -p [pid]` output.
+/// On macOS (no /proc), we use `ps -o state=` via exec::get_process_state.
 /// State 'T' means stopped by a signal (our SIGSTOP).
 pub fn is_stopped(pid: u32) -> Result<bool, CapabilityError> {
-    use std::process::Command;
+    let state_str = crate::macos::exec::get_process_state(pid).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound {
+            CapabilityError::NotFound(format!("process {} not found", pid))
+        } else {
+            CapabilityError::Io(e)
+        }
+    })?;
 
-    let output = Command::new("ps")
-        .arg("-o")
-        .arg("state=")
-        .arg("-p")
-        .arg(pid.to_string())
-        .output()
-        .map_err(|e| CapabilityError::Io(e))?;
-
-    if !output.status.success() {
-        // ps returns non-zero if process doesn't exist
-        return Err(CapabilityError::NotFound(format!(
-            "process {} not found",
-            pid
-        )));
-    }
-
-    let state = String::from_utf8_lossy(&output.stdout);
-    let state_char = state
-        .trim()
+    let state_char = state_str
         .chars()
         .next()
         .ok_or_else(|| CapabilityError::Unavailable(format!("empty state field for pid {}", pid)))?;

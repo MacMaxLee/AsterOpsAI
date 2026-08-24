@@ -5,8 +5,8 @@ this document as you complete each unit.
 
 **Last Updated**: 2026-08-24
 **Status**: In Progress
-**Current Unit**: U93 Complete - M2 in progress (1/2)
-**Completion**: 4/21 units (19%)
+**Current Unit**: U94 Complete - M2 FINISHED! Moving to M3
+**Completion**: 5/21 units (24%)
 
 ---
 
@@ -45,10 +45,10 @@ this document as you complete each unit.
 
 ---
 
-## Milestone 2: Process Control ⧖
+## Milestone 2: Process Control ✓
 
 **Target**: Suspend/resume and command execution foundation
-**Completion**: 1/2 units (50%)
+**Completion**: 2/2 units (100%) — MILESTONE COMPLETE!
 
 ### ✓ U93: macOS Process Suspend/Resume
 - [x] Implementation complete (SIGSTOP/SIGCONT)
@@ -60,12 +60,13 @@ this document as you complete each unit.
 - **Test Command**: `cargo test --target aarch64-apple-darwin suspend_resume`
 - **Note**: Uses kill(2) with SIGSTOP/SIGCONT (POSIX, same as Linux). is_stopped() parses `ps -o state=` looking for 'T' state
 
-### ✗ U94: macOS Command Execution Baseline
-- [ ] exec.rs module created
-- [ ] Basic test passing
-- [ ] CI grep gate still passes
-- **Files Created**: `rust_core/platform/src/macos/exec.rs`
+### ✓ U94: macOS Command Execution Baseline
+- [x] exec.rs module created
+- [x] Basic test passing
+- [x] CI grep gate still passes
+- **Files Modified**: `rust_core/platform/src/macos/exec.rs`, `rust_core/platform/src/macos/mod.rs`
 - **Test Command**: `cargo test --target aarch64-apple-darwin -p platform exec`
+- **Note**: Single CI-enforced location for Command execution. Added get_process_state(pid) for ps parsing. Fixed CI grep gate violation by moving Command call from process_control.rs to exec.rs
 
 ---
 
@@ -203,14 +204,14 @@ this document as you complete each unit.
 ## Overall Progress Summary
 
 ### Units by Status
-- **Not Started**: 17 units
+- **Not Started**: 16 units
 - **In Progress**: 0 units
-- **Completed**: 4 units (U90, U91, U92, U93)
+- **Completed**: 5 units (U90, U91, U92, U93, U94)
 - **Blocked**: 0 units
 
 ### Milestones by Status
 - **M1 Basic Platform Adapter**: 100% (3/3) ✓ COMPLETE
-- **M2 Process Control**: 50% (1/2)
+- **M2 Process Control**: 100% (2/2) ✓ COMPLETE
 - **M3 Host Telemetry**: 0% (0/6)
 - **M4 Integration & Testing**: 0% (0/5)
 - **M5 Documentation & Polish**: 0% (0/5)
@@ -227,6 +228,7 @@ this document as you complete each unit.
 - **U91** (2026-08-24): Process priority get/set via setpriority(2)
 - **U92** (2026-08-24): CPU affinity documented as Unsupported (ADR 0086)
 - **U93** (2026-08-24): Process suspend/resume via SIGSTOP/SIGCONT + ps parsing
+- **U94** (2026-08-24): Command execution baseline via exec.rs module (CI-enforced Command location)
 
 ---
 
