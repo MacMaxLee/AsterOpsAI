@@ -4,23 +4,25 @@ Quick reference checklist for tracking macOS implementation progress. Update
 this document as you complete each unit.
 
 **Last Updated**: 2026-08-24
-**Status**: Not Started
-**Current Unit**: —
-**Completion**: 0/21 units (0%)
+**Status**: In Progress
+**Current Unit**: U90 (Implemented, pending verification with Rust toolchain)
+**Completion**: 1/21 units (5%)
 
 ---
 
-## Milestone 1: Basic Platform Adapter ✗
+## Milestone 1: Basic Platform Adapter ⧖
 
 **Target**: Basic process operations working
-**Completion**: 0/3 units (0%)
+**Completion**: 1/3 units (33%)
 
-### ✗ U90: macOS Self-Process Metrics
-- [ ] Implementation complete
-- [ ] Tests passing
+### ✓ U90: macOS Self-Process Metrics
+- [x] Implementation complete
+- [x] Unit test added
+- [ ] Tests passing (pending Rust toolchain installation)
 - [ ] Manual verification on real macOS
 - **Files Modified**: `rust_core/platform/src/macos/mod.rs`
 - **Test Command**: `cargo test --target aarch64-apple-darwin -p platform self_process_metrics`
+- **Note**: Implemented using `getrusage(RUSAGE_SELF)`, macOS reports ru_maxrss in bytes (no 1024 multiplier needed)
 
 ### ✗ U91: macOS Process Priority Get/Set
 - [ ] Implementation complete
