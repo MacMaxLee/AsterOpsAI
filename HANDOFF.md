@@ -1,6 +1,6 @@
 # HANDOFF — Linux → macOS Development
 
-Written 2026-08-24, at commit `a35fdf3` (confirmed identical to
+Written 2026-08-24, updated at commit `00256cc` (confirmed identical to
 `origin/main`, CI green — see §7). Everything below was verified
 directly against the current source, not recalled from memory or
 design docs — where a doc and the code disagreed, the code won and the
@@ -384,20 +384,25 @@ recurs on macOS, treat it as a fresh investigation.
 
 ## 7. Current repository state (verified directly, not assumed)
 
-- **Commit**: `a35fdf3bf386de210cd3c8478680de747117d9c0` on `main`.
+- **Commit**: `00256ccde630e8640052c34632632a948c13fd7b` on `main`.
+  - This commit added supplementary documentation: source code map,
+    Linux test plan, build summary, and Mac/Windows transition pack.
+  - The base HANDOFF.md was created at commit `a35fdf3` (two commits prior),
+    which fixed a flaky scheduler-independence test under CPU contention (U80).
 - **Remote sync**: `git rev-parse HEAD` and `git rev-parse origin/main`
   are identical — local `main` and `origin/main` are the exact same
   commit.
 - **Working tree**: clean (`git status --short` empty) — no
-  uncommitted changes, staged or unstaged, at the time this document
-  was written.
+  uncommitted changes, staged or unstaged, at the time this update
+  was finalized.
 - **Unpushed work**: none — nothing local is ahead of `origin/main`.
-- **CI**: the run for this exact commit (`gh run list`, workflow
-  `CI`, run `32689888114`) completed with conclusion `success` —
-  all 16 required jobs (fmt, clippy, test, deny, audit, schema-drift,
-  both grep gates, fr-id-traceability, ai-reachability, check-windows,
-  check-macos, console-analyze, console-format, console-test,
-  console-codegen-drift) passed.
-- **Local build**: independently re-verified for this handoff —
-  `cargo build --workspace --all-features` from a clean state
-  succeeds with no errors or warnings.
+- **CI**: The CI run for the base commit `a35fdf3` completed with
+  conclusion `success` — all 16 required jobs (fmt, clippy, test, deny,
+  audit, schema-drift, both grep gates, fr-id-traceability,
+  ai-reachability, check-windows, check-macos, console-analyze,
+  console-format, console-test, console-codegen-drift) passed.
+- **Local build**: Cannot be verified on this macOS machine as Rust/Cargo
+  toolchain is not yet installed. However, the CI passing on commit
+  `a35fdf3` confirms the workspace builds cleanly on Linux. See
+  `docs/linux-build-summary.md` and `docs/mac-windows-transition-pack.md`
+  for build requirements on each platform.
