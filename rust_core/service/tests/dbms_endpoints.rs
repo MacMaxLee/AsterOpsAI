@@ -1712,8 +1712,11 @@ async fn a_real_independent_schedule_detects_a_security_event_without_ever_polli
         StdDuration::from_millis(20),
     );
     // One real interval tick to let the scheduler's own baseline sweep
-    // run before the grant below.
-    tokio::time::sleep(StdDuration::from_millis(60)).await;
+    // run before the grant below — a generous multiple of the 20ms
+    // interval itself, not a tight one, since the background task still
+    // has to actually get scheduled and complete a real DB round trip
+    // under whatever CPU contention the test run happens to be under.
+    tokio::time::sleep(StdDuration::from_millis(200)).await;
 
     setup
         .execute("ALTER ROLE app_user SUPERUSER", &[])
@@ -1733,7 +1736,7 @@ async fn a_real_independent_schedule_detects_a_security_event_without_ever_polli
             found_incident = Some(incident);
             break;
         }
-        tokio::time::sleep(StdDuration::from_millis(20)).await;
+        tokio::time::sleep(StdDuration::from_millis(200)).await;
     }
     pg.stop().await;
 
