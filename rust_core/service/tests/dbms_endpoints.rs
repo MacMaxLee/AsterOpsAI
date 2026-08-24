@@ -1001,7 +1001,10 @@ async fn gucs_polling_a_real_auth_failure_produces_a_real_security_incident() {
     let incident = found_incident.unwrap_or_else(|| {
         panic!("expected a real security incident naming pwuser within the retry budget")
     });
-    assert_eq!(incident["severity"], "HIGH");
+    // Unit U75: a single isolated failure is MEDIUM, not an immediate
+    // HIGH alarm — see gucs_polling_a_real_repeated_auth_failure_
+    // escalates_to_high_severity below for the repeated-pattern case.
+    assert_eq!(incident["severity"], "MEDIUM");
     assert!(
         !incident["summary"]
             .as_str()
@@ -1009,6 +1012,79 @@ async fn gucs_polling_a_real_auth_failure_produces_a_real_security_incident() {
             .contains("does not exist"),
         "pwuser's own incident must be distinct from the unrelated pg_isready \
          'role ... does not exist' noise, not merged with it: {incident:?}"
+    );
+}
+
+/// Unit U75 (ADR 0065's own named remainder, finally closed): a real,
+/// genuinely repeated wrong-password pattern against the same role
+/// must escalate to HIGH, mirroring the isolated-failure test above
+/// exactly except for the repetition itself.
+#[tokio::test]
+async fn gucs_polling_a_real_repeated_auth_failure_escalates_to_high_severity() {
+    let mut pg = support::TestPostgres::start_with_pg_hba_prefix(
+        17,
+        "local   all             pwuser                                          scram-sha-256",
+        "-c log_destination=csvlog -c log_connections=on -c logging_collector=on \
+         -c log_directory=log",
+    )
+    .await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute(
+            "CREATE ROLE pwuser LOGIN PASSWORD 'a-real-correct-password'",
+            &[],
+        )
+        .await
+        .expect("CREATE ROLE pwuser");
+
+    for _ in 0..ai_ops_core::security::REPEATED_AUTH_FAILURE_THRESHOLD {
+        let mut wrong_password_config = tokio_postgres::Config::new();
+        wrong_password_config
+            .host_path(&pg.socket_dir)
+            .port(pg.port)
+            .user("pwuser")
+            .password("definitely-the-wrong-password")
+            .dbname("postgres");
+        let connect_result = wrong_password_config.connect(tokio_postgres::NoTls).await;
+        assert!(
+            connect_result.is_err(),
+            "a wrong password must genuinely fail to authenticate"
+        );
+    }
+
+    // The logging collector flushes asynchronously and may batch
+    // multiple lines into a single tail — poll/sweep in a retry loop
+    // until the incident's own severity reflects all real attempts,
+    // rather than assuming one poll sees everything.
+    let mut escalated_incident: Option<Value> = None;
+    for _ in 0..25 {
+        let adapter = adapter_for(&pg);
+        let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+        let (status, body) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+        assert_eq!(status, StatusCode::OK, "gucs poll body: {body:?}");
+
+        let adapter = adapter_for(&pg);
+        let app = build_app_with_repository(Some(adapter), repo.clone()).await;
+        let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+        assert_eq!(status, StatusCode::OK, "incidents body: {body:?}");
+        let incidents = body["data"].as_array().expect("data is an array").clone();
+        if let Some(incident) = incidents.into_iter().find(|i| {
+            i["summary"].as_str().unwrap_or("").contains("pwuser") && i["severity"] == "HIGH"
+        }) {
+            escalated_incident = Some(incident);
+            break;
+        }
+        tokio::time::sleep(StdDuration::from_millis(200)).await;
+    }
+    pg.stop().await;
+
+    assert!(
+        escalated_incident.is_some(),
+        "expected pwuser's incident to escalate to HIGH within the retry budget \
+         after {} genuinely repeated failures",
+        ai_ops_core::security::REPEATED_AUTH_FAILURE_THRESHOLD
     );
 }
 

@@ -300,8 +300,30 @@ async fn check_auth_failures(repo: &repository::RepositoryHandle, adapter: &Arc<
     };
 
     let now = Utc::now();
+    let window_start = now - security::repeated_auth_failure_window();
     for auth_failure in &events {
-        let event = security::detect_auth_failure(auth_failure, now);
+        let resource_json = match security::auth_failure_resource_descriptor_json(auth_failure) {
+            Ok(json) => json,
+            Err(err) => {
+                tracing::warn!(error = %err, "auth_failure_resource_descriptor_json failed");
+                continue;
+            }
+        };
+        let recent_failure_count = match repository::count_recent_security_events(
+            repo,
+            security::DETECTOR_AUTH_FAILURE,
+            &resource_json,
+            window_start,
+        )
+        .await
+        {
+            Ok(count) => u32::try_from(count).unwrap_or(u32::MAX),
+            Err(err) => {
+                tracing::warn!(error = %err, "count_recent_security_events failed");
+                0
+            }
+        };
+        let event = security::detect_auth_failure(auth_failure, recent_failure_count, now);
         if let Err(err) = security::record_event(repo, event).await {
             tracing::warn!(error = %err, "record_event failed for a detected auth failure");
         }

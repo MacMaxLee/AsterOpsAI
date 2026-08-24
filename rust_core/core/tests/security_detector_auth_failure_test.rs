@@ -174,7 +174,7 @@ fn detector_always_produces_an_event_never_none() {
         message: "password authentication failed for user \"pwuser\"".to_string(),
         log_time: now,
     };
-    let detected = detect_auth_failure(&event, now);
+    let detected = detect_auth_failure(&event, 0, now);
     assert_eq!(detected.detector_id, DETECTOR_AUTH_FAILURE);
 }
 
@@ -191,7 +191,7 @@ async fn a_real_tailed_auth_failure_produces_a_real_incident_and_event() {
 
     let repo = TestRepo::open();
     let now = Utc::now();
-    let detected = detect_auth_failure(&events[0], now);
+    let detected = detect_auth_failure(&events[0], 0, now);
 
     let recorded = incident::record_event(&repo.handle, detected)
         .await
@@ -201,4 +201,66 @@ async fn a_real_tailed_auth_failure_produces_a_real_incident_and_event() {
         other => panic!("expected Recorded, got {other:?}"),
     }
     assert_eq!(security_events_for(&repo, DETECTOR_AUTH_FAILURE), 1);
+}
+
+/// Unit U75 (ADR 0065's own named remainder, finally closed): a single
+/// isolated failure is MEDIUM, never an immediate HIGH alarm, but a
+/// genuinely repeated pattern for the exact same `(user,
+/// connection_from)` pair — real, persisted history, not a
+/// caller-supplied count — escalates both the event's own severity and
+/// (since it's the same still-`OPEN` incident) the incident's severity
+/// too.
+#[tokio::test]
+async fn a_real_repeated_pattern_of_persisted_failures_escalates_to_high_severity() {
+    use ai_ops_core::security::{
+        auth_failure_resource_descriptor_json, repeated_auth_failure_window,
+        REPEATED_AUTH_FAILURE_THRESHOLD,
+    };
+
+    let repo = TestRepo::open();
+    let now = Utc::now();
+    let event = ai_ops_core::dbms::log_tail::AuthFailureEvent {
+        user_name: Some("pwuser".to_string()),
+        database_name: Some("postgres".to_string()),
+        connection_from: Some("127.0.0.1:46060".to_string()),
+        message: "password authentication failed for user \"pwuser\"".to_string(),
+        log_time: now,
+    };
+    let resource_json =
+        auth_failure_resource_descriptor_json(&event).expect("resource json serializes");
+    let window_start = now - repeated_auth_failure_window();
+
+    let mut last_incident_id = None;
+    for _ in 0..REPEATED_AUTH_FAILURE_THRESHOLD {
+        let recent_count = ai_ops_core::repository::count_recent_security_events(
+            &repo.handle,
+            DETECTOR_AUTH_FAILURE,
+            &resource_json,
+            window_start,
+        )
+        .await
+        .expect("count_recent_security_events");
+        let detected = detect_auth_failure(&event, recent_count as u32, now);
+        let recorded = incident::record_event(&repo.handle, detected)
+            .await
+            .expect("record_event");
+        last_incident_id = Some(match recorded {
+            incident::IncidentOutcome::Recorded { incident_id, .. } => incident_id,
+            other => panic!("expected Recorded, got {other:?}"),
+        });
+    }
+
+    let conn = reader::checkout(&repo.handle.read_pool).expect("checkout");
+    let severity: String = conn
+        .query_row(
+            "SELECT severity FROM security_incidents WHERE id = ?1",
+            [last_incident_id.expect("at least one iteration ran")],
+            |row| row.get(0),
+        )
+        .expect("query incident severity");
+    assert_eq!(
+        severity, "HIGH",
+        "the incident's own severity must escalate once the threshold is crossed, \
+         not stay fixed at whatever the first (MEDIUM) event opened it with"
+    );
 }

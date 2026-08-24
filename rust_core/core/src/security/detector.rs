@@ -6,7 +6,7 @@
 //! threshold (both are binary conditions), which is itself the documented
 //! judgment call, not a threshold force-fitted where none exists.
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 
 use crate::dbms::log_tail::AuthFailureEvent;
 use crate::dbms::role_check::ValidationOutcome;
@@ -342,13 +342,59 @@ pub fn detect_table_privilege_granted(
 /// together are the real "who tried, from where" identity a repeat
 /// offender's own *subsequent* failures should still correlate
 /// against, while two different users no longer collide.
-pub fn detect_auth_failure(event: &AuthFailureEvent, now: DateTime<Utc>) -> DetectedEvent {
+fn auth_failure_resource(event: &AuthFailureEvent) -> ResourceDescriptor {
     let user_display = event.user_name.as_deref().unwrap_or("<unknown>");
     let connection_display = event.connection_from.as_deref().unwrap_or("<unknown>");
-    let resource_name = format!("{user_display}@{connection_display}");
+    ResourceDescriptor {
+        kind: ResourceKind::Infrastructure,
+        name: format!("{user_display}@{connection_display}"),
+    }
+}
+
+/// Unit U75 (ADR 0065's own named remainder: SRS's wording is
+/// "*repeated* authentication failure", but the detector fired HIGH on
+/// every single line). Real, explicit judgment calls, not pinned by
+/// SRS/TRS (§37 only says "thresholds tunable per-rule"): 3 failures
+/// for the exact same `(user, connection_from)` pair within 5 minutes
+/// reads as a real repeated-failure pattern; anything short of that is
+/// still recorded (never silently dropped — a single genuine attempt
+/// is real signal) but at a lower severity, not an immediate HIGH
+/// alarm for what's plausibly just a typo.
+pub const REPEATED_AUTH_FAILURE_THRESHOLD: u32 = 3;
+pub fn repeated_auth_failure_window() -> Duration {
+    Duration::minutes(5)
+}
+
+/// The exact JSON `resource_descriptor_json` this detector will record
+/// for `event` — exposed so a caller can count this pair's own recent
+/// prior events (via the same column `security_events` stores) before
+/// calling `detect_auth_failure`, without duplicating the resource-key
+/// construction logic above.
+pub fn auth_failure_resource_descriptor_json(
+    event: &AuthFailureEvent,
+) -> Result<String, serde_json::Error> {
+    serde_json::to_string(&auth_failure_resource(event))
+}
+
+/// `recent_failure_count` is the number of *prior* qualifying failures
+/// for this exact `(user, connection_from)` pair within
+/// `repeated_auth_failure_window()`, not including this one — the
+/// caller (`dbms_security_sweep::check_auth_failures`) computes it via
+/// `auth_failure_resource_descriptor_json` before calling this.
+pub fn detect_auth_failure(
+    event: &AuthFailureEvent,
+    recent_failure_count: u32,
+    now: DateTime<Utc>,
+) -> DetectedEvent {
+    let user_display = event.user_name.as_deref().unwrap_or("<unknown>");
+    let repeated = recent_failure_count + 1 >= REPEATED_AUTH_FAILURE_THRESHOLD;
     DetectedEvent {
         detector_id: DETECTOR_AUTH_FAILURE,
-        severity: Severity::High,
+        severity: if repeated {
+            Severity::High
+        } else {
+            Severity::Medium
+        },
         category: "AUTHENTICATION_FAILURE",
         summary: format!(
             "authentication failure for user '{user_display}': {}",
@@ -360,12 +406,10 @@ pub fn detect_auth_failure(event: &AuthFailureEvent, now: DateTime<Utc>) -> Dete
             "connection_from": event.connection_from,
             "message": event.message,
             "log_time": event.log_time,
+            "failure_count_in_window": recent_failure_count + 1,
         })
         .to_string(),
-        resource: ResourceDescriptor {
-            kind: ResourceKind::Infrastructure,
-            name: resource_name,
-        },
+        resource: auth_failure_resource(event),
         ts: now,
     }
 }
@@ -504,7 +548,7 @@ mod tests {
     }
 
     #[test]
-    fn auth_failure_always_produces_a_high_severity_event() {
+    fn an_isolated_auth_failure_is_medium_severity_but_still_recorded() {
         let now = Utc::now();
         let event = AuthFailureEvent {
             user_name: Some("pwuser".to_string()),
@@ -513,10 +557,35 @@ mod tests {
             message: "password authentication failed for user \"pwuser\"".to_string(),
             log_time: now,
         };
-        let detected = detect_auth_failure(&event, now);
-        assert_eq!(detected.severity, Severity::High);
+        let detected = detect_auth_failure(&event, 0, now);
+        assert_eq!(
+            detected.severity,
+            Severity::Medium,
+            "a single isolated failure must not immediately read as HIGH"
+        );
         assert_eq!(detected.resource.name, "pwuser@127.0.0.1:46060");
         assert!(detected.summary.contains("pwuser"));
+    }
+
+    #[test]
+    fn a_genuinely_repeated_auth_failure_escalates_to_high_severity() {
+        let now = Utc::now();
+        let event = AuthFailureEvent {
+            user_name: Some("pwuser".to_string()),
+            database_name: Some("postgres".to_string()),
+            connection_from: Some("127.0.0.1:46060".to_string()),
+            message: "password authentication failed for user \"pwuser\"".to_string(),
+            log_time: now,
+        };
+        let below_threshold = detect_auth_failure(&event, REPEATED_AUTH_FAILURE_THRESHOLD - 2, now);
+        assert_eq!(below_threshold.severity, Severity::Medium);
+
+        let at_threshold = detect_auth_failure(&event, REPEATED_AUTH_FAILURE_THRESHOLD - 1, now);
+        assert_eq!(
+            at_threshold.severity,
+            Severity::High,
+            "the Nth failure that reaches REPEATED_AUTH_FAILURE_THRESHOLD must escalate"
+        );
     }
 
     #[test]
@@ -540,7 +609,7 @@ mod tests {
         ];
         let resources: Vec<String> = same_address_different_users
             .iter()
-            .map(|event| detect_auth_failure(event, now).resource.name)
+            .map(|event| detect_auth_failure(event, 0, now).resource.name)
             .collect();
         assert_ne!(
             resources[0], resources[1],
@@ -559,7 +628,7 @@ mod tests {
             message: "password authentication failed for user \"pwuser\"".to_string(),
             log_time: now,
         };
-        let detected = detect_auth_failure(&event, now);
+        let detected = detect_auth_failure(&event, 0, now);
         assert_eq!(detected.resource.name, "pwuser@<unknown>");
     }
 }

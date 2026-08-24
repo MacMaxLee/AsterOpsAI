@@ -603,6 +603,19 @@ pub async fn resource_is_security_flagged(
     security::resource_is_flagged(&conn, resource_descriptor_json)
 }
 
+/// Unit U75: `security::count_recent_events`, exposed directly (a
+/// plain read, same as `resource_is_security_flagged` above) —
+/// `security::detect_auth_failure`'s own severity-escalation input.
+pub async fn count_recent_security_events(
+    handle: &RepositoryHandle,
+    detector_id: &str,
+    resource_descriptor_json: &str,
+    since: chrono::DateTime<chrono::Utc>,
+) -> Result<i64, RepositoryError> {
+    let conn = reader::checkout(&handle.read_pool)?;
+    security::count_recent_events(&conn, detector_id, resource_descriptor_json, since)
+}
+
 pub async fn latest_audit_event_type(
     handle: &RepositoryHandle,
 ) -> Result<Option<String>, RepositoryError> {

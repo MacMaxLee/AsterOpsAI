@@ -6,6 +6,7 @@
 //! concurrent writer that could interleave between the `SELECT` and the
 //! `INSERT`s.
 
+use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension};
 
 use super::error::RepositoryError;
@@ -91,7 +92,10 @@ pub fn insert_event(
 ) -> Result<(SecurityEventRow, SecurityIncidentRow), RepositoryError> {
     let incident_id =
         match find_open_incident(conn, &new.detector_id, &new.resource_descriptor_json)? {
-            Some(id) => id,
+            Some(id) => {
+                escalate_incident_severity_if_higher(conn, id, &new.severity)?;
+                id
+            }
             None => {
                 conn.execute(
                 "INSERT INTO security_incidents (opened_at, closed_at, severity, status, summary) \
@@ -121,6 +125,42 @@ pub fn insert_event(
     let event = must_get_event(conn, conn.last_insert_rowid())?;
     let incident = must_get_incident(conn, incident_id)?;
     Ok((event, incident))
+}
+
+/// Unit U75 (ADR 0065's own "escalate severity" remainder): an
+/// incident's severity used to be fixed forever at whichever event
+/// happened to open it, so a later, more severe correlated event
+/// (e.g. auth-failure repetition finally crossing the threshold) never
+/// surfaced there. Raises the incident's stored severity to match a
+/// newly correlated event's, but never lowers it — an incident that
+/// was ever HIGH stays at least HIGH even if a later correlated event
+/// is milder. An unparseable stored/new severity string is left alone
+/// rather than guessed at; `security_incidents.severity`/`security_
+/// events.severity` are both always written from `Severity::as_str`,
+/// so this is a real-corruption guard, not an expected path.
+fn escalate_incident_severity_if_higher(
+    conn: &Connection,
+    incident_id: i64,
+    new_severity: &str,
+) -> Result<(), RepositoryError> {
+    let Some(new_rank) = crate::security::Severity::parse(new_severity) else {
+        return Ok(());
+    };
+    let current: String = conn.query_row(
+        "SELECT severity FROM security_incidents WHERE id = ?1",
+        params![incident_id],
+        |row| row.get(0),
+    )?;
+    let Some(current_rank) = crate::security::Severity::parse(&current) else {
+        return Ok(());
+    };
+    if new_rank > current_rank {
+        conn.execute(
+            "UPDATE security_incidents SET severity = ?1 WHERE id = ?2",
+            params![new_severity, incident_id],
+        )?;
+    }
+    Ok(())
 }
 
 /// SRS FR-SEC-005: checks suppression first — a suppressed
@@ -157,6 +197,27 @@ pub fn resource_is_flagged(
         |row| row.get::<_, i64>(0),
     )
     .map(|count| count != 0)
+    .map_err(Into::into)
+}
+
+/// Unit U75 (ADR 0065's own named remainder): how many `detector_id`
+/// events already exist for the exact same `resource_descriptor_json`
+/// at or after `since` — `security::detect_auth_failure`'s own
+/// severity-escalation input. Generic over `detector_id` rather than
+/// hardcoded to auth-failure, matching every other function in this
+/// module.
+pub fn count_recent_events(
+    conn: &Connection,
+    detector_id: &str,
+    resource_descriptor_json: &str,
+    since: DateTime<Utc>,
+) -> Result<i64, RepositoryError> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM security_events \
+         WHERE detector_id = ?1 AND resource_descriptor_json = ?2 AND ts >= ?3",
+        params![detector_id, resource_descriptor_json, format_ts(since)],
+        |row| row.get(0),
+    )
     .map_err(Into::into)
 }
 
