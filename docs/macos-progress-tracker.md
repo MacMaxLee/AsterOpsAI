@@ -5,15 +5,15 @@ this document as you complete each unit.
 
 **Last Updated**: 2026-08-24
 **Status**: In Progress
-**Current Unit**: U90 (Implemented, pending verification with Rust toolchain)
-**Completion**: 1/21 units (5%)
+**Current Unit**: U91 (Implemented, pending verification with Rust toolchain)
+**Completion**: 2/21 units (10%)
 
 ---
 
 ## Milestone 1: Basic Platform Adapter ⧖
 
 **Target**: Basic process operations working
-**Completion**: 1/3 units (33%)
+**Completion**: 2/3 units (67%)
 
 ### ✓ U90: macOS Self-Process Metrics
 - [x] Implementation complete
@@ -24,12 +24,15 @@ this document as you complete each unit.
 - **Test Command**: `cargo test --target aarch64-apple-darwin -p platform self_process_metrics`
 - **Note**: Implemented using `getrusage(RUSAGE_SELF)`, macOS reports ru_maxrss in bytes (no 1024 multiplier needed)
 
-### ✗ U91: macOS Process Priority Get/Set
-- [ ] Implementation complete
-- [ ] Tests passing
+### ✓ U91: macOS Process Priority Get/Set
+- [x] Implementation complete
+- [x] Unit tests added (4 tests)
+- [ ] Tests passing (pending Rust toolchain installation)
 - [ ] Manual verification (lower priority works, raise fails unprivileged)
 - **Files Created**: `rust_core/platform/src/macos/process_control.rs`
+- **Files Modified**: `rust_core/platform/src/macos/mod.rs`
 - **Test Command**: `cargo test --target aarch64-apple-darwin -p platform process_control`
+- **Note**: Uses `getpriority(2)` with errno clearing, `setpriority(2)` for mutations. Maps ProcessPriority to nice values: Idle=20, BelowNormal=10, Normal=0, AboveNormal=-10, High=-20
 
 ### ✗ U92: macOS CPU Affinity (Design Decision)
 - [ ] ADR 0086 written

@@ -1,4 +1,5 @@
 pub mod exec;
+pub mod process_control;
 
 use std::time::Duration;
 
@@ -32,24 +33,16 @@ impl PlatformAdapter for MacosPlatformAdapter {
         })
     }
 
-    // Real implementation is `setpriority(2)` (same POSIX call Linux uses)
-    // — not implemented yet because macOS telemetry itself isn't (U12) and
-    // this sandbox can't test it for real; stubbed the same way
-    // `self_process_metrics` already is above.
-    fn get_process_priority(&self, _pid: u32) -> Result<ProcessPriority, CapabilityError> {
-        Err(CapabilityError::Unsupported(
-            "macos process priority not implemented yet, see unit U12".to_string(),
-        ))
+    fn get_process_priority(&self, pid: u32) -> Result<ProcessPriority, CapabilityError> {
+        process_control::get_priority(pid)
     }
 
     fn set_process_priority(
         &self,
-        _pid: u32,
-        _priority: ProcessPriority,
+        pid: u32,
+        priority: ProcessPriority,
     ) -> Result<(), CapabilityError> {
-        Err(CapabilityError::Unsupported(
-            "macos process priority not implemented yet, see unit U12".to_string(),
-        ))
+        process_control::set_priority(pid, priority)
     }
 
     // Real implementation is `thread_policy_set`/taskpolicy-style affinity
