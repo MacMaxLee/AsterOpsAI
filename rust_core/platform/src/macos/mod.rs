@@ -45,12 +45,14 @@ impl PlatformAdapter for MacosPlatformAdapter {
         process_control::set_priority(pid, priority)
     }
 
-    // Real implementation is `thread_policy_set`/taskpolicy-style affinity
-    // tagging (macOS has no direct `sched_setaffinity` equivalent) — same
-    // U12 deferral as above.
     fn get_process_cpu_affinity(&self, _pid: u32) -> Result<CpuAffinityMask, CapabilityError> {
+        // macOS has no sched_setaffinity equivalent — thread_policy_set is
+        // per-thread and advisory only, not a process-level hard mask.
+        // See ADR 0086 for full rationale.
         Err(CapabilityError::Unsupported(
-            "macos CPU affinity not implemented yet, see unit U12".to_string(),
+            "macOS lacks process-level hard CPU affinity masks; \
+             see ADR 0086 for rationale (no sched_setaffinity equivalent)"
+                .to_string(),
         ))
     }
 
@@ -59,8 +61,13 @@ impl PlatformAdapter for MacosPlatformAdapter {
         _pid: u32,
         _mask: &CpuAffinityMask,
     ) -> Result<(), CapabilityError> {
+        // macOS has no sched_setaffinity equivalent — thread_policy_set is
+        // per-thread and advisory only, not a process-level hard mask.
+        // See ADR 0086 for full rationale.
         Err(CapabilityError::Unsupported(
-            "macos CPU affinity not implemented yet, see unit U12".to_string(),
+            "macOS lacks process-level hard CPU affinity masks; \
+             see ADR 0086 for rationale (no sched_setaffinity equivalent)"
+                .to_string(),
         ))
     }
 
