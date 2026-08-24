@@ -29,6 +29,11 @@
 #[cfg(target_os = "linux")]
 pub mod telemetry;
 
+// macOS telemetry via Mach APIs — mirrors `telemetry` structure but uses
+// macOS-specific data sources (unit U95+).
+#[cfg(target_os = "macos")]
+pub mod telemetry_macos;
+
 // SQLite persistence works identically on every platform — NOT gated,
 // unlike `telemetry` above (unit U2).
 pub mod repository;
