@@ -1,0 +1,45 @@
+---
+source: rust_core/core/src/telemetry/memory.rs
+expression: snapshot
+---
+{
+  "timestamp": "2026-01-01T00:00:00Z",
+  "total_bytes": {
+    "state": "SUPPORTED",
+    "value": 2147483648
+  },
+  "used_bytes": {
+    "state": "SUPPORTED",
+    "value": 858993459
+  },
+  "available_bytes": {
+    "state": "SUPPORTED",
+    "value": 1288490189
+  },
+  "cached_bytes": {
+    "state": "SUPPORTED",
+    "value": 2031878144
+  },
+  "buffers_bytes": {
+    "state": "SUPPORTED",
+    "value": 101285888
+  },
+  "swap_total_bytes": {
+    "state": "SUPPORTED",
+    "value": 1073741824
+  },
+  "swap_used_bytes": {
+    "state": "SUPPORTED",
+    "value": 268435456
+  },
+  "swap_free_bytes": {
+    "state": "SUPPORTED",
+    "value": 805306368
+  },
+  "pressure": "ELEVATED",
+  "containerized": true,
+  "numa_nodes": {
+    "state": "UNAVAILABLE",
+    "reason": "NUMA node topology not exposed on this host"
+  }
+}

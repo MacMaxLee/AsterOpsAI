@@ -15,10 +15,17 @@
 //! improved-outcome history (`history::has_improved_history`). All three,
 //! every time — see `plan::process_candidate`.
 //!
-//! **Scope note**: no `service`/console wiring happens in this unit —
-//! `AutomationMode::AskBeforeChanges`'s actual human-facing "ask" is a
-//! future unit's job; here it only means "propose for real, never
-//! auto-authorize" (see `mode::AutomationMode`'s own doc comment).
+//! `AutomationMode::AskBeforeChanges`'s own human-facing "ask" was once
+//! described here as "a future unit's job" — that unit already
+//! happened: `process_candidate` routes an `AskBeforeChanges` candidate
+//! through the same `policy::evaluate` every other action type uses, so
+//! it lands as a real `PENDING_APPROVAL` row in the shared policy inbox
+//! (`GET /api/v1/policy/pending`, `console/lib/screens/policy_inbox_
+//! screen.dart`) exactly like any other proposed action — proven by
+//! `core/tests/tuning_plan_recommend_and_ask_test.rs`'s own
+//! `ask_before_changes_proposes_for_real_but_never_authorizes`. No
+//! tuning-specific console affordance was ever needed, since the inbox
+//! is already generic over which subsystem proposed the action.
 
 pub mod candidates;
 pub mod error;

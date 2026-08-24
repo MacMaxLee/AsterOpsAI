@@ -1,17 +1,17 @@
 //! Read-only PostgreSQL monitoring (unit U4, SRS §26-§34, TRS §17/§33).
 //!
-//! **Scope note**: this module is the collection/storage layer only — a
-//! real, independently callable, integration-tested `DbmsAdapter`
+//! A real, independently callable, integration-tested `DbmsAdapter`
 //! implementation plus connection pooling, credential storage, and
-//! persistence schema. It is not yet wired into `service`'s HTTP surface,
-//! a background poll loop, or the console (see the U4 plan's SCOPE
-//! amendment note); that wiring is later-unit work, matching the same
-//! "flag the amendment, don't silently expand scope" precedent U2 and U3
-//! used for their own SCOPE-vs-REQUIREMENTS gaps.
-//!
-//! These are internal Rust types, not wire contracts — there is no API
-//! layer consuming them yet, so they don't belong in `contracts` (which
-//! `emit_schemas.rs` would otherwise need to cover for nothing).
+//! persistence schema. U4's own doc comment once described this as
+//! collection/storage only, "not yet wired into `service`'s HTTP
+//! surface, a background poll loop, or the console" — every later unit
+//! this named as future work has since shipped: `service::api::v1::
+//! dbms` wires the full read surface over HTTP, `service::
+//! dbms_security_sweep` gives its security/config checks (unit U72,
+//! docs/adr/0078) a real independent poll loop, and
+//! `console/lib/screens/database_screen.dart` is the console surface.
+//! The wire types this surface actually needs now live in
+//! `contracts::dbms`, not just internally here.
 
 pub mod adapters;
 pub mod capability;
