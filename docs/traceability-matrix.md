@@ -43,7 +43,7 @@ Checked for drift by `scripts/check-fr-id-traceability.sh`.
 | FR-POL-005 | Every policy decision — including denials, expiries, and rejections — | U13 | `rust_core/core/src/policy/approval.rs` | `rust_core/core/tests/policy_audit_trail_test.rs` | OK |
 | FR-POL-006 | A registry of protected processes, protected services, trusted | n/a | `rust_core/core/src/policy/approval.rs` | `rust_core/core/tests/policy_protected_resource_test.rs` | OK |
 | FR-SEC-001 | Security-relevant conditions are detected by deterministic rules | U11 | `rust_core/core/src/correlation/correlate.rs` | `rust_core/core/tests/security_detector_superuser_override_test.rs` | OK |
-| FR-SEC-002 | Detected events carry a severity (INFO..CRITICAL) and related events | n/a | `rust_core/core/src/repository/security.rs` | `rust_core/core/tests/security_incident_correlation_test.rs` | OK |
+| FR-SEC-002 | Detected events carry a severity (INFO..CRITICAL) and related events | n/a | `rust_core/contracts/src/security.rs` | `rust_core/core/tests/security_incident_correlation_test.rs` | OK |
 | FR-SEC-003 | A security-relevant flag on a resource overrides any performance- | U11 | `rust_core/core/src/actions/error.rs` | `rust_core/core/tests/security_flag_overrides_performance_action_test.rs` | OK |
 | FR-SEC-004 | No response action may disable a firewall or antivirus product; this | U11 | `rust_core/core/src/security/mod.rs` | `rust_core/core/src/security/response.rs` | OK |
 | FR-SEC-005 | False positives are manageable per-rule and per-resource, with a | U11 | `rust_core/core/src/repository/models.rs` | `rust_core/core/tests/security_suppression_test.rs` | OK |

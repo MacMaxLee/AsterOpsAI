@@ -16,10 +16,10 @@ use super::error::RepositoryError;
 use super::guc_history;
 use super::log_tail_offset;
 use super::models::{
-    AuditEventRecorded, BenchmarkRunRow, NewAuditEvent, NewBenchmarkRun, NewProposedAction,
-    NewSecurityEvent, NewSecuritySuppression, NewTuningPlan, PerformanceAnalysisRow,
-    PolicyActionRow, RetentionReport, SecurityEventRow, SecurityIncidentRow, TelemetrySnapshotRow,
-    TransitionPatch, TuningPlanRow,
+    AuditEventRecorded, BenchmarkRunRow, IncidentDetail, NewAuditEvent, NewBenchmarkRun,
+    NewProposedAction, NewSecurityEvent, NewSecuritySuppression, NewTuningPlan,
+    PerformanceAnalysisRow, PolicyActionRow, RetentionReport, SecurityEventRow,
+    SecurityIncidentRow, TelemetrySnapshotRow, TransitionPatch, TuningPlanRow,
 };
 use super::performance_analysis::insert_performance_analysis;
 use super::policy::{insert_proposed_action, transition};
@@ -129,7 +129,7 @@ pub enum WriteCommand {
     CloseSecurityIncident {
         id: i64,
         now: DateTime<Utc>,
-        reply: oneshot::Sender<Result<Option<(SecurityIncidentRow, i64)>, RepositoryError>>,
+        reply: oneshot::Sender<Result<Option<IncidentDetail>, RepositoryError>>,
     },
     /// Records that a device identifier has been observed (unit U11) —
     /// replaces the service sampler's own ephemeral in-process `HashSet`.

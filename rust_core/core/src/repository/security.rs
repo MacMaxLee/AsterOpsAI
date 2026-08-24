@@ -11,9 +11,21 @@ use rusqlite::{params, Connection, OptionalExtension};
 
 use super::error::RepositoryError;
 use super::models::{
-    NewSecurityEvent, NewSecuritySuppression, SecurityEventRow, SecurityIncidentRow,
+    IncidentDetail, NewSecurityEvent, NewSecuritySuppression, SecurityEventRow, SecurityIncidentRow,
 };
 use super::time::{format_ts, parse_ts};
+
+/// The exact JSON shape `security::detector::DetectedEvent::resource`
+/// (a `policy::ResourceDescriptor`) always serializes to — deserialized
+/// here as plain strings rather than depending on `core::policy`'s own
+/// type, matching this module's existing "repository treats resource/
+/// severity as opaque strings" convention (see `escalate_incident_
+/// severity_if_higher`'s own reasoning for `Severity`).
+#[derive(serde::Deserialize)]
+struct StoredResource {
+    kind: String,
+    name: String,
+}
 
 const EVENT_COLUMNS: &str = "id, ts, detector_id, severity, category, summary, evidence_json, \
      incident_id, resource_descriptor_json";
@@ -214,7 +226,7 @@ pub fn close_incident(
     conn: &Connection,
     id: i64,
     now: DateTime<Utc>,
-) -> Result<Option<(SecurityIncidentRow, i64)>, RepositoryError> {
+) -> Result<Option<IncidentDetail>, RepositoryError> {
     let status: Option<String> = conn
         .query_row(
             "SELECT status FROM security_incidents WHERE id = ?1",
@@ -232,12 +244,21 @@ pub fn close_incident(
         )?;
     }
     let incident = must_get_incident(conn, id)?;
-    let event_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM security_events WHERE incident_id = ?1",
-        params![id],
-        |row| row.get(0),
-    )?;
-    Ok(Some((incident, event_count)))
+    let (event_count, detector_id, resource_descriptor_json): (i64, String, String) = conn
+        .query_row(
+            "SELECT COUNT(*), MIN(detector_id), MIN(resource_descriptor_json) \
+             FROM security_events WHERE incident_id = ?1",
+            params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )?;
+    let resource: StoredResource = serde_json::from_str(&resource_descriptor_json)?;
+    Ok(Some(IncidentDetail {
+        incident,
+        event_count,
+        detector_id,
+        resource_kind: resource.kind,
+        resource_name: resource.name,
+    }))
 }
 
 /// Unit U75 (ADR 0065's own named remainder): how many `detector_id`
@@ -291,11 +312,11 @@ pub fn is_suppressed(
 /// real `LEFT JOIN ... GROUP BY`, not a second query per row.
 const OPEN_INCIDENTS_LIMIT: i64 = 100;
 
-pub fn list_open_incidents(
-    conn: &Connection,
-) -> Result<Vec<(SecurityIncidentRow, i64)>, RepositoryError> {
+pub fn list_open_incidents(conn: &Connection) -> Result<Vec<IncidentDetail>, RepositoryError> {
     let sql = format!(
-        "SELECT {cols}, COUNT(security_events.id) AS event_count
+        "SELECT {cols}, COUNT(security_events.id) AS event_count, \
+         MIN(security_events.detector_id) AS detector_id, \
+         MIN(security_events.resource_descriptor_json) AS resource_descriptor_json
          FROM security_incidents
          LEFT JOIN security_events ON security_events.incident_id = security_incidents.id
          WHERE security_incidents.status = 'OPEN'
@@ -313,10 +334,25 @@ pub fn list_open_incidents(
         .query_map(params![OPEN_INCIDENTS_LIMIT], |row| {
             let incident = incident_from_sqlite(row)?;
             let event_count: i64 = row.get(6)?;
-            Ok((incident, event_count))
+            let detector_id: String = row.get(7)?;
+            let resource_descriptor_json: String = row.get(8)?;
+            Ok((incident, event_count, detector_id, resource_descriptor_json))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    Ok(rows)
+    rows.into_iter()
+        .map(
+            |(incident, event_count, detector_id, resource_descriptor_json)| {
+                let resource: StoredResource = serde_json::from_str(&resource_descriptor_json)?;
+                Ok(IncidentDetail {
+                    incident,
+                    event_count,
+                    detector_id,
+                    resource_kind: resource.kind,
+                    resource_name: resource.name,
+                })
+            },
+        )
+        .collect::<Result<Vec<_>, RepositoryError>>()
 }
 
 pub fn insert_suppression(

@@ -261,6 +261,21 @@ pub struct SecurityIncidentRow {
     pub summary: String,
 }
 
+/// Unit U78 (ADR 0023's own named gap, closed by docs/adr/0083): one
+/// incident plus the `detector_id`/resource every event under it
+/// shares (FR-SEC-002's own correlation rule structurally guarantees
+/// this is identical across the group, so exposing it once per
+/// incident, not per event, is correct, not a lossy pick) — shared by
+/// `list_open_incidents` and `close_incident`, open or closed alike.
+#[derive(Debug, Clone)]
+pub struct IncidentDetail {
+    pub incident: SecurityIncidentRow,
+    pub event_count: i64,
+    pub detector_id: String,
+    pub resource_kind: String,
+    pub resource_name: String,
+}
+
 /// One row of the `security_suppressions` table (migrations/V12, unit
 /// U11, SRS FR-SEC-005). `resource_descriptor_json: None` suppresses
 /// `detector_id` everywhere; `Some` suppresses it only for that resource.

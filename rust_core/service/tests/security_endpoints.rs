@@ -141,6 +141,27 @@ async fn a_second_correlated_event_increases_the_same_incidents_event_count() {
     assert_eq!(items[0]["event_count"], 2);
 }
 
+/// Unit U78 (ADR 0023's own named gap, closed by docs/adr/0083): an
+/// incident's own `detector_id`/resource must be visible on the wire —
+/// not just an event count — so a console per-incident suppress action
+/// has something real to suppress.
+#[tokio::test]
+async fn an_incident_summary_carries_its_own_detector_id_and_resource() {
+    let repo = open_repo().await;
+    incident::record_event(&repo, event("test.detector", "sdb"))
+        .await
+        .expect("record_event");
+
+    let app = build_app(Some(repo)).await;
+    let (status, body) = get_json(app, "/api/v1/security/incidents").await;
+    assert_eq!(status, StatusCode::OK, "body: {body:?}");
+    let items = body["data"].as_array().expect("data is an array");
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["detector_id"], "test.detector");
+    assert_eq!(items[0]["resource_kind"], "DEVICE");
+    assert_eq!(items[0]["resource_name"], "sdb");
+}
+
 /// Unit U76 (ADR 0016/0020's own named gap, resolved to manual-only —
 /// docs/adr/0081): closing an incident sets it to `CLOSED` (real
 /// `closed_at`) and it must stop appearing in the open-incidents list.
@@ -168,6 +189,11 @@ async fn closing_an_open_incident_marks_it_closed_and_removes_it_from_the_open_l
         !body["data"]["closed_at"].is_null(),
         "closed_at must be set: {body:?}"
     );
+    assert_eq!(
+        body["data"]["detector_id"], "test.detector",
+        "a closed incident's summary must still carry its own detector_id/resource: {body:?}"
+    );
+    assert_eq!(body["data"]["resource_name"], "sdb");
 
     assert_eq!(
         repository::latest_audit_event_type(&repo)

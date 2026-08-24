@@ -11,15 +11,13 @@ import '../providers/transport_provider.dart';
 import '../widgets/async_result_view.dart';
 
 /// Unit U18: open security incidents (read-only), plus a standalone
-/// "suppress a detector" action. Deliberately NOT a per-row suppress
-/// button — `SecurityIncidentSummary` carries no `detector_id`/resource
-/// info to build one from (the summary is an event *count*, not the
-/// events themselves); suppression here targets a detector rule
-/// directly, the same real, pre-emptive use ADR 0020 already described.
-///
-/// Unit U76 (docs/adr/0081) adds a real per-row close action —
-/// unlike suppress, this needs only the `id` every summary already
-/// carries, so no incident-detail endpoint was needed to unblock it.
+/// "suppress a detector" action. Unit U76 (docs/adr/0081) adds a real
+/// per-row close action. Unit U78 (ADR 0023's own named gap, closed by
+/// docs/adr/0083) finally adds a real per-row suppress action too —
+/// `SecurityIncidentSummary` now carries the `detector_id`/resource
+/// every event under an incident shares, so the dialog below can be
+/// opened pre-filled and locked to exactly this incident's own pair,
+/// not just the standalone "suppress any detector" form.
 class SecurityIncidentsScreen extends ConsumerWidget {
   const SecurityIncidentsScreen({super.key});
 
@@ -121,17 +119,37 @@ class _IncidentRowState extends ConsumerState<_IncidentRow> {
       leading: _SeverityIcon(severity: incident.severity),
       title: Text(incident.summary),
       subtitle: Text(subtitle),
-      trailing: _closing
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : IconButton(
-              icon: const Icon(Icons.check_circle_outline),
-              tooltip: l10n.securityIncidentCloseAction,
-              onPressed: _close,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.block_outlined),
+            tooltip: l10n.securitySuppressAction,
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => _SuppressDialog(
+                prefillDetectorId: incident.detectorId,
+                prefillResourceKind: incident.resourceKind,
+                prefillResourceName: incident.resourceName,
+              ),
             ),
+          ),
+          _closing
+              ? const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.check_circle_outline),
+                  tooltip: l10n.securityIncidentCloseAction,
+                  onPressed: _close,
+                ),
+        ],
+      ),
     );
   }
 }
@@ -156,8 +174,22 @@ class _SeverityIcon extends StatelessWidget {
   }
 }
 
+/// Unit U78: `prefill*` (all-or-nothing, set only when opened from a
+/// specific incident row's own known-good detector_id/resource) locks
+/// those two fields read-only — the whole point is suppressing exactly
+/// what this incident already is, not a typo-prone re-entry of it.
+/// `null` (the standalone "Suppress a detector" button's own case)
+/// leaves every field open, unchanged from before this unit.
 class _SuppressDialog extends ConsumerStatefulWidget {
-  const _SuppressDialog();
+  final String? prefillDetectorId;
+  final String? prefillResourceKind;
+  final String? prefillResourceName;
+
+  const _SuppressDialog({
+    this.prefillDetectorId,
+    this.prefillResourceKind,
+    this.prefillResourceName,
+  });
 
   @override
   ConsumerState<_SuppressDialog> createState() => _SuppressDialogState();
@@ -165,12 +197,20 @@ class _SuppressDialog extends ConsumerStatefulWidget {
 
 class _SuppressDialogState extends ConsumerState<_SuppressDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _detectorIdController = TextEditingController();
-  final _resourceKindController = TextEditingController();
-  final _resourceNameController = TextEditingController();
+  late final _detectorIdController = TextEditingController(
+    text: widget.prefillDetectorId,
+  );
+  late final _resourceKindController = TextEditingController(
+    text: widget.prefillResourceKind,
+  );
+  late final _resourceNameController = TextEditingController(
+    text: widget.prefillResourceName,
+  );
   final _reasonController = TextEditingController();
   bool _submitting = false;
   String? _error;
+
+  bool get _locked => widget.prefillDetectorId != null;
 
   @override
   void dispose() {
@@ -237,6 +277,7 @@ class _SuppressDialogState extends ConsumerState<_SuppressDialog> {
           children: [
             TextFormField(
               controller: _detectorIdController,
+              readOnly: _locked,
               decoration: InputDecoration(
                 labelText: l10n.securitySuppressDetectorId,
               ),
@@ -244,12 +285,14 @@ class _SuppressDialogState extends ConsumerState<_SuppressDialog> {
             ),
             TextFormField(
               controller: _resourceKindController,
+              readOnly: _locked,
               decoration: InputDecoration(
                 labelText: l10n.securitySuppressResourceKind,
               ),
             ),
             TextFormField(
               controller: _resourceNameController,
+              readOnly: _locked,
               decoration: InputDecoration(
                 labelText: l10n.securitySuppressResourceName,
               ),

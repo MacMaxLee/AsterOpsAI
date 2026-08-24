@@ -134,20 +134,23 @@ async fn close_security_incident_marks_it_closed_with_a_real_timestamp() {
     // time::format_ts`), so compare against a millisecond-truncated
     // `now`, not `Utc::now()`'s own sub-millisecond value.
     let now = Utc::now();
-    let (closed, event_count) =
-        ai_ops_core::repository::close_security_incident(&repo.handle, id, now)
-            .await
-            .expect("close_security_incident")
-            .expect("incident exists");
-    assert_eq!(closed.status, "CLOSED");
+    let detail = ai_ops_core::repository::close_security_incident(&repo.handle, id, now)
+        .await
+        .expect("close_security_incident")
+        .expect("incident exists");
+    assert_eq!(detail.incident.status, "CLOSED");
     assert_eq!(
-        closed
+        detail
+            .incident
             .closed_at
             .expect("closed_at is set")
             .timestamp_millis(),
         now.timestamp_millis()
     );
-    assert_eq!(event_count, 1);
+    assert_eq!(detail.event_count, 1);
+    assert_eq!(detail.detector_id, "test.detector");
+    assert_eq!(detail.resource_kind, "DEVICE");
+    assert_eq!(detail.resource_name, "sdb");
 }
 
 #[tokio::test]

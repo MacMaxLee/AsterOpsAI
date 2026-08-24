@@ -35,8 +35,8 @@ pub use history::{
     query_storage_history, HistoryRange, ResolvedRange,
 };
 pub use models::{
-    AuditEventRecorded, BenchmarkRunRow, ChainVerification, NewAuditEvent, NewBenchmarkRun,
-    NewProposedAction, NewSecurityEvent, NewSecuritySuppression, NewTuningPlan,
+    AuditEventRecorded, BenchmarkRunRow, ChainVerification, IncidentDetail, NewAuditEvent,
+    NewBenchmarkRun, NewProposedAction, NewSecurityEvent, NewSecuritySuppression, NewTuningPlan,
     PerformanceAnalysisRow, PolicyActionRow, RetentionAuditDetail, RetentionReport,
     SecurityEventRow, SecurityIncidentRow, TelemetrySnapshotRow, TransitionPatch, TuningPlanRow,
 };
@@ -365,7 +365,7 @@ pub async fn close_security_incident(
     handle: &RepositoryHandle,
     id: i64,
     now: chrono::DateTime<chrono::Utc>,
-) -> Result<Option<(SecurityIncidentRow, i64)>, RepositoryError> {
+) -> Result<Option<IncidentDetail>, RepositoryError> {
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     handle
         .command_tx
@@ -650,7 +650,7 @@ pub async fn latest_audit_event_type(
 
 pub async fn list_open_security_incidents(
     handle: &RepositoryHandle,
-) -> Result<Vec<(SecurityIncidentRow, i64)>, RepositoryError> {
+) -> Result<Vec<IncidentDetail>, RepositoryError> {
     let conn = reader::checkout(&handle.read_pool)?;
     security::list_open_incidents(&conn)
 }

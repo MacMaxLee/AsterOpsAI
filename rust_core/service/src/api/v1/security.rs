@@ -6,7 +6,7 @@
 //! directly.
 
 use ai_ops_core::policy::ResourceDescriptor;
-use ai_ops_core::repository::{self, NewAuditEvent, SecurityIncidentRow};
+use ai_ops_core::repository::{self, IncidentDetail, NewAuditEvent};
 use ai_ops_core::security;
 use axum::extract::{Extension, Path, State};
 use axum::Json;
@@ -18,15 +18,18 @@ use crate::middleware::RequestId;
 use crate::response::ApiResponse;
 use crate::state::AppState;
 
-fn to_summary((row, event_count): (SecurityIncidentRow, i64)) -> SecurityIncidentSummary {
+fn to_summary(detail: IncidentDetail) -> SecurityIncidentSummary {
     SecurityIncidentSummary {
-        id: row.id,
-        opened_at: row.opened_at,
-        closed_at: row.closed_at,
-        severity: row.severity,
-        status: row.status,
-        summary: row.summary,
-        event_count,
+        id: detail.incident.id,
+        opened_at: detail.incident.opened_at,
+        closed_at: detail.incident.closed_at,
+        severity: detail.incident.severity,
+        status: detail.incident.status,
+        summary: detail.incident.summary,
+        event_count: detail.event_count,
+        detector_id: detail.detector_id,
+        resource_kind: detail.resource_kind,
+        resource_name: detail.resource_name,
     }
 }
 

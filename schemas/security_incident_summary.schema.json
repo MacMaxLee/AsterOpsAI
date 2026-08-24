@@ -3,9 +3,12 @@
   "title": "SecurityIncidentSummary",
   "type": "object",
   "required": [
+    "detector_id",
     "event_count",
     "id",
     "opened_at",
+    "resource_kind",
+    "resource_name",
     "severity",
     "status",
     "summary"
@@ -17,6 +20,10 @@
         "null"
       ],
       "format": "date-time"
+    },
+    "detector_id": {
+      "description": "Unit U78 (ADR 0023's own named gap, closed by docs/adr/0083): the `detector_id`/resource every event under this incident shares — FR-SEC-002's own correlation rule structurally guarantees this, since an incident only ever reuses an existing `OPEN` row for the exact same `(detector_id, resource)` pair. Present so a console per-incident suppress action has something real to suppress, unlike before this unit, when only an event *count* was visible.",
+      "type": "string"
     },
     "event_count": {
       "description": "How many detector events have correlated into this incident — `security_incidents` has no denormalized column for this; the server computes it via a real join, never a client-side guess.",
@@ -30,6 +37,12 @@
     "opened_at": {
       "type": "string",
       "format": "date-time"
+    },
+    "resource_kind": {
+      "type": "string"
+    },
+    "resource_name": {
+      "type": "string"
     },
     "severity": {
       "type": "string"

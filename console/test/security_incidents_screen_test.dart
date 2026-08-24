@@ -11,9 +11,12 @@ import 'support/pump_app.dart';
 
 SecurityIncidentSummary fakeIncident({int id = 1}) => SecurityIncidentSummary(
   closedAt: null,
+  detectorId: 'host.untrusted_device_attached',
   eventCount: 3,
   id: id,
   openedAt: DateTime.utc(2026, 1, 1, 9),
+  resourceKind: 'DEVICE',
+  resourceName: 'sdb',
   severity: 'HIGH',
   status: 'OPEN',
   summary: 'previously-unseen removable device attached',
@@ -114,9 +117,12 @@ void main() {
 
     final closedIncident = SecurityIncidentSummary(
       closedAt: DateTime.utc(2026, 1, 1, 10),
+      detectorId: 'host.untrusted_device_attached',
       eventCount: 3,
       id: 1,
       openedAt: DateTime.utc(2026, 1, 1, 9),
+      resourceKind: 'DEVICE',
+      resourceName: 'sdb',
       severity: 'HIGH',
       status: 'CLOSED',
       summary: 'previously-unseen removable device attached',
@@ -136,6 +142,59 @@ void main() {
 
     expect(find.text('Incident closed'), findsOneWidget);
   });
+
+  testWidgets(
+    'tapping the per-incident suppress button opens a pre-filled, locked dialog',
+    (tester) async {
+      final transport = createFakeTransport();
+      transport.queue(
+        '/api/v1/security/incidents',
+        ApiOk(jsonEncode(okEnvelopeJson([fakeIncident().toJson()]))),
+      );
+      await pumpScreen(tester, transport);
+      await tester.pump();
+
+      await tester.tap(find.byIcon(Icons.block_outlined).last);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(TextFormField, 'host.untrusted_device_attached'),
+        findsOneWidget,
+        reason: "the incident's own detector_id must be pre-filled",
+      );
+      final detectorTextField = tester.widget<TextField>(
+        find.descendant(
+          of: find.widgetWithText(
+            TextFormField,
+            'host.untrusted_device_attached',
+          ),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(
+        detectorTextField.readOnly,
+        isTrue,
+        reason: 'a per-incident suppress must lock detector_id, not invite a typo-prone re-entry',
+      );
+
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Reason'),
+        'known false positive on this fleet',
+      );
+      transport.queuePost(
+        '/api/v1/security/suppress',
+        ApiOk(jsonEncode(okEnvelopeJson(null))),
+      );
+      await tester.tap(find.text('Suppress').last);
+      await tester.pumpAndSettle();
+
+      final posted = transport.postedRequests.single;
+      final body = jsonDecode(posted.body) as Map<String, dynamic>;
+      expect(body['detector_id'], 'host.untrusted_device_attached');
+      expect(body['resource'], {'kind': 'DEVICE', 'name': 'sdb'});
+      expect(body['reason'], 'known false positive on this fleet');
+    },
+  );
 
   testWidgets('a half-filled resource (kind but no name) blocks submission', (
     tester,
