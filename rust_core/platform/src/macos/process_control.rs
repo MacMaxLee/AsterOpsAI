@@ -94,6 +94,70 @@ pub fn set_priority(pid: u32, priority: ProcessPriority) -> Result<(), Capabilit
     Ok(())
 }
 
+/// Suspends a process using SIGSTOP.
+///
+/// # SAFETY (documented at call site below)
+/// kill(2)'s 0/−1 return is unambiguous, same as setpriority.
+#[allow(unsafe_code)]
+pub fn suspend(pid: u32) -> Result<(), CapabilityError> {
+    // SAFETY: `pid` is a plain integer; `kill` performs no pointer
+    // dereference on this process's memory.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGSTOP) };
+    if rc != 0 {
+        return Err(map_last_os_error());
+    }
+    Ok(())
+}
+
+/// Resumes a process using SIGCONT.
+///
+/// # SAFETY (documented at call site below)
+#[allow(unsafe_code)]
+pub fn resume(pid: u32) -> Result<(), CapabilityError> {
+    // SAFETY: same reasoning as `suspend` above.
+    let rc = unsafe { libc::kill(pid as libc::pid_t, libc::SIGCONT) };
+    if rc != 0 {
+        return Err(map_last_os_error());
+    }
+    Ok(())
+}
+
+/// Checks if a process is stopped (suspended).
+///
+/// On macOS (no /proc), we parse `ps -o state= -p [pid]` output.
+/// State 'T' means stopped by a signal (our SIGSTOP).
+pub fn is_stopped(pid: u32) -> Result<bool, CapabilityError> {
+    use std::process::Command;
+
+    let output = Command::new("ps")
+        .arg("-o")
+        .arg("state=")
+        .arg("-p")
+        .arg(pid.to_string())
+        .output()
+        .map_err(|e| CapabilityError::Io(e))?;
+
+    if !output.status.success() {
+        // ps returns non-zero if process doesn't exist
+        return Err(CapabilityError::NotFound(format!(
+            "process {} not found",
+            pid
+        )));
+    }
+
+    let state = String::from_utf8_lossy(&output.stdout);
+    let state_char = state
+        .trim()
+        .chars()
+        .next()
+        .ok_or_else(|| CapabilityError::Unavailable(format!("empty state field for pid {}", pid)))?;
+
+    // 'T' = stopped by signal (SIGSTOP)
+    // 't' = stopped for tracing
+    // Both mean "not running"
+    Ok(state_char == 'T' || state_char == 't')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +229,77 @@ mod tests {
         assert!(
             result.is_err(),
             "reading priority of nonexistent process should fail"
+        );
+    }
+
+    #[test]
+    fn suspend_resume_roundtrip() {
+        use std::process::{Command, Stdio};
+        use std::time::Duration;
+
+        // Spawn a child process that will sleep
+        let mut child = Command::new("sleep")
+            .arg("60")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("failed to spawn sleep");
+
+        let pid = child.id();
+
+        // Child should be running initially
+        assert!(
+            !is_stopped(pid).expect("should check if stopped"),
+            "child should not be stopped initially"
+        );
+
+        // Suspend the child
+        suspend(pid).expect("should suspend child");
+
+        // Give the signal a moment to take effect
+        std::thread::sleep(Duration::from_millis(50));
+
+        // Child should now be stopped
+        assert!(
+            is_stopped(pid).expect("should check if stopped after suspend"),
+            "child should be stopped after SIGSTOP"
+        );
+
+        // Resume the child
+        resume(pid).expect("should resume child");
+
+        // Give the signal a moment to take effect
+        std::thread::sleep(Duration::from_millis(50));
+
+        // Child should be running again
+        assert!(
+            !is_stopped(pid).expect("should check if stopped after resume"),
+            "child should be running after SIGCONT"
+        );
+
+        // Clean up: kill the child
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+
+    #[test]
+    fn suspend_nonexistent_process_fails() {
+        // PID 99999 is very unlikely to exist
+        let result = suspend(99999);
+
+        // Should fail with NotFound or some error
+        assert!(result.is_err(), "suspending nonexistent process should fail");
+    }
+
+    #[test]
+    fn is_stopped_nonexistent_process_fails() {
+        // PID 99999 is very unlikely to exist
+        let result = is_stopped(99999);
+
+        // Should fail with NotFound
+        assert!(
+            result.is_err(),
+            "checking state of nonexistent process should fail"
         );
     }
 }
