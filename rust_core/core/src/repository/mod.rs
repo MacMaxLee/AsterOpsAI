@@ -489,6 +489,52 @@ pub async fn record_table_privilege_grant_seen(
         .map_err(|_| RepositoryError::WriterDidNotReply)?
 }
 
+/// Unit U74 (ADR 0063's own named gap): forgets any `(member,
+/// granted_role)` pair not present in `current`, the complete,
+/// freshly-polled membership set for this sweep tick — so a real
+/// revoke followed by a genuine re-grant fires again instead of
+/// staying silently suppressed forever. Returns how many stale pairs
+/// were forgotten.
+pub async fn reconcile_known_role_memberships(
+    handle: &RepositoryHandle,
+    current: Vec<(String, String)>,
+) -> Result<usize, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::ReconcileRoleMemberships {
+            current,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
+/// Unit U74 (ADR 0064's own named gap, mirrors
+/// `reconcile_known_role_memberships` exactly): forgets any `(grantee,
+/// schema, table, privilege_type)` tuple not present in `current`.
+/// Returns how many stale tuples were forgotten.
+pub async fn reconcile_known_table_privilege_grants(
+    handle: &RepositoryHandle,
+    current: Vec<(String, String, String, String)>,
+) -> Result<usize, RepositoryError> {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    handle
+        .command_tx
+        .send(WriteCommand::ReconcileTablePrivilegeGrants {
+            current,
+            reply: reply_tx,
+        })
+        .await
+        .map_err(|_| RepositoryError::WriterUnavailable)?;
+    reply_rx
+        .await
+        .map_err(|_| RepositoryError::WriterDidNotReply)?
+}
+
 /// Unit U60 (SRS FR-DBSEC-001(a)): how far into `log_file_path` the
 /// authentication-failure detector has already tailed, if ever. A
 /// plain read (like `get_action`/`get_tuning_plan`), not a

@@ -38,3 +38,37 @@ pub fn record_seen(
 
     Ok(already_known)
 }
+
+/// Unit U74 (ADR 0063's own named gap): forgets any `(member,
+/// granted_role)` pair this sweep no longer observed — i.e. a real
+/// revocation. Without this, a tuple once known stays known forever,
+/// so a revoke followed by a genuine re-grant would never fire again.
+/// `current` is the complete, freshly-polled membership set for this
+/// sweep tick, not an incremental delta. Returns the number of stale
+/// pairs forgotten (test/observability convenience, not load-bearing).
+pub fn reconcile(
+    conn: &Connection,
+    current: &[(String, String)],
+) -> Result<usize, RepositoryError> {
+    let mut stmt = conn.prepare("SELECT member_role, granted_role FROM known_role_memberships")?;
+    let known: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .collect::<Result<_, _>>()?;
+    drop(stmt);
+
+    let mut forgotten = 0usize;
+    for (member, granted_role) in known {
+        if !current
+            .iter()
+            .any(|(m, g)| *m == member && *g == granted_role)
+        {
+            conn.execute(
+                "DELETE FROM known_role_memberships \
+                 WHERE member_role = ?1 AND granted_role = ?2",
+                params![member, granted_role],
+            )?;
+            forgotten += 1;
+        }
+    }
+    Ok(forgotten)
+}

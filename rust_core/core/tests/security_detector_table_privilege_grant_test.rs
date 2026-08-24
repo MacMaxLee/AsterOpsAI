@@ -93,6 +93,94 @@ async fn a_tuple_seen_twice_is_known_the_second_time_even_across_a_fresh_connect
     );
 }
 
+#[tokio::test]
+async fn a_revoked_tuple_is_forgotten_and_a_genuine_re_grant_fires_again() {
+    let repo = TestRepo::open();
+    let now = Utc::now();
+
+    let first = repository::record_table_privilege_grant_seen(
+        &repo.handle,
+        "alice",
+        "public",
+        "widgets",
+        "SELECT",
+        now,
+    )
+    .await
+    .expect("record_table_privilege_grant_seen");
+    assert!(!first, "the first observation must not be 'already known'");
+
+    // Next sweep tick: alice's SELECT on widgets was revoked — the
+    // current set no longer contains the tuple.
+    let forgotten = repository::reconcile_known_table_privilege_grants(&repo.handle, vec![])
+        .await
+        .expect("reconcile_known_table_privilege_grants");
+    assert_eq!(forgotten, 1, "the revoked tuple must be forgotten");
+
+    let after_regrant = repository::record_table_privilege_grant_seen(
+        &repo.handle,
+        "alice",
+        "public",
+        "widgets",
+        "SELECT",
+        now,
+    )
+    .await
+    .expect("record_table_privilege_grant_seen");
+    assert!(
+        !after_regrant,
+        "a genuine re-grant after a real revocation must not read as 'already known'"
+    );
+}
+
+#[tokio::test]
+async fn reconcile_leaves_tuples_still_present_in_the_current_set_alone() {
+    let repo = TestRepo::open();
+    let now = Utc::now();
+
+    repository::record_table_privilege_grant_seen(
+        &repo.handle,
+        "alice",
+        "public",
+        "widgets",
+        "SELECT",
+        now,
+    )
+    .await
+    .expect("record_table_privilege_grant_seen");
+
+    let forgotten = repository::reconcile_known_table_privilege_grants(
+        &repo.handle,
+        vec![(
+            "alice".to_string(),
+            "public".to_string(),
+            "widgets".to_string(),
+            "SELECT".to_string(),
+        )],
+    )
+    .await
+    .expect("reconcile_known_table_privilege_grants");
+    assert_eq!(
+        forgotten, 0,
+        "a tuple still present in the current set must not be forgotten"
+    );
+
+    let still_known = repository::record_table_privilege_grant_seen(
+        &repo.handle,
+        "alice",
+        "public",
+        "widgets",
+        "SELECT",
+        now,
+    )
+    .await
+    .expect("record_table_privilege_grant_seen");
+    assert!(
+        still_known,
+        "an unrevoked tuple must remain known after reconciliation"
+    );
+}
+
 #[test]
 fn detector_fires_only_for_a_new_tuple() {
     let now = Utc::now();

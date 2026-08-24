@@ -17,7 +17,7 @@ use std::time::Duration as StdDuration;
 use ai_ops_core::dbms::adapters::postgresql::PostgresAdapter;
 use ai_ops_core::dbms::{pool, DbmsAdapter};
 use ai_ops_core::policy::{ActionTypeRegistry, Environment, ProtectedResourceRegistry};
-use ai_ops_core::repository::{self, RepositoryConfig};
+use ai_ops_core::repository::{self, reader, RepositoryConfig};
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use serde_json::Value;
@@ -112,6 +112,16 @@ async fn poll_gucs_and_sweep(
         .expect("relevant_gucs for sweep");
     dbms_security_sweep::run_security_config_sweep(repo, adapter, &gucs).await;
     result
+}
+
+fn security_events_for(repo: &repository::RepositoryHandle, detector_id: &str) -> i64 {
+    let conn = reader::checkout(&repo.read_pool).expect("checkout");
+    conn.query_row(
+        "SELECT COUNT(*) FROM security_events WHERE detector_id = ?1",
+        [detector_id],
+        |row| row.get(0),
+    )
+    .expect("count security_events")
 }
 
 fn adapter_for(pg: &support::TestPostgres) -> Arc<dyn DbmsAdapter> {
@@ -671,6 +681,87 @@ async fn gucs_polling_a_real_new_role_membership_grant_produces_a_real_security_
     );
 }
 
+/// Unit U74 (ADR 0063's own named revocation-tracking gap, finally
+/// closed): a real `REVOKE` between two sweeps must let a genuine
+/// later re-`GRANT` of the same pair fire a second time, instead of
+/// silently staying suppressed forever because the pair was "already
+/// known". Proven via a direct `security_events` count (the public
+/// `/security/incidents` list can't distinguish this — a second event
+/// against the same still-`OPEN` incident correlates into it rather
+/// than opening a visibly new row).
+#[tokio::test]
+async fn gucs_polling_a_real_revoke_then_re_grant_of_the_same_role_membership_fires_twice() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute("CREATE ROLE alice LOGIN", &[])
+        .await
+        .expect("CREATE ROLE alice");
+    setup
+        .execute("CREATE ROLE admins", &[])
+        .await
+        .expect("CREATE ROLE admins");
+    setup
+        .execute("GRANT admins TO alice", &[])
+        .await
+        .expect("GRANT admins TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    assert_eq!(status, StatusCode::OK, "first grant poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_ROLE_MEMBERSHIP_GRANTED
+        ),
+        1,
+        "the first grant must fire exactly once"
+    );
+
+    setup
+        .execute("REVOKE admins FROM alice", &[])
+        .await
+        .expect("REVOKE admins FROM alice");
+
+    // A sweep while revoked: nothing new fires, but the pair is
+    // reconciled out of "known" since the current set no longer
+    // includes it.
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    assert_eq!(status, StatusCode::OK, "post-revoke poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_ROLE_MEMBERSHIP_GRANTED
+        ),
+        1,
+        "a revocation alone must never fire a grant event"
+    );
+
+    setup
+        .execute("GRANT admins TO alice", &[])
+        .await
+        .expect("re-GRANT admins TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    pg.stop().await;
+    assert_eq!(status, StatusCode::OK, "re-grant poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_ROLE_MEMBERSHIP_GRANTED
+        ),
+        2,
+        "a genuine re-grant after a real revocation must fire again, not stay suppressed"
+    );
+}
+
 /// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
 /// docs/adr/0064): proves the real, filtered `table_privilege_grants`
 /// query end-to-end. A fresh table's own real, implicit owner
@@ -741,6 +832,80 @@ async fn gucs_polling_a_real_table_grant_produces_a_real_security_incident_but_o
             )
         });
     assert_eq!(incident["severity"], "MEDIUM");
+}
+
+/// Unit U74 (ADR 0064's own named revocation-tracking gap, mirrors
+/// the role-membership version above exactly): a real `REVOKE` between
+/// two sweeps must let a genuine later re-`GRANT` of the same tuple
+/// fire a second time.
+#[tokio::test]
+async fn gucs_polling_a_real_revoke_then_re_grant_of_the_same_table_privilege_fires_twice() {
+    let mut pg = support::TestPostgres::start(17).await;
+    let repo = open_repo().await;
+    let setup = pg.superuser_client().await;
+
+    setup
+        .execute("CREATE TABLE widgets (id int)", &[])
+        .await
+        .expect("CREATE TABLE widgets");
+    setup
+        .execute("CREATE ROLE alice LOGIN", &[])
+        .await
+        .expect("CREATE ROLE alice");
+    setup
+        .execute("GRANT SELECT ON widgets TO alice", &[])
+        .await
+        .expect("GRANT SELECT ON widgets TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    assert_eq!(status, StatusCode::OK, "first grant poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_TABLE_PRIVILEGE_GRANTED
+        ),
+        1,
+        "the first grant must fire exactly once"
+    );
+
+    setup
+        .execute("REVOKE SELECT ON widgets FROM alice", &[])
+        .await
+        .expect("REVOKE SELECT ON widgets FROM alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    assert_eq!(status, StatusCode::OK, "post-revoke poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_TABLE_PRIVILEGE_GRANTED
+        ),
+        1,
+        "a revocation alone must never fire a grant event"
+    );
+
+    setup
+        .execute("GRANT SELECT ON widgets TO alice", &[])
+        .await
+        .expect("re-GRANT SELECT ON widgets TO alice");
+
+    let adapter = adapter_for(&pg);
+    let app = build_app_with_repository(Some(adapter.clone()), repo.clone()).await;
+    let (status, _) = poll_gucs_and_sweep(app, &adapter, &repo).await;
+    pg.stop().await;
+    assert_eq!(status, StatusCode::OK, "re-grant poll must succeed");
+    assert_eq!(
+        security_events_for(
+            &repo,
+            ai_ops_core::security::DETECTOR_TABLE_PRIVILEGE_GRANTED
+        ),
+        2,
+        "a genuine re-grant after a real revocation must fire again, not stay suppressed"
+    );
 }
 
 /// Unit U60 (SRS FR-DBSEC-001(a), the last FR-DBSEC-001 sub-item —

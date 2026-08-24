@@ -176,6 +176,19 @@ pub enum WriteCommand {
         now: DateTime<Utc>,
         reply: oneshot::Sender<Result<bool, RepositoryError>>,
     },
+    /// Forgets any `(member, granted_role)` pair not in `current` —
+    /// unit U74, ADR 0063's own named revocation-tracking gap.
+    ReconcileRoleMemberships {
+        current: Vec<(String, String)>,
+        reply: oneshot::Sender<Result<usize, RepositoryError>>,
+    },
+    /// Forgets any `(grantee, schema, table, privilege_type)` tuple not
+    /// in `current` — unit U74, ADR 0064's own named revocation-
+    /// tracking gap.
+    ReconcileTablePrivilegeGrants {
+        current: Vec<(String, String, String, String)>,
+        reply: oneshot::Sender<Result<usize, RepositoryError>>,
+    },
     /// Persists the new end-of-file byte offset for a log file after a
     /// real tail pass (unit U60, SRS FR-DBSEC-001(a)).
     SetLogTailOffset {
@@ -357,6 +370,12 @@ pub fn spawn(
                             &privilege_type,
                             now,
                         )));
+                    }
+                    WriteCommand::ReconcileRoleMemberships { current, reply } => {
+                        drop(reply.send(role_membership_history::reconcile(&conn, &current)));
+                    }
+                    WriteCommand::ReconcileTablePrivilegeGrants { current, reply } => {
+                        drop(reply.send(table_privilege_history::reconcile(&conn, &current)));
                     }
                     WriteCommand::SetLogTailOffset {
                         log_file_path,

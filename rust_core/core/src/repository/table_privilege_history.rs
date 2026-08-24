@@ -41,3 +41,43 @@ pub fn record_seen(
 
     Ok(already_known)
 }
+
+/// Unit U74 (ADR 0064's own named gap, mirrors `role_membership_
+/// history::reconcile` exactly): forgets any `(grantee, schema, table,
+/// privilege_type)` tuple this sweep no longer observed — i.e. a real
+/// revocation — so a revoke followed by a genuine re-grant fires again
+/// instead of staying silently suppressed forever. `current` is the
+/// complete, freshly-polled grant set for this sweep tick. Returns the
+/// number of stale tuples forgotten (test/observability convenience).
+pub fn reconcile(
+    conn: &Connection,
+    current: &[(String, String, String, String)],
+) -> Result<usize, RepositoryError> {
+    let mut stmt = conn.prepare(
+        "SELECT grantee, table_schema, table_name, privilege_type \
+         FROM known_table_privilege_grants",
+    )?;
+    let known: Vec<(String, String, String, String)> = stmt
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+        })?
+        .collect::<Result<_, _>>()?;
+    drop(stmt);
+
+    let mut forgotten = 0usize;
+    for (grantee, schema, table, privilege_type) in known {
+        let still_present = current.iter().any(|(g, s, t, p)| {
+            *g == grantee && *s == schema && *t == table && *p == privilege_type
+        });
+        if !still_present {
+            conn.execute(
+                "DELETE FROM known_table_privilege_grants \
+                 WHERE grantee = ?1 AND table_schema = ?2 AND table_name = ?3 \
+                 AND privilege_type = ?4",
+                params![grantee, schema, table, privilege_type],
+            )?;
+            forgotten += 1;
+        }
+    }
+    Ok(forgotten)
+}

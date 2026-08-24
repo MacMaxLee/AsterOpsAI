@@ -133,7 +133,9 @@ async fn check_role_superuser_grants(
 }
 
 /// Unit U58 (SRS FR-DBSEC-001(b)'s deferred remainder — see `security::
-/// detect_role_membership_granted`'s own doc comment).
+/// detect_role_membership_granted`'s own doc comment). Reconciles
+/// revocations first (unit U74, ADR 0063's own named gap) so a
+/// revoke-then-re-grant of the same pair fires again.
 async fn check_role_membership_grants(
     repo: &repository::RepositoryHandle,
     adapter: &Arc<dyn DbmsAdapter>,
@@ -146,6 +148,13 @@ async fn check_role_membership_grants(
         }
     };
     let now = Utc::now();
+    let current: Vec<(String, String)> = memberships
+        .iter()
+        .map(|m| (m.member.clone(), m.granted_role.clone()))
+        .collect();
+    if let Err(err) = repository::reconcile_known_role_memberships(repo, current).await {
+        tracing::warn!(error = %err, "reconcile_known_role_memberships failed");
+    }
     for membership in memberships {
         let already_known = match repository::record_role_membership_seen(
             repo,
@@ -177,6 +186,8 @@ async fn check_role_membership_grants(
 
 /// Unit U59 (SRS FR-DBSEC-001(c), deliberately narrowed — see
 /// `security::detect_table_privilege_granted`'s own doc comment).
+/// Reconciles revocations first (unit U74, ADR 0064's own named gap)
+/// so a revoke-then-re-grant of the same tuple fires again.
 async fn check_table_privilege_grants(
     repo: &repository::RepositoryHandle,
     adapter: &Arc<dyn DbmsAdapter>,
@@ -189,6 +200,20 @@ async fn check_table_privilege_grants(
         }
     };
     let now = Utc::now();
+    let current: Vec<(String, String, String, String)> = grants
+        .iter()
+        .map(|g| {
+            (
+                g.grantee.clone(),
+                g.schema.clone(),
+                g.table.clone(),
+                g.privilege_type.clone(),
+            )
+        })
+        .collect();
+    if let Err(err) = repository::reconcile_known_table_privilege_grants(repo, current).await {
+        tracing::warn!(error = %err, "reconcile_known_table_privilege_grants failed");
+    }
     for grant in grants {
         let already_known = match repository::record_table_privilege_grant_seen(
             repo,

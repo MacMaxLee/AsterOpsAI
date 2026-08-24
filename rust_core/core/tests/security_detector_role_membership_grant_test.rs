@@ -68,6 +68,65 @@ async fn a_pair_seen_twice_is_known_the_second_time_even_across_a_fresh_connecti
     );
 }
 
+#[tokio::test]
+async fn a_revoked_pair_is_forgotten_and_a_genuine_re_grant_fires_again() {
+    let repo = TestRepo::open();
+    let now = Utc::now();
+
+    // alice is granted admins: first observation, not yet known.
+    let first = repository::record_role_membership_seen(&repo.handle, "alice", "admins", now)
+        .await
+        .expect("record_role_membership_seen");
+    assert!(!first, "the first observation must not be 'already known'");
+
+    // Next sweep tick: alice is no longer a member of admins (revoked)
+    // — the current set no longer contains the pair.
+    let forgotten = repository::reconcile_known_role_memberships(&repo.handle, vec![])
+        .await
+        .expect("reconcile_known_role_memberships");
+    assert_eq!(forgotten, 1, "the revoked pair must be forgotten");
+
+    // alice is re-granted admins later: without reconciliation this
+    // would still read as 'already known' and silently never fire.
+    let after_regrant =
+        repository::record_role_membership_seen(&repo.handle, "alice", "admins", now)
+            .await
+            .expect("record_role_membership_seen");
+    assert!(
+        !after_regrant,
+        "a genuine re-grant after a real revocation must not read as 'already known'"
+    );
+}
+
+#[tokio::test]
+async fn reconcile_leaves_pairs_still_present_in_the_current_set_alone() {
+    let repo = TestRepo::open();
+    let now = Utc::now();
+
+    repository::record_role_membership_seen(&repo.handle, "alice", "admins", now)
+        .await
+        .expect("record_role_membership_seen");
+
+    let forgotten = repository::reconcile_known_role_memberships(
+        &repo.handle,
+        vec![("alice".to_string(), "admins".to_string())],
+    )
+    .await
+    .expect("reconcile_known_role_memberships");
+    assert_eq!(
+        forgotten, 0,
+        "a pair still present in the current set must not be forgotten"
+    );
+
+    let still_known = repository::record_role_membership_seen(&repo.handle, "alice", "admins", now)
+        .await
+        .expect("record_role_membership_seen");
+    assert!(
+        still_known,
+        "an unrevoked pair must remain known after reconciliation"
+    );
+}
+
 #[test]
 fn detector_fires_only_for_a_new_non_system_pair() {
     let now = Utc::now();
