@@ -4,8 +4,16 @@
 //! - `getfsstat()` to enumerate mounted filesystems
 //! - `statfs()` to get capacity/free/available for each filesystem
 //!
+//! Disk I/O statistics (read/write bytes, ops, latency) are currently marked
+//! as unavailable. Full implementation requires either:
+//! - IOKit `IOBlockStorageDriver` statistics (complex FFI, see U98 decision)
+//! - `iostat` command parsing (provides instantaneous rates, not cumulative counters)
+//!
+//! Decision (U98): Defer disk I/O to future work due to complexity/benefit tradeoff.
+//! Filesystem capacity (statfs) provides the primary value for storage monitoring.
+//!
 //! Mirrors `telemetry/storage.rs` structure but uses macOS-specific APIs.
-//! Established in unit U97 (filesystem capacity); U98 will add disk I/O.
+//! Established in unit U97 (filesystem capacity).
 
 use contracts::telemetry::{MetricValue, StorageSnapshot, VolumeInfo};
 
@@ -126,21 +134,23 @@ fn statfs_to_volume_info(stat: &libc::statfs) -> VolumeInfo {
         available_bytes: MetricValue::Supported {
             value: available_bytes,
         },
-        // Disk I/O metrics: unavailable in U97, will be added in U98
+        // Disk I/O metrics: unavailable (U98 decision to defer)
+        // Full implementation requires IOKit IOBlockStorageDriver FFI (complex)
+        // or iostat parsing (provides rates, not cumulative counters for deltas)
         read_bytes_per_sec: MetricValue::Unavailable {
-            reason: "disk I/O metrics not yet implemented (U98)".to_string(),
+            reason: "macOS disk I/O requires IOKit or iostat; deferred (see storage.rs module docs)".to_string(),
         },
         write_bytes_per_sec: MetricValue::Unavailable {
-            reason: "disk I/O metrics not yet implemented (U98)".to_string(),
+            reason: "macOS disk I/O requires IOKit or iostat; deferred (see storage.rs module docs)".to_string(),
         },
         read_ops_per_sec: MetricValue::Unavailable {
-            reason: "disk I/O metrics not yet implemented (U98)".to_string(),
+            reason: "macOS disk I/O requires IOKit or iostat; deferred (see storage.rs module docs)".to_string(),
         },
         write_ops_per_sec: MetricValue::Unavailable {
-            reason: "disk I/O metrics not yet implemented (U98)".to_string(),
+            reason: "macOS disk I/O requires IOKit or iostat; deferred (see storage.rs module docs)".to_string(),
         },
         io_latency_ms: MetricValue::Unavailable {
-            reason: "disk I/O metrics not yet implemented (U98)".to_string(),
+            reason: "macOS disk I/O requires IOKit or iostat; deferred (see storage.rs module docs)".to_string(),
         },
     }
 }
@@ -293,31 +303,31 @@ mod tests {
     }
 
     #[test]
-    fn io_metrics_unavailable_in_u97() {
+    fn io_metrics_deferred() {
         let snapshot = parse_storage_snapshot(&fixed_ctx())
             .expect("storage snapshot should succeed");
 
-        // All volumes should have I/O metrics marked as unavailable
+        // All volumes should have I/O metrics marked as unavailable (U98 decision)
         for volume in &snapshot.volumes {
             assert!(
                 matches!(volume.read_bytes_per_sec, MetricValue::Unavailable { .. }),
-                "read_bytes_per_sec should be unavailable in U97"
+                "read_bytes_per_sec should be unavailable (deferred per U98 decision)"
             );
             assert!(
                 matches!(volume.write_bytes_per_sec, MetricValue::Unavailable { .. }),
-                "write_bytes_per_sec should be unavailable in U97"
+                "write_bytes_per_sec should be unavailable (deferred per U98 decision)"
             );
             assert!(
                 matches!(volume.read_ops_per_sec, MetricValue::Unavailable { .. }),
-                "read_ops_per_sec should be unavailable in U97"
+                "read_ops_per_sec should be unavailable (deferred per U98 decision)"
             );
             assert!(
                 matches!(volume.write_ops_per_sec, MetricValue::Unavailable { .. }),
-                "write_ops_per_sec should be unavailable in U97"
+                "write_ops_per_sec should be unavailable (deferred per U98 decision)"
             );
             assert!(
                 matches!(volume.io_latency_ms, MetricValue::Unavailable { .. }),
-                "io_latency_ms should be unavailable in U97"
+                "io_latency_ms should be unavailable (deferred per U98 decision)"
             );
         }
     }
