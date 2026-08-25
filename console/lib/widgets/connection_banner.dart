@@ -43,7 +43,7 @@ class ConnectionBanner extends ConsumerWidget {
     }
 
     return Material(
-      color: theme.colorScheme.surfaceContainerHighest,
+      color: theme.colorScheme.surfaceVariant,
       child: Semantics(
         liveRegion: true,
         child: Padding(

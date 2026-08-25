@@ -211,7 +211,7 @@ class _StartTuningPlanDialogState
               validator: (v) => (v == null || v.trim().isEmpty) ? '' : null,
             ),
             DropdownButtonFormField<String>(
-              initialValue: _profile,
+              value: _profile,
               decoration: InputDecoration(labelText: l10n.tuningStartProfile),
               items: [
                 for (final profile in _tuningProfiles)
@@ -220,7 +220,7 @@ class _StartTuningPlanDialogState
               onChanged: (v) => setState(() => _profile = v ?? _profile),
             ),
             DropdownButtonFormField<String>(
-              initialValue: _mode,
+              value: _mode,
               decoration: InputDecoration(labelText: l10n.tuningStartMode),
               items: [
                 for (final mode in _automationModes)

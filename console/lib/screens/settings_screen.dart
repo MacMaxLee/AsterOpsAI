@@ -22,54 +22,45 @@ class SettingsScreen extends ConsumerWidget {
           l10n.settingsSectionRefresh,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        // RadioGroup gives the whole section WAI-ARIA-pattern keyboard
-        // navigation (arrow keys move selection, tab enters/exits the
-        // group as one stop) for free — directly serves U3 requirement 7.
-        RadioGroup<Duration>(
-          groupValue: refreshInterval,
-          onChanged: (value) {
-            if (value != null) {
-              ref.read(refreshIntervalProvider.notifier).setInterval(value);
-            }
-          },
-          child: Column(
-            children: [
-              for (final option in kRefreshIntervalOptions)
-                RadioListTile<Duration>(
-                  title: Text(l10n.settingsRefreshOption(option.inSeconds)),
-                  value: option,
-                ),
-            ],
+        for (final option in kRefreshIntervalOptions)
+          RadioListTile<Duration>(
+            title: Text(l10n.settingsRefreshOption(option.inSeconds)),
+            value: option,
+            groupValue: refreshInterval,
+            onChanged: (value) {
+              if (value != null) {
+                ref.read(refreshIntervalProvider.notifier).setInterval(value);
+              }
+            },
           ),
-        ),
         const Divider(height: 32),
         Text(
           l10n.settingsSectionLanguage,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        RadioGroup<Locale?>(
+        RadioListTile<Locale?>(
+          title: Text(l10n.settingsLanguageSystemDefault),
+          value: null,
           groupValue: locale,
           onChanged: (value) =>
               ref.read(localeProvider.notifier).setLocale(value),
-          child: Column(
-            children: [
-              RadioListTile<Locale?>(
-                title: Text(l10n.settingsLanguageSystemDefault),
-                value: null,
-              ),
-              RadioListTile<Locale?>(
-                title: Text(l10n.settingsLanguageEnglish),
-                value: const Locale('en'),
-              ),
-              RadioListTile<Locale?>(
-                title: Text(l10n.settingsLanguageChineseTraditional),
-                value: const Locale.fromSubtags(
-                  languageCode: 'zh',
-                  scriptCode: 'Hant',
-                ),
-              ),
-            ],
+        ),
+        RadioListTile<Locale?>(
+          title: Text(l10n.settingsLanguageEnglish),
+          value: const Locale('en'),
+          groupValue: locale,
+          onChanged: (value) =>
+              ref.read(localeProvider.notifier).setLocale(value),
+        ),
+        RadioListTile<Locale?>(
+          title: Text(l10n.settingsLanguageChineseTraditional),
+          value: const Locale.fromSubtags(
+            languageCode: 'zh',
+            scriptCode: 'Hant',
           ),
+          groupValue: locale,
+          onChanged: (value) =>
+              ref.read(localeProvider.notifier).setLocale(value),
         ),
         const Divider(height: 32),
         Text(

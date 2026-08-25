@@ -12,7 +12,11 @@ final class PolledRepository<T> {
   final _controller = StreamController<ApiResult<T>>.broadcast();
   Timer? _timer;
 
-  PolledRepository({required this._fetch, required this._interval}) {
+  PolledRepository({
+    required Future<ApiResult<T>> Function() fetch,
+    required Duration interval,
+  })  : _fetch = fetch,
+        _interval = interval {
     _tick();
     _timer = Timer.periodic(_interval, (_) => _tick());
   }

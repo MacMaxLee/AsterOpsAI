@@ -36,7 +36,7 @@ class _StorageBody extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: storage.volumes.length,
-      separatorBuilder: (_, _) => const Divider(),
+      separatorBuilder: (_, __) => const Divider(),
       itemBuilder: (context, index) =>
           _VolumeCard(volume: storage.volumes[index]),
     );

@@ -36,7 +36,7 @@ class _NetworkBody extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
       itemCount: network.interfaces.length,
-      separatorBuilder: (_, _) => const Divider(),
+      separatorBuilder: (_, __) => const Divider(),
       itemBuilder: (context, index) =>
           _InterfaceCard(iface: network.interfaces[index]),
     );
