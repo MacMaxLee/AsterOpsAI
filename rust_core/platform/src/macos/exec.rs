@@ -31,6 +31,23 @@ pub(crate) fn get_process_state(pid: u32) -> std::io::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// Executes `netstat -ibn` to get network interface statistics.
+/// Returns the raw netstat output string, or an error if netstat fails.
+pub fn get_netstat_interfaces() -> std::io::Result<String> {
+    let output = Command::new("netstat")
+        .arg("-ibn")
+        .output()?;
+
+    if !output.status.success() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("netstat -ibn failed with status: {}", output.status),
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

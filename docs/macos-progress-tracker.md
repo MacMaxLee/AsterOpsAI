@@ -5,8 +5,8 @@ this document as you complete each unit.
 
 **Last Updated**: 2026-08-24
 **Status**: In Progress
-**Current Unit**: U98 Complete - M3 in progress (4/6)
-**Completion**: 9/21 units (43%)
+**Current Unit**: U99 Complete - M3 in progress (5/6)
+**Completion**: 10/21 units (48%)
 
 ---
 
@@ -73,7 +73,7 @@ this document as you complete each unit.
 ## Milestone 3: Host Telemetry Foundation ⧖
 
 **Target**: Complete telemetry stack for macOS
-**Completion**: 4/6 units (67%)
+**Completion**: 5/6 units (83%)
 
 ### ✓ U95: macOS CPU Telemetry via host_statistics64
 - [x] Implementation complete
@@ -115,12 +115,17 @@ this document as you complete each unit.
 - **Decision**: [x] Deferred - Neither IOKit nor iostat justified for v1
 - **Rationale**: IOKit requires complex FFI bindings; iostat provides instantaneous rates (not cumulative counters for delta calculations). Filesystem capacity (statfs) provides primary storage monitoring value. Disk I/O deferred to future work when use case justifies complexity.
 
-### ✗ U99: macOS Network Telemetry via netstat/sysctl
-- [ ] Implementation complete
-- [ ] Lists interfaces correctly
-- [ ] Stats match `netstat -ibn`
+### ✓ U99: macOS Network Telemetry via netstat
+- [x] Implementation complete
+- [x] Unit tests added (6 tests)
+- [x] Lists interfaces correctly
+- [x] Stats match `netstat -ibn`
+- [x] Rate calculations from deltas
+- [x] Loopback interfaces filtered
 - **Files Created**: `rust_core/core/src/telemetry_macos/network.rs`
-- **API Endpoint**: `GET /api/v1/network` returns real data
+- **Files Modified**: `rust_core/platform/src/macos/exec.rs` (added get_netstat_interfaces), `rust_core/core/src/telemetry_macos/mod.rs`
+- **Test Command**: `cargo test --target aarch64-apple-darwin -p core network`
+- **Note**: Uses netstat -ibn for interface stats. Drop counters marked unavailable (macOS netstat doesn't expose). Filters loopback (lo*) interfaces.
 
 ### ✗ U100: macOS Process Enumeration via libproc
 - [ ] Implementation complete
@@ -216,15 +221,15 @@ this document as you complete each unit.
 ## Overall Progress Summary
 
 ### Units by Status
-- **Not Started**: 12 units
+- **Not Started**: 11 units
 - **In Progress**: 0 units
-- **Completed**: 9 units (U90, U91, U92, U93, U94, U95, U96, U97, U98)
+- **Completed**: 10 units (U90, U91, U92, U93, U94, U95, U96, U97, U98, U99)
 - **Blocked**: 0 units
 
 ### Milestones by Status
 - **M1 Basic Platform Adapter**: 100% (3/3) ✓ COMPLETE
 - **M2 Process Control**: 100% (2/2) ✓ COMPLETE
-- **M3 Host Telemetry**: 67% (4/6)
+- **M3 Host Telemetry**: 83% (5/6)
 - **M4 Integration & Testing**: 0% (0/5)
 - **M5 Documentation & Polish**: 0% (0/5)
 
@@ -245,6 +250,7 @@ this document as you complete each unit.
 - **U96** (2026-08-24): Memory telemetry via host_statistics64(HOST_VM_INFO64) + sysctl
 - **U97** (2026-08-24): Storage telemetry via getfsstat() + statfs() for filesystem capacity
 - **U98** (2026-08-24): Disk I/O decision - deferred (IOKit too complex, iostat lacks cumulative counters)
+- **U99** (2026-08-24): Network telemetry via netstat -ibn for per-interface statistics
 
 ---
 
