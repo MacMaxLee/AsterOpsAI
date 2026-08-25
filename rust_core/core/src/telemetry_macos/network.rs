@@ -50,8 +50,9 @@ fn parse_netstat_ibn(raw: &str) -> Vec<(String, IfaceCounters)> {
         // Skip header line
         let fields: Vec<&str> = line.split_whitespace().collect();
 
-        // Need at least: Name Mtu Network Address Ipkts Ierrs Ibytes Opkts Oerrs Obytes
-        if fields.len() < 10 {
+        // Need at least: Name Mtu Network Ipkts Ierrs Ibytes Opkts Oerrs Obytes
+        // (Address field may be present or absent)
+        if fields.len() < 9 {
             continue;
         }
 
@@ -64,12 +65,21 @@ fn parse_netstat_ibn(raw: &str) -> Vec<(String, IfaceCounters)> {
                 .unwrap_or(0)
         };
 
-        let rx_packets = parse_u64(4);  // Ipkts
-        let rx_errors = parse_u64(5);   // Ierrs
-        let rx_bytes = parse_u64(6);    // Ibytes
-        let tx_packets = parse_u64(7);  // Opkts
-        let tx_errors = parse_u64(8);   // Oerrs
-        let tx_bytes = parse_u64(9);    // Obytes
+        // Detect if Address field is present by checking if field[3] is numeric
+        // If field[3] parses as a number, it's Ipkts (no Address)
+        // If field[3] doesn't parse as a number, it's Address, so Ipkts is at field[4]
+        let has_address = fields.get(3)
+            .and_then(|f| f.parse::<u64>().ok())
+            .is_none();
+
+        let offset = if has_address { 1 } else { 0 };
+
+        let rx_packets = parse_u64(3 + offset);  // Ipkts
+        let rx_errors = parse_u64(4 + offset);   // Ierrs
+        let rx_bytes = parse_u64(5 + offset);    // Ibytes
+        let tx_packets = parse_u64(6 + offset);  // Opkts
+        let tx_errors = parse_u64(7 + offset);   // Oerrs
+        let tx_bytes = parse_u64(8 + offset);    // Obytes
 
         result.push((
             name.to_string(),

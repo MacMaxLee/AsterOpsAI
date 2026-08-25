@@ -12,11 +12,10 @@ use crate::error::CapabilityError;
 fn map_last_os_error() -> CapabilityError {
     let err = std::io::Error::last_os_error();
     match err.raw_os_error() {
-        Some(libc::EPERM) => CapabilityError::PermissionRequired(
+        Some(libc::EPERM) | Some(libc::EACCES) => CapabilityError::PermissionRequired(
             "insufficient privilege to change process priority".to_string(),
         ),
-        Some(libc::ESRCH) => CapabilityError::NotFound(format!("no such process: {err}")),
-        Some(libc::EINVAL) => CapabilityError::InvalidInput(format!("invalid argument: {err}")),
+        Some(libc::ESRCH) => CapabilityError::Unavailable(format!("no such process: {err}")),
         _ => CapabilityError::Io(err),
     }
 }
@@ -129,7 +128,7 @@ pub fn resume(pid: u32) -> Result<(), CapabilityError> {
 pub fn is_stopped(pid: u32) -> Result<bool, CapabilityError> {
     let state_str = crate::macos::exec::get_process_state(pid).map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            CapabilityError::NotFound(format!("process {} not found", pid))
+            CapabilityError::Unavailable(format!("process {} not found", pid))
         } else {
             CapabilityError::Io(e)
         }
@@ -213,7 +212,7 @@ mod tests {
         // PID 99999 is very unlikely to exist
         let result = get_priority(99999);
 
-        // Should fail with NotFound or Unavailable
+        // Should fail with Unavailable
         assert!(
             result.is_err(),
             "reading priority of nonexistent process should fail"
@@ -275,7 +274,7 @@ mod tests {
         // PID 99999 is very unlikely to exist
         let result = suspend(99999);
 
-        // Should fail with NotFound or some error
+        // Should fail with Unavailable
         assert!(result.is_err(), "suspending nonexistent process should fail");
     }
 
@@ -284,7 +283,7 @@ mod tests {
         // PID 99999 is very unlikely to exist
         let result = is_stopped(99999);
 
-        // Should fail with NotFound
+        // Should fail with Unavailable
         assert!(
             result.is_err(),
             "checking state of nonexistent process should fail"

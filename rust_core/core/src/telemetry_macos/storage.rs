@@ -227,18 +227,18 @@ mod tests {
 
         if let Some(root) = root {
             // Root should have valid capacity
-            match root.capacity_bytes {
+            match &root.capacity_bytes {
                 MetricValue::Supported { value } => {
-                    assert!(value > 0, "root capacity should be > 0, got {}", value);
+                    assert!(*value > 0, "root capacity should be > 0, got {}", value);
                 }
                 other => panic!("root capacity should be Supported, got {:?}", other),
             }
 
             // Root should have valid available
-            match root.available_bytes {
+            match &root.available_bytes {
                 MetricValue::Supported { value } => {
                     assert!(
-                        value > 0,
+                        *value > 0,
                         "root available should be > 0 (unless disk is completely full), got {}",
                         value
                     );

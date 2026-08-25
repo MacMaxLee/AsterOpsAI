@@ -12,7 +12,7 @@ use contracts::telemetry::{CpuPressure, CpuSnapshot, MetricValue};
 
 use super::context::SampleContext;
 use super::error::TelemetryError;
-use super::rate::{rate_per_second, utilization_percent};
+use super::rate::utilization_percent;
 
 // ============================================================================
 // FFI Bindings for Mach APIs

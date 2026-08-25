@@ -8,7 +8,7 @@
 //! Mirrors `telemetry/memory.rs` structure but uses macOS-specific APIs.
 //! Established in unit U96.
 
-use contracts::telemetry::{MemoryPressure, MemorySnapshot, MetricValue, NumaNodeMemory};
+use contracts::telemetry::{MemoryPressure, MemorySnapshot, MetricValue};
 
 use super::context::SampleContext;
 use super::error::TelemetryError;
@@ -293,7 +293,7 @@ pub fn parse_memory_snapshot(
     // Cache and buffers: macOS doesn't distinguish these the way Linux does
     // File-backed pages are tracked in external_page_count
     let cached_bytes = vm_stats.external_page_count as u64 * page_size;
-    let buffers_bytes = 0u64; // macOS doesn't expose buffer cache separately
+    let _buffers_bytes = 0u64; // macOS doesn't expose buffer cache separately
 
     // Get swap statistics
     let (swap_total_bytes, swap_used_bytes, swap_free_bytes) = match get_swap_usage() {

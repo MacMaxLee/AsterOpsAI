@@ -56,9 +56,19 @@ http-body-util = "0.1"
 http = "1"
 bytes = "1"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+libc = { workspace = true }
+
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
 tempfile = "3"
 
-[lints]
-workspace = true
+[lints.rust]
+# Override workspace's `forbid(unsafe_code)` to `deny` for macOS telemetry FFI.
+# Allows `#[allow(unsafe_code)]` on specific functions that call Mach APIs.
+# See docs/PROGRESS.md "CRITICAL ISSUE" section for rationale and future plan.
+unsafe_code = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

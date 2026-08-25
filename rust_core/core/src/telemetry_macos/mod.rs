@@ -16,6 +16,7 @@ pub mod memory;
 pub mod network;
 pub mod process;
 pub mod storage;
+pub mod system_status;
 mod rate;
 
 pub use context::SampleContext;
@@ -25,3 +26,4 @@ pub use memory::parse_memory_snapshot;
 pub use network::{parse_network_snapshot, PrevNetState};
 pub use process::{parse_process_snapshot, PrevProcessState};
 pub use storage::parse_storage_snapshot;
+pub use system_status::build_system_status_response;

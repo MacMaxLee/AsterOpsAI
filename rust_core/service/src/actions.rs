@@ -19,7 +19,11 @@ use contracts::ApiError;
 /// registry gives the same real, honest `UnknownActionType` failure with
 /// less indirection.
 pub fn build_action_registry() -> ActionTypeRegistry {
+    #[cfg(target_os = "linux")]
     let mut registry = ActionTypeRegistry::new();
+    #[cfg(not(target_os = "linux"))]
+    let registry = ActionTypeRegistry::new();
+
     #[cfg(target_os = "linux")]
     {
         use ai_ops_core::actions::host;

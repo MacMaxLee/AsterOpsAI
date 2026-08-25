@@ -34,6 +34,29 @@ const PROCESS_DEVICE_REFRESH_EVERY_N_TICKS: u64 = 5;
 #[cfg(target_os = "linux")]
 const PERSIST_EVERY_N_TICKS: u64 = 10;
 
+#[cfg(target_os = "macos")]
+use std::time::{Duration, Instant};
+
+#[cfg(target_os = "macos")]
+const NORMAL_INTERVAL: Duration = Duration::from_secs(1);
+/// Requirement 8: back host telemetry sampling off when the host is itself
+/// under CPU pressure, so the act of observing doesn't compound the problem
+/// (SRS FR-SYS-003).
+#[cfg(target_os = "macos")]
+const BACKED_OFF_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Process/device enumeration is the dominant per-tick cost. Neither needs 1s
+/// freshness, so they're only re-parsed every Nth fast tick; ticks in between
+/// reuse the previous snapshot.
+#[cfg(target_os = "macos")]
+const PROCESS_DEVICE_REFRESH_EVERY_N_TICKS: u64 = 5;
+
+/// Persisting every 1s tick would mean 604,800 raw rows per family over the
+/// 7-day retention window — real volume, decoupled here from the API-facing
+/// 1s live-snapshot cadence, which is unaffected (unit U2 requirement 2).
+#[cfg(target_os = "macos")]
+const PERSIST_EVERY_N_TICKS: u64 = 10;
+
 #[cfg(target_os = "linux")]
 pub mod linux_impl {
     use std::collections::HashSet;
@@ -298,6 +321,187 @@ pub mod linux_impl {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub mod macos_impl {
+    use ai_ops_core::telemetry_macos::{
+        build_system_status_response, parse_cpu_snapshot, parse_memory_snapshot,
+        parse_network_snapshot, parse_process_snapshot, parse_storage_snapshot, PrevCpuState,
+        PrevNetState, PrevProcessState, SampleContext,
+    };
+    use contracts::telemetry::{CpuPressure, DeviceSnapshot, ProcessSnapshot};
+    use contracts::{Capability, CapabilityFamily};
+
+    use super::*;
+
+    pub struct HostTelemetrySampler {
+        last_instant: Option<Instant>,
+        prev_cpu: Option<PrevCpuState>,
+        prev_net: Option<PrevNetState>,
+        prev_processes: PrevProcessState,
+        tick_count: u64,
+        last_processes: Option<ProcessSnapshot>,
+        pub interval: Duration,
+    }
+
+    impl Default for HostTelemetrySampler {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl HostTelemetrySampler {
+        pub fn new() -> Self {
+            Self {
+                last_instant: None,
+                prev_cpu: None,
+                prev_net: None,
+                prev_processes: PrevProcessState::new(),
+                tick_count: 0,
+                last_processes: None,
+                interval: NORMAL_INTERVAL,
+            }
+        }
+
+        pub fn tick(&mut self) -> HostTelemetrySnapshot {
+            let now_instant = Instant::now();
+            let elapsed = self
+                .last_instant
+                .map(|prev| now_instant.duration_since(prev))
+                .unwrap_or(self.interval);
+            self.last_instant = Some(now_instant);
+
+            let ctx = SampleContext {
+                now: chrono::Utc::now(),
+                elapsed,
+                configured_interval: self.interval,
+            };
+
+            // CPU telemetry
+            let cpu = match parse_cpu_snapshot(&ctx, self.prev_cpu.as_ref()) {
+                Ok((snapshot, prev)) => {
+                    self.prev_cpu = Some(prev);
+                    snapshot
+                }
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to parse cpu telemetry");
+                    self.prev_cpu = None;
+                    HostTelemetrySnapshot::unavailable(&err.to_string()).cpu
+                }
+            };
+
+            // Memory telemetry
+            let memory = match parse_memory_snapshot(&ctx) {
+                Ok(snapshot) => snapshot,
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to parse memory telemetry");
+                    HostTelemetrySnapshot::unavailable(&err.to_string()).memory
+                }
+            };
+
+            // Storage telemetry (note: macOS version doesn't return PrevDiskState)
+            let storage = match parse_storage_snapshot(&ctx) {
+                Ok(snapshot) => snapshot,
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to parse storage telemetry");
+                    HostTelemetrySnapshot::unavailable(&err.to_string()).storage
+                }
+            };
+
+            // Network telemetry
+            let network = match parse_network_snapshot(&ctx, self.prev_net.as_ref()) {
+                Ok((snapshot, prev)) => {
+                    self.prev_net = Some(prev);
+                    snapshot
+                }
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to parse network telemetry");
+                    self.prev_net = None;
+                    HostTelemetrySnapshot::unavailable(&err.to_string()).network
+                }
+            };
+
+            // Process enumeration - refresh every N ticks
+            let refresh_processes = self
+                .tick_count
+                .is_multiple_of(PROCESS_DEVICE_REFRESH_EVERY_N_TICKS);
+            self.tick_count += 1;
+
+            let processes = match (refresh_processes, &self.last_processes) {
+                (false, Some(previous)) => previous.clone(),
+                _ => {
+                    let snapshot =
+                        match parse_process_snapshot(&ctx, Some(&self.prev_processes)) {
+                            Ok((snapshot, prev)) => {
+                                self.prev_processes = prev;
+                                snapshot
+                            }
+                            Err(err) => {
+                                tracing::error!(error = %err, "failed to parse process telemetry");
+                                self.prev_processes = PrevProcessState::new();
+                                HostTelemetrySnapshot::unavailable(&err.to_string()).processes
+                            }
+                        };
+                    self.last_processes = Some(snapshot.clone());
+                    snapshot
+                }
+            };
+
+            // Devices - deferred for U101 (return empty snapshot)
+            let devices = DeviceSnapshot {
+                timestamp: ctx.now,
+                devices: Vec::new(),
+            };
+
+            // Dynamic interval adjustment based on CPU pressure
+            let cpu_pressure = cpu.pressure;
+            let memory_pressure = memory.pressure;
+            let containerized = cpu.containerized || memory.containerized;
+
+            self.interval =
+                if cpu_pressure == CpuPressure::High || cpu_pressure == CpuPressure::Critical {
+                    BACKED_OFF_INTERVAL
+                } else {
+                    NORMAL_INTERVAL
+                };
+
+            // Build capability registry
+            let mut capabilities = contracts::default_capability_registry();
+            capabilities.insert(
+                CapabilityFamily::SelfMetrics,
+                Capability::Unavailable {
+                    reason: "reported on /health, not /system/status".to_string(),
+                },
+            );
+
+            // System status
+            let system_status = match build_system_status_response(
+                &ctx,
+                containerized,
+                cpu_pressure,
+                memory_pressure,
+                self.interval.as_millis() as u64,
+                capabilities,
+            ) {
+                Ok(response) => response,
+                Err(err) => {
+                    tracing::error!(error = %err, "failed to build system status");
+                    HostTelemetrySnapshot::unavailable(&err.to_string()).system_status
+                }
+            };
+
+            HostTelemetrySnapshot {
+                cpu,
+                memory,
+                storage,
+                network,
+                processes,
+                devices,
+                system_status,
+            }
+        }
+    }
+}
+
 #[cfg(target_os = "linux")]
 pub fn spawn(
     _platform: Arc<dyn platform::PlatformAdapter>,
@@ -337,7 +541,46 @@ pub fn spawn(
     snapshot
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "macos")]
+pub fn spawn(
+    _platform: Arc<dyn platform::PlatformAdapter>,
+    repository: Option<ai_ops_core::repository::RepositoryHandle>,
+) -> Arc<RwLock<HostTelemetrySnapshot>> {
+    let mut sampler = macos_impl::HostTelemetrySampler::new();
+    let first = sampler.tick();
+    if let Some(repo) = &repository {
+        ai_ops_core::repository::try_persist_telemetry_snapshot(
+            repo,
+            super::persist::snapshot_to_row(&first),
+        );
+    }
+    let snapshot = Arc::new(RwLock::new(first));
+
+    let shared = snapshot.clone();
+    tokio::spawn(async move {
+        let mut tick_count: u64 = 0;
+        loop {
+            tokio::time::sleep(sampler.interval).await;
+            let value = sampler.tick();
+
+            tick_count += 1;
+            if let Some(repo) = &repository {
+                if tick_count.is_multiple_of(PERSIST_EVERY_N_TICKS) {
+                    ai_ops_core::repository::try_persist_telemetry_snapshot(
+                        repo,
+                        super::persist::snapshot_to_row(&value),
+                    );
+                }
+            }
+
+            *shared.write().await = value;
+        }
+    });
+
+    snapshot
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos")))]
 pub fn spawn(
     _platform: Arc<dyn platform::PlatformAdapter>,
     _repository: Option<ai_ops_core::repository::RepositoryHandle>,
