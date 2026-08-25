@@ -62,6 +62,7 @@ libc = { workspace = true }
 [dev-dependencies]
 insta = { version = "1", features = ["json"] }
 tempfile = "3"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [lints.rust]
 # Override workspace's `forbid(unsafe_code)` to `deny` for macOS telemetry FFI.
@@ -72,3 +73,7 @@ unsafe_code = "deny"
 [lints.clippy]
 unwrap_used = "deny"
 expect_used = "deny"
+
+[[bench]]
+name = "macos_telemetry_bench"
+harness = false
