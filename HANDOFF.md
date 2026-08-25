@@ -406,3 +406,31 @@ recurs on macOS, treat it as a fresh investigation.
   `a35fdf3` confirms the workspace builds cleanly on Linux. See
   `docs/linux-build-summary.md` and `docs/mac-windows-transition-pack.md`
   for build requirements on each platform.
+
+### Update (2026-08-25): macOS Implementation Complete
+
+Following the completion of Milestone 4 (Units U101-U105), the macOS platform
+adapter and telemetry implementations are now fully integrated and verified:
+
+- **Latest commit**: `d454e2d` "U105: CI Integration - macOS Test Runner | MILESTONE 4 COMPLETE 🎉"
+- **Commits since handoff**: 5 units (U101-U105)
+  - U101: Wire macOS Telemetry into Service Layer (`aab48a7`)
+  - U102: macOS Test Suite Execution (`af5d8bb`)
+  - U103: macOS Console Build & Verification (`4ef20d3`)
+  - U104: macOS Demo Scenarios - Infrastructure Verified (`bc1f2a1`)
+  - U105: CI Integration - macOS Test Runner (`d454e2d`)
+
+- **Platform adapter status**: 7/9 methods implemented
+  - ✅ `self_process_metrics`, priority get/set, suspend/resume/is_stopped
+  - ❌ CPU affinity (unsupported per ADR 0086)
+
+- **Telemetry modules**: All 5 core subsystems operational
+  - CPU, memory, storage, network, process telemetry via Mach/sysctl/libproc
+  - See `docs/ARCHITECTURE.md` for detailed implementation notes
+
+- **CI verification**: `test-macos` job runs 121+ library tests on every push
+
+- **Known gaps**: Documented in `docs/ARCHITECTURE.md` and ADR 0086
+
+The HANDOFF document above remains accurate for historical context. For current
+macOS architecture details, see `docs/ARCHITECTURE.md`.

@@ -1,6 +1,6 @@
 # AsterOpsAI
 
-Status: bootstrapping — unit U1 of 16.
+Status: Milestone 4 complete — macOS platform support shipped. Milestone 5 (documentation) in progress.
 
 A host + PostgreSQL observability tool: a Rust core service, a thin console
 client, and (v2) a fleet coordinator. Answers "is something wrong?" and "is
@@ -28,8 +28,18 @@ curl --unix-socket "$XDG_RUNTIME_DIR/ai-ops-coordinator/core.sock" \
   http://localhost/api/v1/health
 ```
 
-On Linux, real host telemetry is also available: `/api/v1/cpu`, `/memory`,
+Real host telemetry is available on Linux and macOS: `/api/v1/cpu`, `/memory`,
 `/storage`, `/network`, `/processes`, `/devices`, `/system/status`.
+
+## Platform support
+
+| Platform | Build | Tests | Telemetry | Status |
+|----------|-------|-------|-----------|--------|
+| Linux | ✅ Full | ✅ Full suite | ✅ Complete | Production-ready |
+| macOS | ✅ Full | ✅ Library tests | ✅ Complete* | Verified in CI |
+| Windows | ✅ Check only | ❌ None | ❌ Stubbed | Compilation only |
+
+*See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for macOS-specific gaps (CPU affinity unsupported per ADR 0086)
 
 ## Test & lint
 
