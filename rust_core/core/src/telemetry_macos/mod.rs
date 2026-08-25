@@ -14,6 +14,7 @@ pub mod cpu;
 pub mod error;
 pub mod memory;
 pub mod network;
+pub mod process;
 pub mod storage;
 mod rate;
 
@@ -22,4 +23,5 @@ pub use cpu::{parse_cpu_snapshot, PrevCpuState};
 pub use error::TelemetryError;
 pub use memory::parse_memory_snapshot;
 pub use network::{parse_network_snapshot, PrevNetState};
+pub use process::{parse_process_snapshot, PrevProcessState};
 pub use storage::parse_storage_snapshot;

@@ -5,8 +5,8 @@ this document as you complete each unit.
 
 **Last Updated**: 2026-08-24
 **Status**: In Progress
-**Current Unit**: U99 Complete - M3 in progress (5/6)
-**Completion**: 10/21 units (48%)
+**Current Unit**: U100 Complete - M3 COMPLETE!
+**Completion**: 11/21 units (52%)
 
 ---
 
@@ -70,10 +70,10 @@ this document as you complete each unit.
 
 ---
 
-## Milestone 3: Host Telemetry Foundation ⧖
+## Milestone 3: Host Telemetry Foundation ✓
 
 **Target**: Complete telemetry stack for macOS
-**Completion**: 5/6 units (83%)
+**Completion**: 6/6 units (100%) — MILESTONE COMPLETE!
 
 ### ✓ U95: macOS CPU Telemetry via host_statistics64
 - [x] Implementation complete
@@ -127,12 +127,17 @@ this document as you complete each unit.
 - **Test Command**: `cargo test --target aarch64-apple-darwin -p core network`
 - **Note**: Uses netstat -ibn for interface stats. Drop counters marked unavailable (macOS netstat doesn't expose). Filters loopback (lo*) interfaces.
 
-### ✗ U100: macOS Process Enumeration via libproc
-- [ ] Implementation complete
-- [ ] Lists running processes
-- [ ] Current process found in list
+### ✓ U100: macOS Process Enumeration via libproc
+- [x] Implementation complete
+- [x] Unit tests added (6 tests)
+- [x] Lists running processes
+- [x] Current process found in list
+- [x] CPU percentage calculated from deltas
+- [x] RSS bytes supported
 - **Files Created**: `rust_core/core/src/telemetry_macos/process.rs`
-- **API Endpoint**: `GET /api/v1/processes` returns real data
+- **Files Modified**: `rust_core/core/src/telemetry_macos/mod.rs`
+- **Test Command**: `cargo test --target aarch64-apple-darwin -p core process`
+- **Note**: Uses libproc APIs (proc_listpids, proc_pidinfo). cmdline unavailable (requires complex sysctl KERN_PROCARGS2). Disk/network I/O unavailable (not exposed via libproc). Simplified classification (no cgroups on macOS).
 
 ---
 
@@ -221,15 +226,15 @@ this document as you complete each unit.
 ## Overall Progress Summary
 
 ### Units by Status
-- **Not Started**: 11 units
+- **Not Started**: 10 units
 - **In Progress**: 0 units
-- **Completed**: 10 units (U90, U91, U92, U93, U94, U95, U96, U97, U98, U99)
+- **Completed**: 11 units (U90, U91, U92, U93, U94, U95, U96, U97, U98, U99, U100)
 - **Blocked**: 0 units
 
 ### Milestones by Status
 - **M1 Basic Platform Adapter**: 100% (3/3) ✓ COMPLETE
 - **M2 Process Control**: 100% (2/2) ✓ COMPLETE
-- **M3 Host Telemetry**: 83% (5/6)
+- **M3 Host Telemetry**: 100% (6/6) ✓ COMPLETE
 - **M4 Integration & Testing**: 0% (0/5)
 - **M5 Documentation & Polish**: 0% (0/5)
 
@@ -251,6 +256,7 @@ this document as you complete each unit.
 - **U97** (2026-08-24): Storage telemetry via getfsstat() + statfs() for filesystem capacity
 - **U98** (2026-08-24): Disk I/O decision - deferred (IOKit too complex, iostat lacks cumulative counters)
 - **U99** (2026-08-24): Network telemetry via netstat -ibn for per-interface statistics
+- **U100** (2026-08-24): Process enumeration via libproc (proc_listpids, proc_pidinfo) — **M3 COMPLETE!**
 
 ---
 
