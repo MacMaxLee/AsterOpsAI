@@ -13,9 +13,11 @@ pub mod context;
 pub mod cpu;
 pub mod error;
 pub mod memory;
+pub mod storage;
 mod rate;
 
 pub use context::SampleContext;
 pub use cpu::{parse_cpu_snapshot, PrevCpuState};
 pub use error::TelemetryError;
 pub use memory::parse_memory_snapshot;
+pub use storage::parse_storage_snapshot;
