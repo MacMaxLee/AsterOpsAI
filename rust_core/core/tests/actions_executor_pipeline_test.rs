@@ -4,6 +4,11 @@
 //! runs (TRS §27). Integration tests are already test-only code; the
 //! workspace's unwrap/expect deny targets production code paths, not
 //! `tests/*.rs`.
+//!
+//! These tests are Linux-only because they rely on `/proc/[pid]/stat` to
+//! verify process identity (start time ticks). macOS uses different APIs
+//! for process identity verification.
+#![cfg(target_os = "linux")]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 #[path = "policy/common/mod.rs"]

@@ -38,7 +38,7 @@ pub type PrevNetState = HashMap<String, IfaceCounters>;
 /// Parses `netstat -ibn` output to extract interface statistics.
 ///
 /// Expected format:
-/// ```
+/// ```text
 /// Name  Mtu   Network       Address            Ipkts Ierrs    Ibytes Opkts Oerrs    Obytes  Coll
 /// lo0   16384 <Link#1>                      12345678     0 987654321 12345678     0 987654321     0
 /// en0   1500  <Link#2>      xx:xx:xx:xx:xx:xx 23456789    10 234567890 34567890    20 345678901     0

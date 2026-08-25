@@ -7,7 +7,7 @@
 //! Unavailable with a reason) are only meaningful together on Linux.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use contracts::{Capability, CapabilityFamily};
+use contracts::CapabilityFamily;
 
 #[test]
 #[cfg(target_os = "linux")]

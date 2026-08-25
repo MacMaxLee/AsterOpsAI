@@ -389,8 +389,8 @@ mod tests {
         let (_, prev) = parse_cpu_snapshot(&fixed_ctx(1), None)
             .expect("first sample should succeed");
 
-        // Wait a bit and take second sample
-        std::thread::sleep(Duration::from_millis(100));
+        // Wait a bit and take second sample (500ms to ensure CPU ticks change)
+        std::thread::sleep(Duration::from_millis(500));
 
         let (snapshot, _) = parse_cpu_snapshot(&fixed_ctx(1), Some(&prev))
             .expect("second sample should succeed");
