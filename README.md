@@ -31,6 +31,27 @@ curl --unix-socket "$XDG_RUNTIME_DIR/ai-ops-coordinator/core.sock" \
 Real host telemetry is available on Linux and macOS: `/api/v1/cpu`, `/memory`,
 `/storage`, `/network`, `/processes`, `/devices`, `/system/status`.
 
+## macOS Quick Start
+
+On macOS, you need to set `XDG_RUNTIME_DIR` for the Unix socket:
+
+```sh
+export XDG_RUNTIME_DIR="/tmp/runtime-$(id -u)"
+mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+# Build and run
+cargo build --release
+./target/release/ai-ops-core serve
+```
+
+Test with curl (in another terminal):
+```sh
+curl --unix-socket "$XDG_RUNTIME_DIR/ai-ops-coordinator/core.sock" \
+  http://localhost/api/v1/health
+```
+
+For complete installation instructions, prerequisites, Flutter console setup, and troubleshooting, see **[`docs/INSTALL-MACOS.md`](docs/INSTALL-MACOS.md)**.
+
 ## Platform support
 
 | Platform | Build | Tests | Telemetry | Status |

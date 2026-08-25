@@ -5,6 +5,144 @@ and next steps. Updated at the end of each significant milestone.
 
 ---
 
+## 2026-08-25: U108 Complete - macOS Installation & Deployment Guide
+
+**Stage**: macOS Platform Support - Milestone 5: Documentation & Polish
+**Status**: U108 COMPLETE ✓
+**Units Completed**: U108 (3 of 5 M5 units)
+**Overall Progress**: 19/21 units (90%), 4.6/5 milestones complete
+
+### What Shipped
+
+Comprehensive user-facing installation documentation for macOS, enabling developers and administrators to set up AsterOpsAI from scratch.
+
+1. **macOS Installation Guide** — `docs/INSTALL-MACOS.md` (400+ lines)
+   - **Prerequisites**: Xcode Command Line Tools, Rust toolchain, Flutter (optional), PostgreSQL (optional)
+   - **Building from Source**: Step-by-step cargo build instructions with expected build times
+   - **Running the Service**: XDG_RUNTIME_DIR setup, socket configuration, background operation
+   - **Running the Console**: Flutter build and launch instructions
+   - **Unix Socket Security**: Permissions model (0600 socket, 0700 directory), isolation guarantees
+   - **PostgreSQL Connection**: Configuration examples for database monitoring
+   - **Troubleshooting**: 10+ common issues with solutions covering build failures, connection problems, telemetry issues
+   - **Performance Notes**: References benchmark results from U107
+   - **Next Steps**: Links to SRS, API docs, architecture documentation
+
+2. **README.md macOS Quickstart** — Added dedicated section
+   - Concise macOS-specific setup (XDG_RUNTIME_DIR configuration)
+   - Build and run commands
+   - Verification with curl
+   - Link to comprehensive INSTALL-MACOS.md guide
+
+### Documentation Coverage
+
+**Prerequisites Section**:
+- Xcode Command Line Tools installation and verification
+- Rust toolchain via rustup with version requirements
+- Flutter setup with macOS desktop enablement
+- PostgreSQL installation options (Homebrew, Postgres.app)
+
+**Socket Configuration**:
+- XDG_RUNTIME_DIR explained: `/tmp/runtime-$(id -u)`
+- Shell profile integration (~/.zshrc, ~/.bash_profile)
+- Permission model: 0700 directory, 0600 socket
+- Security implications and isolation guarantees
+
+**Troubleshooting Coverage**:
+- Build failures (missing Xcode tools, SQLite, linker errors)
+- Service startup issues (XDG_RUNTIME_DIR, stale sockets, address conflicts)
+- Console connection problems (service verification, Flutter dependency issues)
+- Telemetry issues (Full Disk Access, netstat availability, external drives)
+
+**User Experience Features**:
+- Expected outputs at each step for verification
+- Estimated build times to set expectations
+- Optional vs. required components clearly marked
+- Performance benchmarks referenced for confidence
+- Multiple installation paths (Homebrew, manual, Xcode)
+
+### Files Created
+
+1. `docs/INSTALL-MACOS.md` — Comprehensive macOS installation guide (400+ lines)
+
+### Files Modified
+
+1. `README.md` — Added "macOS Quick Start" section with socket setup and verification
+
+### Key Decisions
+
+1. **XDG_RUNTIME_DIR Convention**: Use `/tmp/runtime-$(id -u)` for macOS
+   - Mirrors Linux XDG Base Directory Specification pattern
+   - Provides per-user isolation via UID in path
+   - Temporary directory cleaned on reboot (acceptable for runtime sockets)
+   - Alternative (`~/Library/Application Support`) deferred to production deployment guide
+
+2. **Beginner-Friendly Approach**: Assume macOS familiarity but not Rust/Flutter
+   - Explain what each command does and why
+   - Provide verification steps after each action
+   - Show expected outputs to reduce uncertainty
+   - Include both CLI and GUI paths where applicable
+
+3. **Optional Components Clearly Marked**: Flutter and PostgreSQL not required
+   - Service runs standalone for telemetry monitoring
+   - Console provides GUI but not required for API access
+   - PostgreSQL monitoring planned but not yet implemented (Milestone 6)
+
+4. **Troubleshooting Emphasis**: Cover common macOS-specific issues
+   - Full Disk Access for process information (usually not needed)
+   - Xcode Command Line Tools for compilation
+   - Socket permissions and ownership
+   - Flutter build cache issues
+
+### Testing Coverage
+
+Documentation tested against actual macOS environment:
+- ✅ XDG_RUNTIME_DIR setup verified working
+- ✅ Service runs and creates socket at documented path
+- ✅ curl verification commands tested and working
+- ✅ Socket permissions confirmed (0600)
+- ✅ Telemetry endpoints return real macOS data
+- ✅ Troubleshooting steps verified against actual errors
+
+### User Journey
+
+**Complete Setup Path** (developer environment):
+1. Install prerequisites (15-30 minutes for first-time setup)
+2. Clone repository and build (~10 minutes first build)
+3. Configure XDG_RUNTIME_DIR (1 minute, persists)
+4. Run service (instant)
+5. Verify with curl (instant)
+6. Optionally build Flutter console (~5 minutes)
+
+**Total time**: ~30-60 minutes for complete first-time setup
+
+### Deferred Items
+
+**Production Deployment Guide**: Deferred to post-v1
+- SMAppService helper for system-wide deployment
+- Launch daemon configuration
+- System-level socket paths
+- Multi-user considerations
+- Reference: U108 explicitly forbids production deployment docs
+
+**Automated Installer**: Not in scope for v1
+- Homebrew formula creation
+- DMG packaging with installer
+- Automatic dependency resolution
+
+### Next Steps
+
+**Immediate**: U109 - macOS Security & Permissions Documentation
+- Document macOS TCC (Transparency, Consent, and Control) permissions
+- Test which operations trigger permission prompts
+- Explain Full Disk Access requirements (if any)
+- Document what works without elevated privileges
+
+**Remaining M5 Units**:
+- U109: macOS Security & Permissions Documentation
+- U110: macOS Release Checklist & Tagging
+
+---
+
 ## 2026-08-25: U107 Complete - macOS Performance Benchmarking
 
 **Stage**: macOS Platform Support - Milestone 5: Documentation & Polish
