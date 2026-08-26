@@ -1,6 +1,7 @@
 # AsterOpsAI
 
-Status: Milestone 4 complete — macOS platform support shipped. Milestone 5 (documentation) in progress.
+**Version**: v0.2.0-macos-preview (2026-08-25)
+**Status**: Milestone 5 complete — macOS platform support with full documentation. Ready for release.
 
 A host + PostgreSQL observability tool: a Rust core service, a thin console
 client, and (v2) a fleet coordinator. Answers "is something wrong?" and "is
