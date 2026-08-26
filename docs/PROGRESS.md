@@ -5,6 +5,168 @@ and next steps. Updated at the end of each significant milestone.
 
 ---
 
+## 2026-08-25: U109 Complete - macOS Security & Permissions Documentation
+
+**Stage**: macOS Platform Support - Milestone 5: Documentation & Polish
+**Status**: U109 COMPLETE ✓
+**Units Completed**: U109 (4 of 5 M5 units)
+**Overall Progress**: 20/21 units (95%), 4.8/5 milestones complete
+
+### What Shipped
+
+Comprehensive security documentation explaining macOS-specific permissions, TCC framework, Unix socket security, and graceful degradation behavior.
+
+1. **macOS Security Documentation** — `docs/security-macos.md` (500+ lines)
+   - **Executive Summary**: Works out-of-the-box without special permissions
+   - **Permission Breakdown**: Detailed analysis of each telemetry module's permission requirements
+   - **TCC Framework**: Explanation of macOS Transparency, Consent, and Control
+   - **Full Disk Access**: When it's needed (rare) and how to grant it
+   - **Unix Socket Security**: Permission model (0600 socket, 0700 directory)
+   - **Process Control**: Permissions for nice/renice and kill operations
+   - **Permissions NOT Needed**: Explicit list of TCC categories not required
+   - **Privacy Considerations**: What data is collected (and what isn't)
+   - **Graceful Degradation**: How missing permissions are handled
+   - **Future SMAppService**: System-wide deployment considerations (post-v1)
+   - **Troubleshooting**: Common permission-related issues with solutions
+
+### Permission Analysis Results
+
+**Telemetry That Works Without Any Permissions**:
+- ✅ **CPU Telemetry**: Mach APIs (`host_statistics64`, `host_processor_info`) are public
+- ✅ **Memory Telemetry**: sysctl and Mach VM APIs are public
+- ✅ **Storage Telemetry**: `getfsstat()` and `statfs()` are public
+- ✅ **Network Telemetry**: `netstat -ibn` command available to all users
+- ✅ **Process Enumeration**: `proc_listpids()` works without permissions
+- ✅ **Basic Process Info**: Names, PIDs, CPU%, memory, owner UID
+
+**Optional Full Disk Access**:
+- ⚠️ **Executable Paths**: May be unavailable for other users' processes without Full Disk Access
+- ⚠️ **System-Protected Processes**: Some macOS system processes may require Full Disk Access
+
+**Graceful Degradation**:
+- Missing data returns `MetricValue::Unavailable { reason }` instead of failing
+- API continues to work with partial data
+- Frontend can display explanatory messages
+
+### Security Properties Documented
+
+**Unix Socket Isolation**:
+- Socket file: mode 0600 (owner read/write only)
+- Parent directory: mode 0700 (owner access only)
+- Location: `/tmp/runtime-$(id -u)/ai-ops-coordinator/core.sock`
+- Per-user isolation via UID in path
+- No network exposure (local-only Unix socket)
+
+**Process Control Permissions**:
+- `setpriority()`: Works for own processes, returns `PermissionRequired` for other users
+- `kill()`: Works for own processes, returns `PermissionRequired` for other users
+- **Never runs as root**, **never requests root privileges**
+
+**Privacy by Design**:
+- ❌ No PII (personally identifiable information)
+- ❌ No network packet content
+- ❌ No file contents or listings
+- ❌ No user input capture
+- ✅ All data stays local (no cloud services)
+- ✅ User controls all data (can delete SQLite database)
+
+### Permissions AsterOpsAI Does NOT Need
+
+Explicitly documented that AsterOpsAI does **not** need:
+- Accessibility
+- Input Monitoring
+- Screen Recording
+- Camera
+- Microphone
+- Location Services
+- Contacts, Calendar, Reminders
+- Photos
+- Automation (except `netstat` command)
+
+### Files Created
+
+1. `docs/security-macos.md` — Comprehensive macOS security and permissions guide (500+ lines)
+
+### Files Modified
+
+None (pure documentation task)
+
+### Key Decisions
+
+1. **Zero-Friction Deployment**: Prioritize working out-of-the-box without permission prompts
+   - Use public APIs (Mach, sysctl, libproc) that don't trigger TCC
+   - Full Disk Access is optional enhancement, not requirement
+   - Graceful degradation when permissions missing
+
+2. **Privacy-First Design**: Document what data is NOT collected
+   - No PII, no network packet content, no file contents
+   - Transparency about process names being visible (may reveal user activity)
+   - Compliance considerations for GDPR/enterprise use
+
+3. **System-Wide Deployment Deferred**: SMAppService helper for production deployment
+   - Would require Apple code signing and notarization
+   - Would need privileged helper running as root or system user
+   - Documented as future work (post-v1)
+   - Reference: TRS §39 identifies TCC requirements
+
+4. **Troubleshooting Emphasis**: Cover common permission-related issues
+   - "Permission denied" for process info
+   - "Operation not permitted" for process control
+   - How to verify socket permissions
+   - When Full Disk Access helps (and when it doesn't)
+
+### Testing Results
+
+Based on macOS telemetry implementation analysis:
+- ✅ CPU telemetry: Public Mach APIs, no permissions needed
+- ✅ Memory telemetry: Public sysctl/Mach APIs, no permissions needed
+- ✅ Storage telemetry: Public `getfsstat/statfs`, no permissions needed
+- ✅ Network telemetry: `netstat` command, no permissions needed
+- ✅ Process telemetry: `proc_listpids/proc_pidinfo`, works without Full Disk Access for most info
+- ⚠️ Executable paths: May require Full Disk Access for other users' processes (rare edge case)
+
+### Documentation Quality
+
+**Comprehensive Coverage**:
+- Permission requirements for each telemetry module
+- Step-by-step instructions for granting Full Disk Access (if needed)
+- Screenshots guidance for System Settings navigation
+- Privacy considerations for corporate/enterprise use
+- Future system-wide deployment architecture
+
+**User-Friendly Approach**:
+- Executive summary with TL;DR
+- Color-coded permission status (✅ works, ⚠️ optional, ❌ not needed)
+- Clear explanations of "why" for each permission
+- Troubleshooting section with solutions
+- Related documentation links
+
+### Compliance & Enterprise Considerations
+
+**GDPR/Privacy Laws**:
+- Operates entirely locally (no data transmission)
+- Does not collect PII by design
+- User controls all data
+- Suitable for privacy-sensitive environments
+
+**Corporate/Enterprise Use**:
+- Process information exposure (process names may reveal user activity)
+- Access controls for Unix socket in multi-user environments
+- Data retention policies for SQLite database
+
+### Next Steps
+
+**Immediate**: U110 - macOS Release Checklist & Tagging
+- Create release process for first macOS-supported version
+- Version tagging (e.g., v0.2.0-macos-preview)
+- GitHub release notes highlighting macOS support
+- Pre-release checklist verification
+
+**Final M5 Unit**:
+- U110: macOS Release Checklist & Tagging
+
+---
+
 ## 2026-08-25: U108 Complete - macOS Installation & Deployment Guide
 
 **Stage**: macOS Platform Support - Milestone 5: Documentation & Polish
